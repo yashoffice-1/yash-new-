@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface InstructionModuleProps {
   onInstructionApproved: (instruction: string) => void;
@@ -29,16 +30,41 @@ export function InstructionModule({ onInstructionApproved, selectedImage }: Inst
 
     setIsProcessing(true);
     
-    // Simulate OpenAI API call for instruction cleaning
-    setTimeout(() => {
-      const cleaned = `Create marketing content for: ${rawInstruction.trim()}. Focus on highlighting key product benefits and target audience appeal.`;
-      setCleanedInstruction(cleaned);
-      setIsProcessing(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('openai-generate', {
+        body: {
+          type: 'clean-instruction',
+          instruction: rawInstruction.trim(),
+          productInfo: {
+            name: "Premium Wireless Headphones",
+            description: "High-quality audio experience with noise cancellation"
+          }
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to clean instruction');
+      }
+
+      setCleanedInstruction(data.result);
       toast({
         title: "Instruction Cleaned",
         description: "Your instruction has been optimized for better AI generation.",
       });
-    }, 2000);
+    } catch (error) {
+      console.error('Error cleaning instruction:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to clean instruction. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleApprove = () => {
