@@ -52,7 +52,7 @@ serve(async (req) => {
 
     console.log(`Starting RunwayML ${type} generation`);
 
-    // Prepare enhanced prompt
+    // Enhanced prompt with product context
     const enhancedPrompt = `${instruction}. Product: ${productInfo?.name || 'Premium Wireless Headphones'}. ${productInfo?.description || 'High-quality audio device with professional design'}`;
     console.log('Enhanced prompt:', enhancedPrompt);
 
@@ -60,16 +60,37 @@ serve(async (req) => {
     let apiEndpoint: string;
 
     if (type === 'image') {
-      // Updated API endpoint and structure for image generation
-      requestBody = {
-        model: "runway:image",
-        prompt: enhancedPrompt,
-        aspect_ratio: "16:9",
-        seed: Math.floor(Math.random() * 1000000)
-      };
-      apiEndpoint = 'https://api.runwayml.com/v1/tasks';
+      // Use the new gen4_image model with reference images
+      const referenceImages = [];
+      
+      // Add the selected product image as a reference if provided
+      if (imageUrl) {
+        referenceImages.push({
+          uri: imageUrl,
+          tag: 'product'
+        });
+        
+        // Update prompt to reference the product image
+        const promptWithReference = `@product ${enhancedPrompt}`;
+        
+        requestBody = {
+          model: "gen4_image",
+          promptText: promptWithReference,
+          ratio: "16:9",
+          referenceImages: referenceImages
+        };
+      } else {
+        // No reference image, use standard text-to-image
+        requestBody = {
+          model: "gen4_image", 
+          promptText: enhancedPrompt,
+          ratio: "16:9"
+        };
+      }
+      
+      apiEndpoint = 'https://api.runwayml.com/v1/tasks/text-to-image';
     } else {
-      // Updated API endpoint and structure for video generation
+      // For video generation, use existing approach or adapt as needed
       requestBody = {
         model: "gen3a_turbo",
         prompt: enhancedPrompt,
@@ -90,13 +111,12 @@ serve(async (req) => {
     console.log('Making API call to RunwayML:', apiEndpoint);
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-    // Make the API call to RunwayML with updated headers
+    // Make the API call to RunwayML
     const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${runwayApiKey}`,
-        'Content-Type': 'application/json',
-        'X-Runway-Version': '2024-09-13' // Add version header
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody),
     });
@@ -119,7 +139,6 @@ serve(async (req) => {
     if (!response.ok) {
       console.error('RunwayML API error:', response.status, data);
       
-      // Provide specific error message and use placeholder
       const errorMessage = data?.error || data?.message || data?.detail || 'Unknown API error';
       const message = `RunwayML API Error (${response.status}): ${errorMessage}. Using placeholder for testing.`;
       
@@ -165,7 +184,8 @@ serve(async (req) => {
     const taskId = data.id;
     console.log('RunwayML task created with ID:', taskId);
 
-    // Updated polling logic for new API structure
+    // For the new API, we need to wait for the task to complete using the SDK approach
+    // Since we're in Deno, we'll poll the task status
     let taskStatus = 'PENDING';
     let assetUrl = '';
     let attempts = 0;
@@ -183,13 +203,12 @@ serve(async (req) => {
 
       console.log(`Checking task status (attempt ${attempts}/${maxAttempts})`);
 
-      // Check task status using updated endpoint
+      // Check task status
       const taskResponse = await fetch(`https://api.runwayml.com/v1/tasks/${taskId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${runwayApiKey}`,
-          'Content-Type': 'application/json',
-          'X-Runway-Version': '2024-09-13'
+          'Content-Type': 'application/json'
         }
       });
 
@@ -204,8 +223,8 @@ serve(async (req) => {
       taskStatus = taskData.status;
 
       if (taskStatus === 'SUCCEEDED') {
-        // Get the asset URL from the response
-        assetUrl = taskData.output?.[0] || taskData.artifacts?.[0]?.url || '';
+        // Get the asset URL from the response - adapt based on actual API response structure
+        assetUrl = taskData.output?.[0] || taskData.outputUrl || taskData.artifacts?.[0]?.url || '';
         console.log('Task completed successfully, asset URL:', assetUrl);
         break;
       } else if (taskStatus === 'FAILED') {
@@ -219,7 +238,7 @@ serve(async (req) => {
     let message = '';
 
     if (taskStatus === 'SUCCEEDED' && assetUrl) {
-      message = `${type} generation completed successfully!`;
+      message = `${type} generation completed successfully using gen4_image model!`;
       finalStatus = 'completed';
     } else if (taskStatus === 'FAILED') {
       message = `${type} generation failed. Using placeholder for testing.`;
