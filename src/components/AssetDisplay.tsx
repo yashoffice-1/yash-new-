@@ -115,6 +115,11 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
     );
   };
 
+  // Helper function to check if asset can be saved to library
+  const canSaveToLibrary = (asset: GeneratedAsset): asset is GeneratedAsset & { type: 'image' | 'video' | 'content' } => {
+    return asset.type !== 'combo' && asset.url;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -196,8 +201,8 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
                 </div>
                 
                 <div className="ml-4 flex flex-col space-y-2">
-                  {/* Save to Library Button */}
-                  {asset.url && (
+                  {/* Save to Library Button - only for non-combo assets */}
+                  {canSaveToLibrary(asset) && (
                     <SaveAssetDialog
                       asset={{
                         id: asset.id,
