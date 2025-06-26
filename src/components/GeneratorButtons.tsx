@@ -30,7 +30,7 @@ const GENERATOR_INFO = {
   video: {
     title: "Generate Video", 
     description: "Create a short video from your selected image",
-    provider: "RunwayML / HeyGen"
+    provider: "RunwayML / HeyGen (via Google Sheets + Zapier)"
   },
   content: {
     title: "Generate Content",
@@ -40,7 +40,7 @@ const GENERATOR_INFO = {
   combo: {
     title: "Generate Combo",
     description: "Create image + video + content package",
-    provider: "All APIs"
+    provider: "RunwayML + HeyGen (Sheets) + OpenAI"
   }
 };
 

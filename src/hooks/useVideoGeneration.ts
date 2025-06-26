@@ -9,6 +9,7 @@ interface GeneratedVideo {
   instruction: string;
   source_system: string;
   timestamp: Date;
+  message?: string; // For HeyGen Zapier workflow feedback
 }
 
 interface UseVideoGenerationProps {
@@ -52,13 +53,19 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
         id: data.asset_id,
         url: data.asset_url,
         instruction: instruction,
-        source_system: provider,
-        timestamp: new Date()
+        source_system: provider === 'runway' ? 'runway' : 'heygen_zapier',
+        timestamp: new Date(),
+        message: data.message
       };
 
+      // Show different success messages based on provider
+      const successMessage = provider === 'runway' 
+        ? `Your video has been created using RunwayML!`
+        : `Video generation request sent to HeyGen via Google Sheets + Zapier automation!`;
+
       toast({
-        title: "Video Generated",
-        description: `Your video has been created using ${provider}!`,
+        title: "Video Generation Started",
+        description: successMessage,
       });
 
       onSuccess?.(video);
