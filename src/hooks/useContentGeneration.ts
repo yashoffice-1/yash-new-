@@ -4,10 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface GeneratedContent {
-  headline: string;
-  copy: string;
-  cta: string;
-  hashtags: string[];
+  content: string;
+  timestamp: Date;
 }
 
 interface UseContentGenerationProps {
@@ -24,7 +22,7 @@ export function useContentGeneration({ onSuccess }: UseContentGenerationProps = 
     try {
       const { data, error } = await supabase.functions.invoke('openai-generate', {
         body: {
-          type: 'generate-content',
+          type: 'marketing-content',
           instruction: instruction,
           productInfo: {
             name: "Premium Wireless Headphones",
@@ -41,18 +39,10 @@ export function useContentGeneration({ onSuccess }: UseContentGenerationProps = 
         throw new Error(data.error || 'Failed to generate content');
       }
 
-      let content: GeneratedContent;
-      try {
-        content = JSON.parse(data.result);
-      } catch {
-        // Fallback if the response isn't valid JSON
-        content = {
-          headline: "Premium Audio Experience",
-          copy: "Experience superior sound quality with our wireless headphones. Perfect for professionals who demand excellence.",
-          cta: "Shop Now",
-          hashtags: ["#AudioExcellence", "#WirelessFreedom", "#PremiumSound"]
-        };
-      }
+      const content: GeneratedContent = {
+        content: data.result,
+        timestamp: new Date()
+      };
 
       toast({
         title: "Content Generated",

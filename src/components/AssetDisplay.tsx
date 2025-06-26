@@ -2,8 +2,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Play } from "lucide-react";
+import { Download, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';
 
@@ -14,6 +15,7 @@ interface GeneratedAsset {
   instruction: string;
   timestamp: Date;
   source_system?: string;
+  content?: string; // For content-type assets
 }
 
 interface AssetDisplayProps {
@@ -23,9 +25,10 @@ interface AssetDisplayProps {
 
 export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
   const { toast } = useToast();
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleDownload = (asset: GeneratedAsset) => {
-    if (asset.url) {
+    if (asset.url && asset.type !== 'content') {
       // Create a temporary link to download the asset
       const link = document.createElement('a');
       link.href = asset.url;
@@ -44,6 +47,26 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
         description: "This asset cannot be downloaded.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleCopyContent = async (asset: GeneratedAsset) => {
+    if (asset.content) {
+      try {
+        await navigator.clipboard.writeText(asset.content);
+        setCopiedId(asset.id);
+        setTimeout(() => setCopiedId(null), 2000);
+        toast({
+          title: "Content Copied",
+          description: "Marketing content copied to clipboard!",
+        });
+      } catch (error) {
+        toast({
+          title: "Copy Failed",
+          description: "Failed to copy content to clipboard.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -111,16 +134,33 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
                   </div>
                   <p className="text-sm">{asset.instruction}</p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDownload(asset)}
-                  className="flex items-center space-x-1"
-                  disabled={!asset.url}
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Download</span>
-                </Button>
+                
+                {asset.type === 'content' ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCopyContent(asset)}
+                    className="flex items-center space-x-1"
+                  >
+                    {copiedId === asset.id ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                    <span>{copiedId === asset.id ? "Copied!" : "Copy"}</span>
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownload(asset)}
+                    className="flex items-center space-x-1"
+                    disabled={!asset.url}
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Download</span>
+                  </Button>
+                )}
               </div>
               
               {asset.type === 'image' && asset.url && (
@@ -146,10 +186,10 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
                 </div>
               )}
               
-              {asset.type === 'content' && (
+              {asset.type === 'content' && asset.content && (
                 <div className="bg-gray-50 p-3 rounded text-sm">
                   <strong>Generated Marketing Content:</strong><br/>
-                  "Experience premium sound quality with our wireless headphones. Perfect for professionals who demand excellence in every detail. #AudioExcellence #WirelessFreedom"
+                  <p className="mt-2 whitespace-pre-wrap">{asset.content}</p>
                 </div>
               )}
             </div>

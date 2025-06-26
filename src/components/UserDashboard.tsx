@@ -18,6 +18,7 @@ interface GeneratedAsset {
   instruction: string;
   timestamp: Date;
   source_system?: string;
+  content?: string; // For content-type assets
 }
 
 export function UserDashboard() {
@@ -61,8 +62,9 @@ export function UserDashboard() {
         type: 'content',
         url: '', // Content doesn't have a URL
         instruction: approvedInstruction || '',
-        timestamp: new Date(),
-        source_system: 'openai'
+        timestamp: content.timestamp,
+        source_system: 'openai',
+        content: content.content
       };
       setGeneratedAssets(prev => [asset, ...prev]);
     }
@@ -88,12 +90,15 @@ export function UserDashboard() {
           await generateContent(approvedInstruction);
           break;
         case 'combo':
-          // Generate all three types
-          await Promise.all([
-            generateImage(approvedInstruction),
-            generateVideo(approvedInstruction, selectedImage, 'runway'),
-            generateContent(approvedInstruction)
-          ]);
+          // Generate all three types sequentially to avoid overwhelming the APIs
+          toast({
+            title: "Combo Generation",
+            description: "Generating image, video, and content. This may take a moment...",
+          });
+          
+          await generateImage(approvedInstruction);
+          await generateVideo(approvedInstruction, selectedImage, 'runway');
+          await generateContent(approvedInstruction);
           break;
       }
     } catch (error) {
@@ -129,6 +134,7 @@ export function UserDashboard() {
         approvedInstruction={approvedInstruction}
         selectedImage={selectedImage}
         onGenerate={handleGenerate}
+        isGenerating={isGenerating}
       />
 
       {(isGenerating || generatedAssets.length > 0) && (
