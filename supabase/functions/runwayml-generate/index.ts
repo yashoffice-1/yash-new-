@@ -60,49 +60,52 @@ serve(async (req) => {
     let apiEndpoint: string;
 
     if (type === 'image') {
-      // Use the correct RunwayML image generation endpoint and format
+      // Updated API structure for image generation
       requestBody = {
-        prompt: enhancedPrompt,
-        model: "gen3a_turbo",
-        aspect_ratio: "16:9",
-        seed: Math.floor(Math.random() * 1000000)
+        promptText: enhancedPrompt,
+        width: 1280,
+        height: 768,
+        seed: Math.floor(Math.random() * 1000000),
+        modelId: "runwayml/runway-gen3"
       };
 
-      // Add image URL for image-to-image if provided
+      // Add image input for image-to-image if provided
       if (imageUrl) {
-        requestBody.image = imageUrl;
+        requestBody.initImage = imageUrl;
         console.log('Using image URL for image generation:', imageUrl);
       }
       
-      apiEndpoint = 'https://api.runwayml.com/v1/image_generations';
+      apiEndpoint = 'https://api.runwayml.com/v1/generate';
     } else {
-      // For video generation
+      // Updated API structure for video generation
       requestBody = {
-        model: "gen3a_turbo",
-        prompt: enhancedPrompt,
+        promptText: enhancedPrompt,
         duration: 5,
-        ratio: "16:9",
-        seed: Math.floor(Math.random() * 1000000)
+        width: 1280,
+        height: 768,
+        seed: Math.floor(Math.random() * 1000000),
+        modelId: "runwayml/runway-gen3"
       };
 
-      // Add image URL for image-to-video if provided
+      // Add image input for image-to-video if provided
       if (imageUrl) {
-        requestBody.image = imageUrl;
+        requestBody.initImage = imageUrl;
         console.log('Using image URL for video generation:', imageUrl);
       }
       
-      apiEndpoint = 'https://api.runwayml.com/v1/tasks';
+      apiEndpoint = 'https://api.runwayml.com/v1/generate';
     }
 
     console.log('Making API call to RunwayML:', apiEndpoint);
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-    // Make the API call to RunwayML with standard headers
+    // Make the API call to RunwayML with corrected headers
     const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${runwayApiKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(requestBody),
     });
@@ -166,57 +169,19 @@ serve(async (req) => {
       });
     }
 
-    // For image generation, the response might be direct
-    if (type === 'image' && data.url) {
-      // Direct image response
-      const assetUrl = data.url;
-      
-      // Store the generated asset in database
-      const { data: asset, error: dbError } = await supabase
-        .from('generated_assets')
-        .insert({
-          channel: 'instagram',
-          format: 'jpg',
-          source_system: 'runway',
-          asset_type: 'image',
-          url: assetUrl,
-          instruction: instruction,
-          approved: false
-        })
-        .select()
-        .single();
+    // Handle successful response - extract generation ID for polling
+    const generationId = data.id;
+    console.log('RunwayML generation started with ID:', generationId);
 
-      if (dbError) {
-        console.error('Database error:', dbError);
-        throw new Error(`Database error: ${dbError.message}`);
-      }
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        asset_url: assetUrl,
-        asset_id: asset.id,
-        type: type,
-        runway_task_id: data.id || null,
-        status: 'completed',
-        message: `Image generation completed successfully!`
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Task created successfully - extract task ID
-    const taskId = data.id;
-    console.log('RunwayML task created with ID:', taskId);
-
-    // Poll the task status
-    let taskStatus = 'PENDING';
+    // Poll the generation status
+    let generationStatus = 'PENDING';
     let assetUrl = '';
     let attempts = 0;
     const maxAttempts = 60; // 5 minutes with 5-second intervals
     
-    while (taskStatus === 'PENDING' || taskStatus === 'RUNNING') {
+    while (generationStatus === 'PENDING' || generationStatus === 'RUNNING') {
       if (attempts >= maxAttempts) {
-        console.log('Task polling timeout after 5 minutes');
+        console.log('Generation polling timeout after 5 minutes');
         break;
       }
 
@@ -224,34 +189,35 @@ serve(async (req) => {
       await new Promise(resolve => setTimeout(resolve, 5000));
       attempts++;
 
-      console.log(`Checking task status (attempt ${attempts}/${maxAttempts})`);
+      console.log(`Checking generation status (attempt ${attempts}/${maxAttempts})`);
 
-      // Check task status
-      const taskResponse = await fetch(`https://api.runwayml.com/v1/tasks/${taskId}`, {
+      // Check generation status
+      const statusResponse = await fetch(`https://api.runwayml.com/v1/generate/${generationId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${runwayApiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         }
       });
 
-      if (!taskResponse.ok) {
-        console.error('Failed to check task status:', taskResponse.status);
+      if (!statusResponse.ok) {
+        console.error('Failed to check generation status:', statusResponse.status);
         break;
       }
 
-      const taskData = await taskResponse.json();
-      console.log('Task status check response:', JSON.stringify(taskData, null, 2));
+      const statusData = await statusResponse.json();
+      console.log('Generation status check response:', JSON.stringify(statusData, null, 2));
 
-      taskStatus = taskData.status;
+      generationStatus = statusData.status;
 
-      if (taskStatus === 'SUCCEEDED') {
+      if (generationStatus === 'SUCCEEDED' || generationStatus === 'COMPLETED') {
         // Extract asset URL from the response
-        assetUrl = taskData.output?.[0] || taskData.outputUrl || taskData.artifacts?.[0]?.url || '';
-        console.log('Task completed successfully, asset URL:', assetUrl);
+        assetUrl = statusData.output?.url || statusData.artifacts?.[0]?.url || statusData.url || '';
+        console.log('Generation completed successfully, asset URL:', assetUrl);
         break;
-      } else if (taskStatus === 'FAILED') {
-        console.error('Task failed:', taskData.failure || taskData.failureReason || 'Unknown error');
+      } else if (generationStatus === 'FAILED') {
+        console.error('Generation failed:', statusData.failure || statusData.failureReason || 'Unknown error');
         break;
       }
     }
@@ -260,17 +226,17 @@ serve(async (req) => {
     let finalStatus = 'completed';
     let message = '';
 
-    if (taskStatus === 'SUCCEEDED' && assetUrl) {
+    if ((generationStatus === 'SUCCEEDED' || generationStatus === 'COMPLETED') && assetUrl) {
       message = `${type} generation completed successfully!`;
       finalStatus = 'completed';
-    } else if (taskStatus === 'FAILED') {
+    } else if (generationStatus === 'FAILED') {
       message = `${type} generation failed. Using placeholder for testing.`;
       finalStatus = 'error';
       assetUrl = type === 'image' 
         ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
         : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
     } else {
-      message = `${type} generation is still processing (Task ID: ${taskId}). Using placeholder for now.`;
+      message = `${type} generation is still processing (Generation ID: ${generationId}). Using placeholder for now.`;
       finalStatus = 'processing';
       assetUrl = type === 'image' 
         ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
@@ -304,7 +270,7 @@ serve(async (req) => {
       asset_url: assetUrl,
       asset_id: asset.id,
       type: type,
-      runway_task_id: taskId,
+      runway_task_id: generationId,
       status: finalStatus,
       message: message
     }), {
