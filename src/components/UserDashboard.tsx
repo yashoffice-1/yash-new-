@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { FakeProduct } from "./FakeProduct";
 import { InstructionModule } from "./InstructionModule";
@@ -18,7 +17,10 @@ interface GeneratedAsset {
   instruction: string;
   timestamp: Date;
   source_system?: string;
-  content?: string; // For content-type assets
+  content?: string;
+  status?: string;
+  runway_task_id?: string;
+  message?: string;
 }
 
 export function UserDashboard() {
@@ -35,7 +37,10 @@ export function UserDashboard() {
         url: image.url,
         instruction: image.instruction,
         timestamp: image.timestamp,
-        source_system: image.source_system
+        source_system: image.source_system,
+        status: image.status,
+        runway_task_id: image.runway_task_id,
+        message: image.message
       };
       setGeneratedAssets(prev => [asset, ...prev]);
     }
@@ -49,7 +54,8 @@ export function UserDashboard() {
         url: video.url,
         instruction: video.instruction,
         timestamp: video.timestamp,
-        source_system: video.source_system
+        source_system: video.source_system,
+        message: video.message
       };
       setGeneratedAssets(prev => [asset, ...prev]);
     }

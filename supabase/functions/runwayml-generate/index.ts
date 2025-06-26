@@ -31,8 +31,17 @@ serve(async (req) => {
     const { type, instruction, imageUrl, productInfo }: RunwayRequest = await req.json();
 
     if (!runwayApiKey) {
-      console.log('RunwayML API key not configured, using placeholder');
-      throw new Error('RunwayML API key not configured');
+      console.log('RunwayML API key not configured');
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'RunwayML API key not configured. Please add it in Supabase secrets.',
+        asset_url: type === 'image' 
+          ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+          : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        status: 'placeholder'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -41,18 +50,16 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Starting RunwayML ${type} generation with API key configured`);
+    console.log(`Starting RunwayML ${type} generation`);
 
-    // Prepare the prompt for better results
-    const enhancedPrompt = `${instruction}. Product: ${productInfo?.name || 'Premium Wireless Headphones'}. ${productInfo?.description || 'High-quality audio device'}`;
-
+    // Prepare enhanced prompt
+    const enhancedPrompt = `${instruction}. Product: ${productInfo?.name || 'Premium Wireless Headphones'}. ${productInfo?.description || 'High-quality audio device with professional design'}`;
     console.log('Enhanced prompt:', enhancedPrompt);
 
     let requestBody: any;
     let apiEndpoint: string;
 
     if (type === 'image') {
-      // Using the correct RunwayML API v1 endpoint for image generation
       requestBody = {
         promptText: enhancedPrompt,
         seed: Math.floor(Math.random() * 1000000),
@@ -61,7 +68,6 @@ serve(async (req) => {
       };
       apiEndpoint = 'https://api.runwayml.com/v1/image_generations';
     } else {
-      // Using the correct RunwayML API v1 endpoint for video generation
       requestBody = {
         promptText: enhancedPrompt,
         model: "gen3a_turbo",
@@ -93,55 +99,71 @@ serve(async (req) => {
     });
 
     console.log('RunwayML API response status:', response.status);
+    
+    const responseText = await response.text();
+    console.log('RunwayML API raw response:', responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse RunwayML response as JSON:', parseError);
+      throw new Error(`Invalid JSON response from RunwayML: ${responseText}`);
+    }
+
+    console.log('RunwayML API parsed response:', JSON.stringify(data, null, 2));
 
     let assetUrl: string;
     let runwayTaskId: string | null = null;
+    let status = 'completed';
+    let message = '';
 
     if (response.ok) {
-      const data = await response.json();
-      console.log('RunwayML API response data:', JSON.stringify(data, null, 2));
-      
-      // Handle the async nature of RunwayML - they typically return a task ID first
       runwayTaskId = data.id;
       
       if (data.status === 'PENDING' || data.status === 'RUNNING') {
         console.log('Generation is in progress, task ID:', runwayTaskId);
-        // For now, use placeholder while task processes
+        status = 'processing';
+        message = `${type} generation started. Task ID: ${runwayTaskId}. This may take a few minutes to complete.`;
+        // Use placeholder while processing
         assetUrl = type === 'image' 
-          ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+          ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
           : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
       } else if (data.status === 'SUCCEEDED') {
-        // If completed immediately, use the actual URL
+        console.log('Generation completed successfully');
         assetUrl = data.output?.[0] || data.url || data.image_url || data.video_url;
+        message = `${type} generation completed successfully!`;
+        
         if (!assetUrl) {
-          console.log('No asset URL in completed response');
+          console.log('No asset URL in completed response, using placeholder');
           assetUrl = type === 'image' 
-            ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+            ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
             : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+          message += ' (Using placeholder asset)';
         }
+      } else if (data.status === 'FAILED') {
+        console.log('RunwayML generation failed:', data.failure_reason || 'Unknown error');
+        throw new Error(`RunwayML generation failed: ${data.failure_reason || 'Unknown error'}`);
       } else {
-        console.log('Unexpected status:', data.status);
+        console.log('Unexpected status from RunwayML:', data.status);
+        status = 'processing';
+        message = `${type} generation status: ${data.status}. Please check back later.`;
         assetUrl = type === 'image' 
-          ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+          ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
           : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
       }
     } else {
-      const errorText = await response.text();
-      console.error('RunwayML API error:', response.status, errorText);
+      console.error('RunwayML API error:', response.status, data);
       
-      // Parse error for better understanding
-      try {
-        const errorData = JSON.parse(errorText);
-        console.error('Parsed error:', errorData);
-      } catch (e) {
-        console.error('Could not parse error as JSON');
-      }
+      // Provide specific error message
+      const errorMessage = data?.error?.message || data?.detail || data?.message || 'Unknown API error';
+      message = `RunwayML API Error (${response.status}): ${errorMessage}. Using placeholder for testing.`;
       
       // Use placeholder on API error for testing purposes
-      console.log('Using placeholder due to API error');
       assetUrl = type === 'image' 
-        ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+        ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
         : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+      status = 'error';
     }
 
     // Store the generated asset in database
@@ -164,7 +186,7 @@ serve(async (req) => {
       throw new Error(`Database error: ${dbError.message}`);
     }
 
-    console.log(`RunwayML ${type} generation completed successfully`);
+    console.log(`RunwayML ${type} generation request completed with status: ${status}`);
 
     return new Response(JSON.stringify({ 
       success: true, 
@@ -172,7 +194,8 @@ serve(async (req) => {
       asset_id: asset.id,
       type: type,
       runway_task_id: runwayTaskId,
-      status: runwayTaskId ? 'processing' : 'completed'
+      status: status,
+      message: message
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -181,7 +204,12 @@ serve(async (req) => {
     console.error('Error in runwayml-generate function:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message 
+      error: error.message,
+      asset_url: type === 'image' 
+        ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+        : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+      status: 'error',
+      message: `Error: ${error.message}. Using placeholder for testing.`
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
