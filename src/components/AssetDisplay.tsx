@@ -117,7 +117,7 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
 
   // Helper function to check if asset can be saved to library
   const canSaveToLibrary = (asset: GeneratedAsset): asset is GeneratedAsset & { type: 'image' | 'video' | 'content' } => {
-    return asset.type !== 'combo' && asset.url;
+    return asset.type !== 'combo' && Boolean(asset.url);
   };
 
   return (
