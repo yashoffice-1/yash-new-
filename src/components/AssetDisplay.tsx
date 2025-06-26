@@ -2,9 +2,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download, Copy, Check } from "lucide-react";
+import { Download, Copy, Check, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';
 
@@ -16,6 +17,9 @@ interface GeneratedAsset {
   timestamp: Date;
   source_system?: string;
   content?: string; // For content-type assets
+  status?: string; // For tracking generation status
+  runway_task_id?: string; // For RunwayML async tracking
+  message?: string; // For any additional messages
 }
 
 interface AssetDisplayProps {
@@ -96,102 +100,187 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
     );
   };
 
+  const getStatusBadge = (asset: GeneratedAsset) => {
+    if (asset.status === 'processing' || asset.runway_task_id) {
+      return (
+        <Badge className="bg-yellow-100 text-yellow-800">
+          PROCESSING
+        </Badge>
+      );
+    }
+    return (
+      <Badge className="bg-green-100 text-green-800">
+        COMPLETED
+      </Badge>
+    );
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Generated Assets</CardTitle>
-        <CardDescription>Your AI-generated content is ready</CardDescription>
+        <CardTitle>Generated Assets & Messages</CardTitle>
+        <CardDescription>Your AI-generated content and system messages</CardDescription>
       </CardHeader>
       <CardContent>
         {isGenerating && (
-          <div className="border rounded-lg p-4 mb-4 bg-blue-50">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span className="text-sm font-medium">Generating your content...</span>
-            </div>
-          </div>
+          <Alert className="mb-4 border-blue-200 bg-blue-50">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="font-medium">Generating your content with RunwayML API...</span>
+              </div>
+              <p className="text-sm mt-1 text-blue-700">
+                This may take a few moments. Images typically generate faster than videos.
+              </p>
+            </AlertDescription>
+          </Alert>
         )}
 
         {assets.length === 0 && !isGenerating && (
-          <div className="text-center py-8 text-muted-foreground">
-            No assets generated yet. Complete the steps above to start generating!
-          </div>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>No assets generated yet.</strong>
+              <br />
+              Complete the steps above to start generating content:
+              <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                <li>Select a product image</li>
+                <li>Provide and approve an instruction</li>
+                <li>Click a generation button</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
         )}
 
         <div className="space-y-4">
           {assets.map((asset) => (
-            <div key={asset.id} className="border rounded-lg p-4 space-y-3">
+            <div key={asset.id} className="border rounded-lg p-4 space-y-3 bg-white shadow-sm">
               <div className="flex justify-between items-start">
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center space-x-2 flex-wrap">
                     <Badge className={getAssetTypeColor(asset.type)}>
                       {asset.type.toUpperCase()}
                     </Badge>
                     {getProviderBadge(asset.source_system)}
+                    {getStatusBadge(asset)}
                     <span className="text-xs text-muted-foreground">
                       {asset.timestamp.toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-sm">{asset.instruction}</p>
+                  
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Instruction:</p>
+                    <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">{asset.instruction}</p>
+                  </div>
+
+                  {asset.message && (
+                    <Alert className="border-green-200 bg-green-50">
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="text-sm text-green-800">
+                        <strong>System Message:</strong> {asset.message}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {asset.runway_task_id && (
+                    <Alert className="border-yellow-200 bg-yellow-50">
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="text-xs text-yellow-800">
+                        <strong>RunwayML Task ID:</strong> {asset.runway_task_id}
+                        <br />
+                        This asset is being processed asynchronously by RunwayML.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
                 
-                {asset.type === 'content' ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCopyContent(asset)}
-                    className="flex items-center space-x-1"
-                  >
-                    {copiedId === asset.id ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                    <span>{copiedId === asset.id ? "Copied!" : "Copy"}</span>
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDownload(asset)}
-                    className="flex items-center space-x-1"
-                    disabled={!asset.url}
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>Download</span>
-                  </Button>
-                )}
+                <div className="ml-4">
+                  {asset.type === 'content' ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCopyContent(asset)}
+                      className="flex items-center space-x-1"
+                    >
+                      {copiedId === asset.id ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                      <span>{copiedId === asset.id ? "Copied!" : "Copy"}</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownload(asset)}
+                      className="flex items-center space-x-1"
+                      disabled={!asset.url}
+                    >
+                      <Download className="h-4 w-4" />
+                      <span>Download</span>
+                    </Button>
+                  )}
+                </div>
               </div>
               
               {asset.type === 'image' && asset.url && (
-                <div className="border rounded overflow-hidden">
-                  <img 
-                    src={asset.url} 
-                    alt="Generated image"
-                    className="w-full h-48 object-cover"
-                  />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Generated Image:</p>
+                  <div className="border rounded overflow-hidden bg-gray-100">
+                    <img 
+                      src={asset.url} 
+                      alt="Generated image from RunwayML"
+                      className="w-full h-64 object-contain"
+                      onLoad={() => console.log('Image loaded successfully:', asset.url)}
+                      onError={(e) => {
+                        console.error('Image failed to load:', asset.url);
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">Image URL: {asset.url}</p>
                 </div>
               )}
               
               {asset.type === 'video' && asset.url && (
-                <div className="border rounded overflow-hidden bg-black">
-                  <video 
-                    src={asset.url} 
-                    controls
-                    className="w-full h-48 object-contain"
-                    poster={asset.url}
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Generated Video:</p>
+                  <div className="border rounded overflow-hidden bg-black">
+                    <video 
+                      src={asset.url} 
+                      controls
+                      className="w-full h-64 object-contain"
+                      poster={asset.url}
+                      onLoadedData={() => console.log('Video loaded successfully:', asset.url)}
+                      onError={(e) => {
+                        console.error('Video failed to load:', asset.url);
+                      }}
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
+                  <p className="text-xs text-gray-500">Video URL: {asset.url}</p>
                 </div>
               )}
               
               {asset.type === 'content' && asset.content && (
-                <div className="bg-gray-50 p-3 rounded text-sm">
-                  <strong>Generated Marketing Content:</strong><br/>
-                  <p className="mt-2 whitespace-pre-wrap">{asset.content}</p>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Generated Marketing Content:</p>
+                  <div className="bg-gray-50 p-3 rounded text-sm border">
+                    <p className="whitespace-pre-wrap">{asset.content}</p>
+                  </div>
                 </div>
               )}
+
+              {/* Debug information for troubleshooting */}
+              <details className="text-xs text-gray-400">
+                <summary className="cursor-pointer hover:text-gray-600">Debug Info</summary>
+                <pre className="mt-2 bg-gray-100 p-2 rounded text-xs overflow-auto">
+                  {JSON.stringify(asset, null, 2)}
+                </pre>
+              </details>
             </div>
           ))}
         </div>
