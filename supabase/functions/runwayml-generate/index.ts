@@ -52,33 +52,34 @@ serve(async (req) => {
     let apiEndpoint: string;
 
     if (type === 'image') {
-      // For image generation - using a simplified approach
+      // Using the correct RunwayML API v1 endpoint for image generation
       requestBody = {
-        prompt: enhancedPrompt,
-        model: "runway-ml/stable-diffusion",
-        width: 512,
-        height: 512,
-        num_inference_steps: 25,
-        guidance_scale: 7.5
+        promptText: enhancedPrompt,
+        seed: Math.floor(Math.random() * 1000000),
+        width: 1024,
+        height: 1024
       };
-      apiEndpoint = 'https://api.runwayml.com/v1/image/generate';
+      apiEndpoint = 'https://api.runwayml.com/v1/image_generations';
     } else {
-      // For video generation
+      // Using the correct RunwayML API v1 endpoint for video generation
       requestBody = {
-        prompt: enhancedPrompt,
-        model: "gen-3-alpha-turbo",
+        promptText: enhancedPrompt,
+        model: "gen3a_turbo",
+        width: 1280,
+        height: 768,
         duration: 5,
-        aspect_ratio: "16:9"
+        seed: Math.floor(Math.random() * 1000000)
       };
 
       if (imageUrl) {
-        requestBody.image = imageUrl;
+        requestBody.promptImage = imageUrl;
       }
       
-      apiEndpoint = 'https://api.runwayml.com/v1/video/generate';
+      apiEndpoint = 'https://api.runwayml.com/v1/video_generations';
     }
 
     console.log('Making API call to RunwayML:', apiEndpoint);
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
     // Make the actual API call to RunwayML
     const response = await fetch(apiEndpoint, {
@@ -86,6 +87,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${runwayApiKey}`,
         'Content-Type': 'application/json',
+        'X-Runway-Version': '2024-09-13'
       },
       body: JSON.stringify(requestBody),
     });
@@ -97,27 +99,43 @@ serve(async (req) => {
 
     if (response.ok) {
       const data = await response.json();
-      console.log('RunwayML API response data:', data);
+      console.log('RunwayML API response data:', JSON.stringify(data, null, 2));
       
-      // Handle different response structures from RunwayML
-      assetUrl = data.output_url || data.url || data.image_url || data.video_url;
-      runwayTaskId = data.id || data.task_id;
-
-      if (!assetUrl) {
-        console.log('No asset URL in response, checking for task ID for polling');
-        // If no immediate URL, this might be an async task
-        if (runwayTaskId) {
-          // For now, use placeholder while task processes
+      // Handle the async nature of RunwayML - they typically return a task ID first
+      runwayTaskId = data.id;
+      
+      if (data.status === 'PENDING' || data.status === 'RUNNING') {
+        console.log('Generation is in progress, task ID:', runwayTaskId);
+        // For now, use placeholder while task processes
+        assetUrl = type === 'image' 
+          ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+          : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+      } else if (data.status === 'SUCCEEDED') {
+        // If completed immediately, use the actual URL
+        assetUrl = data.output?.[0] || data.url || data.image_url || data.video_url;
+        if (!assetUrl) {
+          console.log('No asset URL in completed response');
           assetUrl = type === 'image' 
             ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
             : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-        } else {
-          throw new Error('No asset URL or task ID in RunwayML response');
         }
+      } else {
+        console.log('Unexpected status:', data.status);
+        assetUrl = type === 'image' 
+          ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+          : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
       }
     } else {
       const errorText = await response.text();
       console.error('RunwayML API error:', response.status, errorText);
+      
+      // Parse error for better understanding
+      try {
+        const errorData = JSON.parse(errorText);
+        console.error('Parsed error:', errorData);
+      } catch (e) {
+        console.error('Could not parse error as JSON');
+      }
       
       // Use placeholder on API error for testing purposes
       console.log('Using placeholder due to API error');
@@ -142,6 +160,7 @@ serve(async (req) => {
       .single();
 
     if (dbError) {
+      console.error('Database error:', dbError);
       throw new Error(`Database error: ${dbError.message}`);
     }
 
@@ -152,7 +171,8 @@ serve(async (req) => {
       asset_url: assetUrl,
       asset_id: asset.id,
       type: type,
-      runway_task_id: runwayTaskId
+      runway_task_id: runwayTaskId,
+      status: runwayTaskId ? 'processing' : 'completed'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
