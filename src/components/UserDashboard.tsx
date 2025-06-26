@@ -22,6 +22,11 @@ interface GeneratedAsset {
 export function UserDashboard() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [generatedAssets, setGeneratedAssets] = useState<GeneratedAsset[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleAssetGenerated = (asset: GeneratedAsset) => {
+    setGeneratedAssets(prev => [asset, ...prev]);
+  };
 
   return (
     <div className="space-y-6">
@@ -35,14 +40,15 @@ export function UserDashboard() {
         selectedImage={selectedImage}
       />
 
-      <SimpleTestButtons />
+      <SimpleTestButtons 
+        onAssetGenerated={handleAssetGenerated}
+        onGeneratingChange={setIsGenerating}
+      />
 
-      {generatedAssets.length > 0 && (
-        <AssetDisplay 
-          assets={generatedAssets}
-          isGenerating={false}
-        />
-      )}
+      <AssetDisplay 
+        assets={generatedAssets}
+        isGenerating={isGenerating}
+      />
     </div>
   );
 }

@@ -6,7 +6,27 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 
-export function SimpleTestButtons() {
+type GeneratorType = 'image' | 'video' | 'content' | 'combo';
+
+interface GeneratedAsset {
+  id: string;
+  type: GeneratorType;
+  url: string;
+  instruction: string;
+  timestamp: Date;
+  source_system?: string;
+  content?: string;
+  status?: string;
+  runway_task_id?: string;
+  message?: string;
+}
+
+interface SimpleTestButtonsProps {
+  onAssetGenerated?: (asset: GeneratedAsset) => void;
+  onGeneratingChange?: (isGenerating: boolean) => void;
+}
+
+export function SimpleTestButtons({ onAssetGenerated, onGeneratingChange }: SimpleTestButtonsProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationType, setGenerationType] = useState<string>("");
   const { toast } = useToast();
@@ -14,6 +34,7 @@ export function SimpleTestButtons() {
   const testGeneration = async (type: 'image' | 'video') => {
     setIsGenerating(true);
     setGenerationType(type);
+    onGeneratingChange?.(true);
     
     const testInstruction = type === 'image' 
       ? "A sleek pair of wireless headphones on a white background, professional product photography"
@@ -47,12 +68,22 @@ export function SimpleTestButtons() {
           variant: data.status === 'error' ? 'destructive' : 'default'
         });
 
-        // Show the result
-        if (data.asset_url) {
-          console.log(`Generated ${type} URL:`, data.asset_url);
+        // Create asset object and pass to parent
+        if (data.asset_url && onAssetGenerated) {
+          const asset: GeneratedAsset = {
+            id: data.asset_id || `${type}-${Date.now()}`,
+            type: type,
+            url: data.asset_url,
+            instruction: testInstruction,
+            timestamp: new Date(),
+            source_system: 'runway',
+            status: data.status,
+            runway_task_id: data.runway_task_id,
+            message: data.message
+          };
           
-          // Open the asset in a new window for quick viewing
-          window.open(data.asset_url, '_blank');
+          onAssetGenerated(asset);
+          console.log(`Generated ${type} URL:`, data.asset_url);
         }
       } else {
         throw new Error(data.error || `Failed to generate ${type}`);
@@ -68,6 +99,7 @@ export function SimpleTestButtons() {
     } finally {
       setIsGenerating(false);
       setGenerationType("");
+      onGeneratingChange?.(false);
     }
   };
 
@@ -119,7 +151,7 @@ export function SimpleTestButtons() {
             <p><strong>Video:</strong> "A smooth 360-degree rotation of wireless headphones showcasing the design"</p>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            Generated assets will automatically open in a new window for preview.
+            Generated assets will be displayed in the assets section below and may take a few moments to process.
           </p>
         </div>
       </CardContent>
