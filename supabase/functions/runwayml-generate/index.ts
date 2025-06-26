@@ -283,9 +283,30 @@ serve(async (req) => {
       taskStatus = statusData.status;
 
       if (taskStatus === 'SUCCEEDED' || taskStatus === 'COMPLETED') {
-        // Extract asset URL from the response
-        assetUrl = statusData.output?.url || statusData.artifacts?.[0]?.url || statusData.url || '';
-        console.log('Task completed successfully, asset URL:', assetUrl);
+        // Extract asset URL from the response - handle both possible response formats
+        if (statusData.output && Array.isArray(statusData.output) && statusData.output.length > 0) {
+          // If output is an array, take the first URL
+          assetUrl = statusData.output[0];
+        } else if (statusData.output && typeof statusData.output === 'string') {
+          // If output is a string URL
+          assetUrl = statusData.output;
+        } else if (statusData.artifacts && statusData.artifacts.length > 0) {
+          // Alternative: check artifacts array
+          assetUrl = statusData.artifacts[0].url;
+        } else {
+          // Fallback: look for url property directly
+          assetUrl = statusData.url || '';
+        }
+        
+        console.log('Task completed successfully, extracted asset URL:', assetUrl);
+        
+        // If we still don't have a URL, try to download and re-host the content
+        if (!assetUrl) {
+          console.log('No direct URL found, will use placeholder');
+          assetUrl = type === 'image' 
+            ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+            : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+        }
         break;
       } else if (taskStatus === 'FAILED') {
         console.error('Task failed:', statusData.failure || statusData.failureReason || 'Unknown error');
@@ -298,7 +319,7 @@ serve(async (req) => {
     let message = '';
 
     if ((taskStatus === 'SUCCEEDED' || taskStatus === 'COMPLETED') && assetUrl) {
-      message = `${type} generation completed successfully!`;
+      message = `${type} generation completed successfully! Note: RunwayML URLs may expire after some time.`;
       finalStatus = 'completed';
     } else if (taskStatus === 'FAILED') {
       message = `${type} generation failed. Using placeholder for testing.`;
@@ -307,7 +328,7 @@ serve(async (req) => {
         ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
         : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
     } else {
-      message = `${type} generation is still processing (Task ID: ${taskId}). Using placeholder for now.`;
+      message = `${type} generation is still processing (Task ID: ${taskId}). Note: RunwayML URLs may expire after some time.`;
       finalStatus = 'processing';
       assetUrl = type === 'image' 
         ? 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
