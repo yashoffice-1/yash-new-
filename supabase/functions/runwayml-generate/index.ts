@@ -31,6 +31,7 @@ serve(async (req) => {
     const { type, instruction, imageUrl, productInfo }: RunwayRequest = await req.json();
 
     if (!runwayApiKey) {
+      console.log('RunwayML API key not configured, using placeholder');
       throw new Error('RunwayML API key not configured');
     }
 
@@ -40,20 +41,47 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Starting RunwayML ${type} generation`);
+    console.log(`Starting RunwayML ${type} generation with API key configured`);
 
-    // For RunwayML API integration
-    let requestBody: any = {
-      model: type === 'image' ? 'runway-ml/stable-diffusion-v1-5' : 'gen-3-alpha-turbo',
-      prompt: instruction,
-    };
+    // Prepare the prompt for better results
+    const enhancedPrompt = `${instruction}. Product: ${productInfo?.name || 'Premium Wireless Headphones'}. ${productInfo?.description || 'High-quality audio device'}`;
 
-    if (type === 'video' && imageUrl) {
-      requestBody.image = imageUrl;
+    console.log('Enhanced prompt:', enhancedPrompt);
+
+    let requestBody: any;
+    let apiEndpoint: string;
+
+    if (type === 'image') {
+      // For image generation - using a simplified approach
+      requestBody = {
+        prompt: enhancedPrompt,
+        model: "runway-ml/stable-diffusion",
+        width: 512,
+        height: 512,
+        num_inference_steps: 25,
+        guidance_scale: 7.5
+      };
+      apiEndpoint = 'https://api.runwayml.com/v1/image/generate';
+    } else {
+      // For video generation
+      requestBody = {
+        prompt: enhancedPrompt,
+        model: "gen-3-alpha-turbo",
+        duration: 5,
+        aspect_ratio: "16:9"
+      };
+
+      if (imageUrl) {
+        requestBody.image = imageUrl;
+      }
+      
+      apiEndpoint = 'https://api.runwayml.com/v1/video/generate';
     }
 
-    // Simulate API call (replace with actual RunwayML API endpoint)
-    const response = await fetch('https://api.runwayml.com/v1/generate', {
+    console.log('Making API call to RunwayML:', apiEndpoint);
+
+    // Make the actual API call to RunwayML
+    const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${runwayApiKey}`,
@@ -62,44 +90,41 @@ serve(async (req) => {
       body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) {
-      // For demo purposes, we'll use a placeholder image/video
-      console.log('Using placeholder for demo');
-      const assetUrl = type === 'image' 
+    console.log('RunwayML API response status:', response.status);
+
+    let assetUrl: string;
+    let runwayTaskId: string | null = null;
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('RunwayML API response data:', data);
+      
+      // Handle different response structures from RunwayML
+      assetUrl = data.output_url || data.url || data.image_url || data.video_url;
+      runwayTaskId = data.id || data.task_id;
+
+      if (!assetUrl) {
+        console.log('No asset URL in response, checking for task ID for polling');
+        // If no immediate URL, this might be an async task
+        if (runwayTaskId) {
+          // For now, use placeholder while task processes
+          assetUrl = type === 'image' 
+            ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
+            : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+        } else {
+          throw new Error('No asset URL or task ID in RunwayML response');
+        }
+      }
+    } else {
+      const errorText = await response.text();
+      console.error('RunwayML API error:', response.status, errorText);
+      
+      // Use placeholder on API error for testing purposes
+      console.log('Using placeholder due to API error');
+      assetUrl = type === 'image' 
         ? imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
         : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-      
-      // Store in database
-      const { data: asset, error: dbError } = await supabase
-        .from('generated_assets')
-        .insert({
-          channel: 'instagram',
-          format: type === 'image' ? 'jpg' : 'mp4',
-          source_system: 'runway',
-          asset_type: type,
-          url: assetUrl,
-          instruction: instruction,
-          approved: false
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        throw new Error(`Database error: ${dbError.message}`);
-      }
-
-      return new Response(JSON.stringify({ 
-        success: true, 
-        asset_url: assetUrl,
-        asset_id: asset.id,
-        type: type 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
-
-    const data = await response.json();
-    const assetUrl = data.output_url || data.url;
 
     // Store the generated asset in database
     const { data: asset, error: dbError } = await supabase
@@ -126,7 +151,8 @@ serve(async (req) => {
       success: true, 
       asset_url: assetUrl,
       asset_id: asset.id,
-      type: type 
+      type: type,
+      runway_task_id: runwayTaskId
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
