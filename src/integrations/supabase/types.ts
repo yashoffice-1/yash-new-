@@ -107,6 +107,51 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory: {
+        Row: {
+          brand: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          images: string[]
+          metadata: Json | null
+          name: string
+          price: number | null
+          sku: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          images?: string[]
+          metadata?: Json | null
+          name: string
+          price?: number | null
+          sku?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          images?: string[]
+          metadata?: Json | null
+          name?: string
+          price?: number | null
+          sku?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
