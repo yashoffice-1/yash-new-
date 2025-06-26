@@ -60,43 +60,41 @@ serve(async (req) => {
     let apiEndpoint: string;
 
     if (type === 'image') {
-      // Use the correct API endpoint for image generation
+      // Use text-to-image generation
       requestBody = {
-        promptText: enhancedPrompt,
+        prompt: enhancedPrompt,
         model: "gen3a_turbo",
-        aspectRatio: "16:9",
-        duration: 5,
+        aspect_ratio: "16:9",
         watermark: false
       };
-      apiEndpoint = 'https://api.runwayml.com/v1/images/generations';
+      apiEndpoint = 'https://api.runwayml.com/v1/image/generations';
     } else {
-      // Use the correct API endpoint for video generation
+      // Use video generation
       requestBody = {
-        promptText: enhancedPrompt,
+        prompt: enhancedPrompt,
         model: "gen3a_turbo",
-        aspectRatio: "16:9",
+        aspect_ratio: "16:9",
         duration: 5,
         watermark: false
       };
 
       if (imageUrl) {
-        requestBody.promptImage = imageUrl;
-        apiEndpoint = 'https://api.runwayml.com/v1/videos/generations';
-      } else {
-        apiEndpoint = 'https://api.runwayml.com/v1/videos/generations';
+        requestBody.image = imageUrl;
       }
+      
+      apiEndpoint = 'https://api.runwayml.com/v1/video/generations';
     }
 
     console.log('Making API call to RunwayML:', apiEndpoint);
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-    // Make the API call to RunwayML with correct headers
+    // Make the API call to RunwayML with updated headers
     const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${runwayApiKey}`,
         'Content-Type': 'application/json',
-        'X-Runway-Version': '2024-09-13'
+        'X-Runway-Version': '2024-11-06'
       },
       body: JSON.stringify(requestBody),
     });
@@ -185,15 +183,15 @@ serve(async (req) => {
 
       // Check task status using the correct endpoint
       const taskEndpoint = type === 'image' 
-        ? `https://api.runwayml.com/v1/images/generations/${taskId}`
-        : `https://api.runwayml.com/v1/videos/generations/${taskId}`;
+        ? `https://api.runwayml.com/v1/image/generations/${taskId}`
+        : `https://api.runwayml.com/v1/video/generations/${taskId}`;
 
       const taskResponse = await fetch(taskEndpoint, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${runwayApiKey}`,
           'Content-Type': 'application/json',
-          'X-Runway-Version': '2024-09-13'
+          'X-Runway-Version': '2024-11-06'
         }
       });
 
