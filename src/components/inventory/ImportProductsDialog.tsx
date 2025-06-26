@@ -20,7 +20,39 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
   const [loading, setLoading] = useState(false);
   const [jsonData, setJsonData] = useState("");
   const [csvData, setCsvData] = useState("");
-  const [importMethod, setImportMethod] = useState<'json' | 'csv'>('json');
+  const [importMethod, setImportMethod] = useState<'json' | 'csv' | 'file'>('json');
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          // Escaped quote
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          // Toggle quote mode
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // End of field
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    // Add the last field
+    result.push(current.trim());
+    return result;
+  };
 
   const handleJsonImport = async () => {
     try {
@@ -62,56 +94,76 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
     }
   };
 
-  const handleCsvImport = async () => {
+  const handleCsvImport = async (csvContent: string) => {
     try {
-      const lines = csvData.trim().split('\n');
+      const lines = csvContent.trim().split('\n').filter(line => line.trim() !== '');
       
       if (lines.length < 2) {
         throw new Error("CSV must have at least a header row and one data row");
       }
 
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
       const products = [];
 
+      console.log('CSV Headers:', headers);
+
+      // Check if 'name' column exists
+      if (!headers.includes('name')) {
+        throw new Error("CSV must contain a 'name' column");
+      }
+
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
+        const values = parseCSVLine(lines[i]);
         const product: any = { status: 'active', images: [], metadata: {} };
 
+        console.log(`Processing row ${i + 1}:`, values);
+
         headers.forEach((header, index) => {
-          const value = values[index] || null;
+          const value = values[index] ? values[index].trim() : '';
           
           switch (header) {
             case 'name':
               product.name = value;
               break;
             case 'description':
-              product.description = value;
+              product.description = value || null;
               break;
             case 'price':
-              product.price = value ? parseFloat(value) : null;
+              product.price = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
               break;
             case 'sku':
-              product.sku = value;
+              product.sku = value || null;
               break;
             case 'category':
-              product.category = value;
+              product.category = value || null;
               break;
             case 'brand':
-              product.brand = value;
+              product.brand = value || null;
               break;
             case 'images':
-              product.images = value ? value.split(';').map((url: string) => url.trim()) : [];
+              if (value) {
+                // Split by semicolon and filter out empty strings
+                product.images = value.split(';').map((url: string) => url.trim()).filter((url: string) => url !== '');
+              }
               break;
             default:
-              product.metadata[header] = value;
+              // Add other fields to metadata
+              if (value) {
+                product.metadata[header] = value;
+              }
           }
         });
 
-        if (!product.name) {
-          throw new Error(`Row ${i + 1} is missing required 'name' field`);
+        if (!product.name || product.name === '') {
+          throw new Error(`Row ${i + 1} is missing required 'name' field or name is empty`);
         }
 
+        console.log(`Processed product for row ${i + 1}:`, product);
         products.push(product);
+      }
+
+      if (products.length === 0) {
+        throw new Error("No valid products found in CSV");
       }
 
       // Insert products into database
@@ -127,6 +179,27 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
     }
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'text/csv') {
+      setCsvFile(file);
+      
+      // Read file content
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setCsvData(content);
+      };
+      reader.readAsText(file);
+    } else {
+      toast({
+        title: "Invalid File",
+        description: "Please select a valid CSV file.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleImport = async () => {
     if (importMethod === 'json' && !jsonData.trim()) {
       toast({
@@ -137,10 +210,10 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
       return;
     }
 
-    if (importMethod === 'csv' && !csvData.trim()) {
+    if ((importMethod === 'csv' || importMethod === 'file') && !csvData.trim()) {
       toast({
         title: "Error",
-        description: "Please enter CSV data to import.",
+        description: "Please enter CSV data or upload a CSV file.",
         variant: "destructive",
       });
       return;
@@ -149,11 +222,12 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
     setLoading(true);
 
     try {
-      const count = importMethod === 'json' ? await handleJsonImport() : await handleCsvImport();
+      const count = importMethod === 'json' ? await handleJsonImport() : await handleCsvImport(csvData);
       
       onProductsImported(count);
       setJsonData("");
       setCsvData("");
+      setCsvFile(null);
     } catch (error: any) {
       console.error('Import error:', error);
       toast({
@@ -191,7 +265,7 @@ Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https:
             <span>Import Products</span>
           </DialogTitle>
           <DialogDescription>
-            Import multiple products from JSON or CSV data
+            Import multiple products from JSON, CSV data, or upload a CSV file
           </DialogDescription>
         </DialogHeader>
 
@@ -214,11 +288,20 @@ Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https:
               className="flex items-center space-x-2"
             >
               <FileText className="h-4 w-4" />
-              <span>CSV Import</span>
+              <span>CSV Text</span>
+            </Button>
+            <Button
+              type="button"
+              variant={importMethod === 'file' ? 'default' : 'outline'}
+              onClick={() => setImportMethod('file')}
+              className="flex items-center space-x-2"
+            >
+              <Upload className="h-4 w-4" />
+              <span>CSV File</span>
             </Button>
           </div>
 
-          {importMethod === 'json' ? (
+          {importMethod === 'json' && (
             <div className="space-y-2">
               <Label htmlFor="json-data">JSON Data</Label>
               <Textarea
@@ -239,7 +322,9 @@ Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https:
                 </AlertDescription>
               </Alert>
             </div>
-          ) : (
+          )}
+
+          {importMethod === 'csv' && (
             <div className="space-y-2">
               <Label htmlFor="csv-data">CSV Data</Label>
               <Textarea
@@ -258,7 +343,50 @@ Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https:
                     {csvExample}
                   </pre>
                   <p className="mt-2 text-xs">
-                    Separate multiple image URLs with semicolons (;)
+                    • Separate multiple image URLs with semicolons (;)<br/>
+                    • 'name' column is required<br/>
+                    • Values with commas should be enclosed in quotes
+                  </p>
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          {importMethod === 'file' && (
+            <div className="space-y-2">
+              <Label htmlFor="csv-file">Upload CSV File</Label>
+              <input
+                id="csv-file"
+                type="file"
+                accept=".csv"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {csvFile && (
+                <p className="text-sm text-green-600">
+                  File selected: {csvFile.name}
+                </p>
+              )}
+              {csvData && (
+                <div className="mt-4">
+                  <Label>File Preview:</Label>
+                  <Textarea
+                    value={csvData.substring(0, 500) + (csvData.length > 500 ? '...' : '')}
+                    readOnly
+                    rows={8}
+                    className="font-mono text-xs bg-gray-50"
+                  />
+                </div>
+              )}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>CSV File Requirements:</strong>
+                  <p className="mt-2 text-xs">
+                    • First row must contain column headers<br/>
+                    • 'name' column is required<br/>
+                    • Supported columns: name, description, price, sku, category, brand, images<br/>
+                    • Separate multiple image URLs with semicolons (;)
                   </p>
                 </AlertDescription>
               </Alert>
