@@ -60,44 +60,43 @@ serve(async (req) => {
     let apiEndpoint: string;
 
     if (type === 'image') {
-      // Text-to-image generation using Gen-3 Alpha Turbo
+      // Updated API endpoint and structure for image generation
       requestBody = {
-        promptText: enhancedPrompt,
-        model: "gen3a_turbo",
-        seed: Math.floor(Math.random() * 1000000),
-        explicitContent: false
+        model: "runway:image",
+        prompt: enhancedPrompt,
+        aspect_ratio: "16:9",
+        seed: Math.floor(Math.random() * 1000000)
       };
-      apiEndpoint = 'https://api.runwayml.com/v1/image_generations';
+      apiEndpoint = 'https://api.runwayml.com/v1/tasks';
     } else {
-      // Video generation using Gen-3 Alpha Turbo
+      // Updated API endpoint and structure for video generation
       requestBody = {
-        promptText: enhancedPrompt,
         model: "gen3a_turbo",
-        seed: Math.floor(Math.random() * 1000000),
-        explicitContent: false,
-        watermark: false,
+        prompt: enhancedPrompt,
         duration: 5,
-        ratio: "16:9"
+        ratio: "16:9",
+        seed: Math.floor(Math.random() * 1000000)
       };
 
       // Add image URL for image-to-video if provided
       if (imageUrl) {
-        requestBody.promptImage = imageUrl;
+        requestBody.image = imageUrl;
         console.log('Using image URL for video generation:', imageUrl);
       }
       
-      apiEndpoint = 'https://api.runwayml.com/v1/video_generations';
+      apiEndpoint = 'https://api.runwayml.com/v1/tasks';
     }
 
     console.log('Making API call to RunwayML:', apiEndpoint);
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-    // Make the API call to RunwayML with correct headers
+    // Make the API call to RunwayML with updated headers
     const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${runwayApiKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Runway-Version': '2024-09-13' // Add version header
       },
       body: JSON.stringify(requestBody),
     });
@@ -166,7 +165,7 @@ serve(async (req) => {
     const taskId = data.id;
     console.log('RunwayML task created with ID:', taskId);
 
-    // Poll for completion
+    // Updated polling logic for new API structure
     let taskStatus = 'PENDING';
     let assetUrl = '';
     let attempts = 0;
@@ -184,16 +183,13 @@ serve(async (req) => {
 
       console.log(`Checking task status (attempt ${attempts}/${maxAttempts})`);
 
-      // Check task status
-      const taskEndpoint = type === 'image' 
-        ? `https://api.runwayml.com/v1/image_generations/${taskId}`
-        : `https://api.runwayml.com/v1/video_generations/${taskId}`;
-
-      const taskResponse = await fetch(taskEndpoint, {
+      // Check task status using updated endpoint
+      const taskResponse = await fetch(`https://api.runwayml.com/v1/tasks/${taskId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${runwayApiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Runway-Version': '2024-09-13'
         }
       });
 
@@ -209,11 +205,7 @@ serve(async (req) => {
 
       if (taskStatus === 'SUCCEEDED') {
         // Get the asset URL from the response
-        if (type === 'image') {
-          assetUrl = taskData.imageURI || taskData.output?.[0] || '';
-        } else {
-          assetUrl = taskData.videoURI || taskData.output?.[0] || '';
-        }
+        assetUrl = taskData.output?.[0] || taskData.artifacts?.[0]?.url || '';
         console.log('Task completed successfully, asset URL:', assetUrl);
         break;
       } else if (taskStatus === 'FAILED') {
