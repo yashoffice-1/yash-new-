@@ -56,7 +56,7 @@ serve(async (req) => {
     const enhancedPrompt = `${instruction}. Product: ${productInfo?.name || 'Premium Wireless Headphones'}. ${productInfo?.description || 'High-quality audio device with professional design'}`;
     console.log('Enhanced prompt:', enhancedPrompt);
 
-    // Use RunwayML's correct API structure
+    // Use RunwayML's correct API structure based on documentation
     let requestBody: any;
     let apiEndpoint: string;
 
@@ -79,24 +79,27 @@ serve(async (req) => {
       
       apiEndpoint = 'https://api.dev.runwayml.com/v1/text_to_image';
     } else {
-      // Use correct video generation endpoint and structure
-      requestBody = {
-        promptText: enhancedPrompt,
-        model: "gen3a_turbo",
-        duration: 5,
-        ratio: "16:9"
-      };
-      
-      // Add reference image if provided
+      // Use correct video generation endpoint and structure - updated based on documentation
       if (imageUrl) {
-        requestBody.referenceImages = [
-          {
-            uri: imageUrl
-          }
-        ];
+        // Image-to-video generation
+        requestBody = {
+          model: 'gen4_turbo',
+          promptImage: imageUrl,
+          promptText: enhancedPrompt,
+          ratio: '1280:720',
+          duration: 5
+        };
+        apiEndpoint = 'https://api.dev.runwayml.com/v1/image_to_video';
+      } else {
+        // Text-to-video generation
+        requestBody = {
+          model: 'gen4_turbo',
+          promptText: enhancedPrompt,
+          ratio: '1280:720',
+          duration: 5
+        };
+        apiEndpoint = 'https://api.dev.runwayml.com/v1/text_to_video';
       }
-      
-      apiEndpoint = 'https://api.dev.runwayml.com/v1/text_to_video';
     }
 
     console.log('Making API call to RunwayML:', apiEndpoint);
