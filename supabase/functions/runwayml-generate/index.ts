@@ -60,40 +60,43 @@ serve(async (req) => {
     let apiEndpoint: string;
 
     if (type === 'image') {
-      // Use the correct text-to-image endpoint
+      // Use the correct API endpoint for image generation
       requestBody = {
-        model: "gen4_image",
         promptText: enhancedPrompt,
-        ratio: "1024:1024",
-        seed: Math.floor(Math.random() * 1000000)
-      };
-      apiEndpoint = 'https://api.runwayml.com/v1/text_to_image';
-    } else {
-      // Use the correct image-to-video endpoint
-      requestBody = {
         model: "gen3a_turbo",
-        promptText: enhancedPrompt,
+        aspectRatio: "16:9",
         duration: 5,
-        ratio: "1280:768",
-        seed: Math.floor(Math.random() * 1000000)
+        watermark: false
+      };
+      apiEndpoint = 'https://api.runwayml.com/v1/images/generations';
+    } else {
+      // Use the correct API endpoint for video generation
+      requestBody = {
+        promptText: enhancedPrompt,
+        model: "gen3a_turbo",
+        aspectRatio: "16:9",
+        duration: 5,
+        watermark: false
       };
 
       if (imageUrl) {
         requestBody.promptImage = imageUrl;
+        apiEndpoint = 'https://api.runwayml.com/v1/videos/generations';
+      } else {
+        apiEndpoint = 'https://api.runwayml.com/v1/videos/generations';
       }
-      
-      apiEndpoint = 'https://api.runwayml.com/v1/image_to_video';
     }
 
     console.log('Making API call to RunwayML:', apiEndpoint);
     console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
-    // Make the actual API call to RunwayML to create a task
+    // Make the API call to RunwayML with correct headers
     const response = await fetch(apiEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${runwayApiKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Runway-Version': '2024-09-13'
       },
       body: JSON.stringify(requestBody),
     });
@@ -158,11 +161,11 @@ serve(async (req) => {
       });
     }
 
-    // Task created successfully - RunwayML now returns just a task ID
+    // Task created successfully - extract task ID from response
     const taskId = data.id;
     console.log('RunwayML task created with ID:', taskId);
 
-    // Now we need to poll the task status
+    // Now we need to poll the task status using the correct endpoint
     let taskStatus = 'PENDING';
     let assetUrl = '';
     let attempts = 0;
@@ -174,18 +177,23 @@ serve(async (req) => {
         break;
       }
 
-      // Wait 5 seconds before checking (as recommended in docs)
+      // Wait 5 seconds before checking
       await new Promise(resolve => setTimeout(resolve, 5000));
       attempts++;
 
       console.log(`Checking task status (attempt ${attempts}/${maxAttempts})`);
 
-      // Check task status using the tasks endpoint
-      const taskResponse = await fetch(`https://api.runwayml.com/v1/tasks/${taskId}`, {
+      // Check task status using the correct endpoint
+      const taskEndpoint = type === 'image' 
+        ? `https://api.runwayml.com/v1/images/generations/${taskId}`
+        : `https://api.runwayml.com/v1/videos/generations/${taskId}`;
+
+      const taskResponse = await fetch(taskEndpoint, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${runwayApiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-Runway-Version': '2024-09-13'
         }
       });
 
@@ -200,11 +208,11 @@ serve(async (req) => {
       taskStatus = taskData.status;
 
       if (taskStatus === 'SUCCEEDED') {
-        assetUrl = taskData.output?.[0] || '';
+        assetUrl = taskData.output?.[0] || taskData.artifacts?.[0]?.url || '';
         console.log('Task completed successfully, asset URL:', assetUrl);
         break;
       } else if (taskStatus === 'FAILED') {
-        console.error('Task failed:', taskData.failure_reason || 'Unknown error');
+        console.error('Task failed:', taskData.failure || taskData.failureReason || 'Unknown error');
         break;
       }
     }
