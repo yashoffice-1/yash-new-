@@ -2,16 +2,18 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Download } from "lucide-react";
+import { Download, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';
 
 interface GeneratedAsset {
+  id: string;
   type: GeneratorType;
   url: string;
   instruction: string;
   timestamp: Date;
+  source_system?: string;
 }
 
 interface AssetDisplayProps {
@@ -23,11 +25,26 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
   const { toast } = useToast();
 
   const handleDownload = (asset: GeneratedAsset) => {
-    // Simulate download
-    toast({
-      title: "Download Started",
-      description: `Downloading your ${asset.type}...`,
-    });
+    if (asset.url) {
+      // Create a temporary link to download the asset
+      const link = document.createElement('a');
+      link.href = asset.url;
+      link.download = `${asset.type}-${asset.id}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Download Started",
+        description: `Downloading your ${asset.type}...`,
+      });
+    } else {
+      toast({
+        title: "Download Not Available",
+        description: "This asset cannot be downloaded.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getAssetTypeColor = (type: GeneratorType) => {
@@ -38,6 +55,22 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
       combo: "bg-orange-100 text-orange-800"
     };
     return colors[type];
+  };
+
+  const getProviderBadge = (sourceSystem?: string) => {
+    if (!sourceSystem) return null;
+    
+    const providerColors = {
+      runway: "bg-red-100 text-red-800",
+      heygen: "bg-blue-100 text-blue-800",
+      openai: "bg-green-100 text-green-800"
+    };
+    
+    return (
+      <Badge className={providerColors[sourceSystem as keyof typeof providerColors] || "bg-gray-100 text-gray-800"}>
+        {sourceSystem.toUpperCase()}
+      </Badge>
+    );
   };
 
   return (
@@ -63,14 +96,15 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
         )}
 
         <div className="space-y-4">
-          {assets.map((asset, index) => (
-            <div key={index} className="border rounded-lg p-4 space-y-3">
+          {assets.map((asset) => (
+            <div key={asset.id} className="border rounded-lg p-4 space-y-3">
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2">
                     <Badge className={getAssetTypeColor(asset.type)}>
                       {asset.type.toUpperCase()}
                     </Badge>
+                    {getProviderBadge(asset.source_system)}
                     <span className="text-xs text-muted-foreground">
                       {asset.timestamp.toLocaleString()}
                     </span>
@@ -82,25 +116,39 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
                   variant="outline"
                   onClick={() => handleDownload(asset)}
                   className="flex items-center space-x-1"
+                  disabled={!asset.url}
                 >
                   <Download className="h-4 w-4" />
                   <span>Download</span>
                 </Button>
               </div>
               
-              {asset.type !== 'content' && (
+              {asset.type === 'image' && asset.url && (
                 <div className="border rounded overflow-hidden">
                   <img 
                     src={asset.url} 
-                    alt="Generated content"
+                    alt="Generated image"
                     className="w-full h-48 object-cover"
                   />
                 </div>
               )}
               
+              {asset.type === 'video' && asset.url && (
+                <div className="border rounded overflow-hidden bg-black">
+                  <video 
+                    src={asset.url} 
+                    controls
+                    className="w-full h-48 object-contain"
+                    poster={asset.url}
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              )}
+              
               {asset.type === 'content' && (
                 <div className="bg-gray-50 p-3 rounded text-sm">
-                  <strong>Sample Generated Content:</strong><br/>
+                  <strong>Generated Marketing Content:</strong><br/>
                   "Experience premium sound quality with our wireless headphones. Perfect for professionals who demand excellence in every detail. #AudioExcellence #WirelessFreedom"
                 </div>
               )}

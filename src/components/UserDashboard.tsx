@@ -5,50 +5,108 @@ import { InstructionModule } from "./InstructionModule";
 import { GeneratorButtons } from "./GeneratorButtons";
 import { AssetDisplay } from "./AssetDisplay";
 import { useToast } from "@/hooks/use-toast";
+import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { useVideoGeneration } from "@/hooks/useVideoGeneration";
+import { useContentGeneration } from "@/hooks/useContentGeneration";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';
 
 interface GeneratedAsset {
+  id: string;
   type: GeneratorType;
   url: string;
   instruction: string;
   timestamp: Date;
+  source_system?: string;
 }
 
 export function UserDashboard() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [approvedInstruction, setApprovedInstruction] = useState<string | null>(null);
   const [generatedAssets, setGeneratedAssets] = useState<GeneratedAsset[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+
+  const { generateImage, isGenerating: isGeneratingImage } = useImageGeneration({
+    onSuccess: (image) => {
+      const asset: GeneratedAsset = {
+        id: image.id,
+        type: 'image',
+        url: image.url,
+        instruction: image.instruction,
+        timestamp: image.timestamp,
+        source_system: image.source_system
+      };
+      setGeneratedAssets(prev => [asset, ...prev]);
+    }
+  });
+
+  const { generateVideo, isGenerating: isGeneratingVideo } = useVideoGeneration({
+    onSuccess: (video) => {
+      const asset: GeneratedAsset = {
+        id: video.id,
+        type: 'video',
+        url: video.url,
+        instruction: video.instruction,
+        timestamp: video.timestamp,
+        source_system: video.source_system
+      };
+      setGeneratedAssets(prev => [asset, ...prev]);
+    }
+  });
+
+  const { generateContent, isGenerating: isGeneratingContent } = useContentGeneration({
+    onSuccess: (content) => {
+      const asset: GeneratedAsset = {
+        id: `content-${Date.now()}`,
+        type: 'content',
+        url: '', // Content doesn't have a URL
+        instruction: approvedInstruction || '',
+        timestamp: new Date(),
+        source_system: 'openai'
+      };
+      setGeneratedAssets(prev => [asset, ...prev]);
+    }
+  });
 
   const handleGenerate = async (type: GeneratorType) => {
     if (!selectedImage || !approvedInstruction) return;
 
-    setIsGenerating(true);
     toast({
       title: "Generation Started",
       description: `Starting ${type} generation...`,
     });
 
-    // Simulate API generation delay
-    setTimeout(() => {
-      const newAsset: GeneratedAsset = {
-        type,
-        url: selectedImage, // For demo, using selected image as result
-        instruction: approvedInstruction,
-        timestamp: new Date()
-      };
-
-      setGeneratedAssets(prev => [newAsset, ...prev]);
-      setIsGenerating(false);
-      
+    try {
+      switch (type) {
+        case 'image':
+          await generateImage(approvedInstruction);
+          break;
+        case 'video':
+          await generateVideo(approvedInstruction, selectedImage, 'runway');
+          break;
+        case 'content':
+          await generateContent(approvedInstruction);
+          break;
+        case 'combo':
+          // Generate all three types
+          await Promise.all([
+            generateImage(approvedInstruction),
+            generateVideo(approvedInstruction, selectedImage, 'runway'),
+            generateContent(approvedInstruction)
+          ]);
+          break;
+      }
+    } catch (error) {
+      console.error('Generation error:', error);
       toast({
-        title: "Generation Complete",
-        description: `Your ${type} has been generated successfully!`,
+        title: "Generation Failed",
+        description: "Failed to generate content. Please try again.",
+        variant: "destructive",
       });
-    }, 3000);
+    }
   };
+
+  const isGenerating = isGeneratingImage || isGeneratingVideo || isGeneratingContent;
 
   return (
     <div className="space-y-6">
