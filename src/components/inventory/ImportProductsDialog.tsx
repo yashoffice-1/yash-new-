@@ -23,7 +23,18 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>("");
 
-  const parseCSVLine = (line: string): string[] => {
+  const detectDelimiter = (csvContent: string): string => {
+    const firstLine = csvContent.split('\n')[0];
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+    
+    console.log(`Delimiter detection - Commas: ${commaCount}, Semicolons: ${semicolonCount}`);
+    
+    // Return the delimiter with more occurrences
+    return semicolonCount > commaCount ? ';' : ',';
+  };
+
+  const parseCSVLine = (line: string, delimiter: string = ','): string[] => {
     const result: string[] = [];
     let current = '';
     let inQuotes = false;
@@ -40,7 +51,7 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
           // Toggle quote mode
           inQuotes = !inQuotes;
         }
-      } else if (char === ',' && !inQuotes) {
+      } else if (char === delimiter && !inQuotes) {
         // End of field
         result.push(current.trim());
         current = '';
@@ -181,6 +192,10 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
       console.log('Starting CSV import...');
       console.log('CSV content preview:', csvContent.substring(0, 500));
       
+      // Detect delimiter
+      const delimiter = detectDelimiter(csvContent);
+      console.log(`Using delimiter: "${delimiter}"`);
+      
       const lines = csvContent.trim().split('\n').filter(line => line.trim() !== '');
       console.log(`Found ${lines.length} lines in CSV`);
       
@@ -188,7 +203,7 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
         throw new Error("CSV must have at least a header row and one data row");
       }
 
-      const headers = parseCSVLine(lines[0]).map(h => h.trim());
+      const headers = parseCSVLine(lines[0], delimiter).map(h => h.trim());
       console.log('Parsed headers:', headers);
       
       const products = [];
@@ -201,7 +216,7 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
 
       for (let i = 1; i < lines.length; i++) {
         try {
-          const values = parseCSVLine(lines[i]);
+          const values = parseCSVLine(lines[i], delimiter);
           console.log(`Processing row ${i + 1}:`, values);
 
           // Use the Google Shopping field mapper
@@ -358,7 +373,7 @@ Smart Watch,SW001,299.99,TechWear,Fitness tracking smartwatch,https://example.co
             <span>Import Products</span>
           </DialogTitle>
           <DialogDescription>
-            Import multiple products from JSON, CSV data, or upload a CSV file. Supports Google Shopping feeds and custom formats.
+            Import multiple products from JSON, CSV data, or upload a CSV file. Supports Google Shopping feeds and custom formats. Automatically detects comma (,) or semicolon (;) delimited files.
           </DialogDescription>
         </DialogHeader>
 
@@ -398,7 +413,7 @@ Smart Watch,SW001,299.99,TechWear,Fitness tracking smartwatch,https://example.co
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              <strong>Google Shopping Feeds Supported:</strong> This importer automatically maps Google Shopping feed columns like 'title', 'image link', 'additional image link', 'product type', and others to the appropriate inventory fields.
+              <strong>Multiple Formats Supported:</strong> This importer automatically detects comma (,) or semicolon (;) delimited CSV files and maps Google Shopping feed columns like 'title', 'image link', 'additional image link', 'product type', and others to the appropriate inventory fields.
             </AlertDescription>
           </Alert>
 
@@ -455,23 +470,24 @@ Smart Watch,SW001,299.99,TechWear,Fitness tracking smartwatch,https://example.co
                   <strong>CSV Format Examples:</strong>
                   <div className="mt-2 space-y-2">
                     <div>
-                      <p className="text-xs font-medium">Standard Format:</p>
+                      <p className="text-xs font-medium">Standard Format (Comma-delimited):</p>
                       <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
                         {csvExample}
                       </pre>
                     </div>
                     <div>
-                      <p className="text-xs font-medium">Google Shopping Feed Format:</p>
+                      <p className="text-xs font-medium">Google Shopping Feed Format (Semicolon-delimited):</p>
                       <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
-                        {googleShoppingExample}
+                        {googleShoppingExample.replace(/,/g, ';')}
                       </pre>
                     </div>
                   </div>
                   <p className="mt-2 text-xs">
+                    • Supports both comma (,) and semicolon (;) delimited files<br/>
                     • Separate multiple image URLs with semicolons (;)<br/>
                     • Required: 'name' or 'title' column<br/>
-                    • Values with commas should be enclosed in quotes<br/>
-                    • Supports Google Shopping feed columns automatically
+                    • Values with delimiters should be enclosed in quotes<br/>
+                    • Automatically detects and maps Google Shopping feed columns
                   </p>
                 </AlertDescription>
               </Alert>
@@ -511,6 +527,7 @@ Smart Watch,SW001,299.99,TechWear,Fitness tracking smartwatch,https://example.co
                   <p className="mt-2 text-xs">
                     • First row must contain column headers<br/>
                     • Required: 'name' or 'title' column<br/>
+                    • Supports both comma (,) and semicolon (;) delimited files<br/>
                     • Supported columns: name, title, description, price, sku, id, category, product_type, brand, images, image_link, additional_image_link<br/>
                     • Separate multiple image URLs with semicolons (;)<br/>
                     • Google Shopping feed formats are automatically detected and mapped
