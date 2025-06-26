@@ -27,7 +27,11 @@ interface InventoryItem {
   updated_at: string;
 }
 
-export function InventoryManager() {
+interface InventoryManagerProps {
+  onProductSelect?: (product: InventoryItem) => void;
+}
+
+export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -124,6 +128,16 @@ export function InventoryManager() {
     });
   };
 
+  const handleUseForGeneration = (product: InventoryItem) => {
+    console.log('Using product for generation:', product);
+    onProductSelect?.(product);
+    
+    toast({
+      title: "Product Selected",
+      description: `${product.name} has been selected for content generation.`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -196,10 +210,7 @@ export function InventoryManager() {
                   product={product}
                   onEdit={() => setSelectedProduct(product)}
                   onDelete={() => handleDeleteProduct(product.id)}
-                  onUseForGeneration={() => {
-                    // This will integrate with the existing generation flow
-                    console.log('Using product for generation:', product);
-                  }}
+                  onUseForGeneration={handleUseForGeneration}
                 />
               ))}
             </div>

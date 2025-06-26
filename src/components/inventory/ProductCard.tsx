@@ -23,7 +23,7 @@ interface ProductCardProps {
   product: InventoryItem;
   onEdit: () => void;
   onDelete: () => void;
-  onUseForGeneration: () => void;
+  onUseForGeneration: (product: InventoryItem) => void;
 }
 
 export function ProductCard({ product, onEdit, onDelete, onUseForGeneration }: ProductCardProps) {
@@ -90,7 +90,7 @@ export function ProductCard({ product, onEdit, onDelete, onUseForGeneration }: P
           <div className="flex gap-2 pt-2">
             <Button
               size="sm"
-              onClick={onUseForGeneration}
+              onClick={() => onUseForGeneration(product)}
               className="flex-1 text-xs"
             >
               <Wand2 className="h-3 w-3 mr-1" />

@@ -5,7 +5,26 @@ import { Package, TrendingUp, DollarSign, ShoppingCart } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export function InventoryDashboard() {
+interface InventoryItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  sku: string | null;
+  category: string | null;
+  brand: string | null;
+  images: string[];
+  metadata: any;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface InventoryDashboardProps {
+  onProductSelect?: (product: InventoryItem) => void;
+}
+
+export function InventoryDashboard({ onProductSelect }: InventoryDashboardProps) {
   // Fetch inventory stats
   const { data: stats } = useQuery({
     queryKey: ['inventory-stats'],
@@ -80,7 +99,7 @@ export function InventoryDashboard() {
       </div>
 
       {/* Main Inventory Manager */}
-      <InventoryManager />
+      <InventoryManager onProductSelect={onProductSelect} />
     </div>
   );
 }

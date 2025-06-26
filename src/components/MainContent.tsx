@@ -8,9 +8,30 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { FileText, Image, Library, Package } from "lucide-react";
 
+interface InventoryItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  sku: string | null;
+  category: string | null;
+  brand: string | null;
+  images: string[];
+  metadata: any;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export function MainContent() {
   const { isAdmin } = useView();
   const [activeTab, setActiveTab] = useState<'generate' | 'library' | 'inventory'>('generate');
+  const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+
+  const handleProductSelect = (product: InventoryItem) => {
+    setSelectedProduct(product);
+    setActiveTab('generate');
+  };
 
   if (isAdmin) {
     return <AdminDashboard />;
@@ -49,8 +70,8 @@ export function MainContent() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'generate' && <UserDashboard />}
-      {activeTab === 'inventory' && <InventoryDashboard />}
+      {activeTab === 'generate' && <UserDashboard selectedProduct={selectedProduct} />}
+      {activeTab === 'inventory' && <InventoryDashboard onProductSelect={handleProductSelect} />}
       {activeTab === 'library' && <AssetLibrary />}
     </div>
   );

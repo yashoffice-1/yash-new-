@@ -10,9 +10,15 @@ interface GeneratedContent {
 
 interface UseContentGenerationProps {
   onSuccess?: (content: GeneratedContent) => void;
+  productInfo?: {
+    name: string;
+    description?: string | null;
+    category?: string | null;
+    brand?: string | null;
+  };
 }
 
-export function useContentGeneration({ onSuccess }: UseContentGenerationProps = {}) {
+export function useContentGeneration({ onSuccess, productInfo }: UseContentGenerationProps = {}) {
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
@@ -20,14 +26,16 @@ export function useContentGeneration({ onSuccess }: UseContentGenerationProps = 
     setIsGenerating(true);
     
     try {
+      const defaultProductInfo = {
+        name: "Premium Wireless Headphones",
+        description: "High-quality audio experience with noise cancellation"
+      };
+
       const { data, error } = await supabase.functions.invoke('openai-generate', {
         body: {
           type: 'marketing-content',
           instruction: instruction,
-          productInfo: {
-            name: "Premium Wireless Headphones",
-            description: "High-quality audio experience with noise cancellation"
-          }
+          productInfo: productInfo || defaultProductInfo
         }
       });
 
