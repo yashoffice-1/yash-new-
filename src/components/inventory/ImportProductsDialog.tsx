@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,7 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
   const [csvData, setCsvData] = useState("");
   const [importMethod, setImportMethod] = useState<'json' | 'csv' | 'file'>('json');
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>("");
 
   const parseCSVLine = (line: string): string[] => {
     const result: string[] = [];
@@ -57,15 +57,21 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
   const mapGoogleShoppingFields = (headers: string[], values: string[]) => {
     const product: any = { status: 'active', images: [], metadata: {} };
 
+    console.log('Mapping headers:', headers);
+    console.log('Mapping values:', values);
+
     headers.forEach((header, index) => {
       const value = values[index] ? values[index].trim() : '';
       const lowerHeader = header.toLowerCase().trim();
+      
+      console.log(`Processing header: "${lowerHeader}" with value: "${value}"`);
       
       // Map Google Shopping fields to our schema
       switch (lowerHeader) {
         case 'title':
         case 'name':
           product.name = value;
+          console.log(`Set name to: ${value}`);
           break;
         case 'description':
           product.description = value || null;
@@ -116,16 +122,20 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
       }
     });
 
+    console.log('Final mapped product:', product);
     return product;
   };
 
   const handleJsonImport = async () => {
     try {
+      console.log('Starting JSON import...');
       const products = JSON.parse(jsonData);
       
       if (!Array.isArray(products)) {
         throw new Error("JSON data must be an array of products");
       }
+
+      console.log(`Parsed ${products.length} products from JSON`);
 
       // Validate and transform products
       const validProducts = products.map((product, index) => {
@@ -147,31 +157,41 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
         };
       });
 
+      console.log('Validated products:', validProducts);
+
       // Insert products into database
       const { error } = await supabase
         .from('inventory')
         .insert(validProducts);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        throw error;
+      }
 
       return validProducts.length;
     } catch (error: any) {
+      console.error('JSON Import Error:', error);
       throw new Error(`JSON Import Error: ${error.message}`);
     }
   };
 
   const handleCsvImport = async (csvContent: string) => {
     try {
+      console.log('Starting CSV import...');
+      console.log('CSV content preview:', csvContent.substring(0, 500));
+      
       const lines = csvContent.trim().split('\n').filter(line => line.trim() !== '');
+      console.log(`Found ${lines.length} lines in CSV`);
       
       if (lines.length < 2) {
         throw new Error("CSV must have at least a header row and one data row");
       }
 
       const headers = parseCSVLine(lines[0]).map(h => h.trim());
+      console.log('Parsed headers:', headers);
+      
       const products = [];
-
-      console.log('CSV Headers:', headers);
 
       // Check if required fields exist (flexible for Google Shopping feeds)
       const hasName = headers.some(h => ['name', 'title'].includes(h.toLowerCase()));
@@ -180,34 +200,51 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
       }
 
       for (let i = 1; i < lines.length; i++) {
-        const values = parseCSVLine(lines[i]);
-        
-        console.log(`Processing row ${i + 1}:`, values);
+        try {
+          const values = parseCSVLine(lines[i]);
+          console.log(`Processing row ${i + 1}:`, values);
 
-        // Use the Google Shopping field mapper
-        const product = mapGoogleShoppingFields(headers, values);
+          // Use the Google Shopping field mapper
+          const product = mapGoogleShoppingFields(headers, values);
 
-        if (!product.name || product.name === '') {
-          throw new Error(`Row ${i + 1} is missing required name/title field or it is empty`);
+          if (!product.name || product.name === '') {
+            console.warn(`Row ${i + 1} is missing required name/title field or it is empty`);
+            continue; // Skip this row instead of throwing error
+          }
+
+          console.log(`Successfully processed product for row ${i + 1}:`, product);
+          products.push(product);
+        } catch (rowError: any) {
+          console.error(`Error processing row ${i + 1}:`, rowError);
+          throw new Error(`Error in row ${i + 1}: ${rowError.message}`);
         }
-
-        console.log(`Processed product for row ${i + 1}:`, product);
-        products.push(product);
       }
 
       if (products.length === 0) {
-        throw new Error("No valid products found in CSV");
+        throw new Error("No valid products found in CSV. Please check that your CSV has the required 'name' or 'title' column with data.");
       }
 
+      console.log(`Prepared ${products.length} products for database insertion`);
+
       // Insert products into database
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('inventory')
-        .insert(products);
+        .insert(products)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        throw error;
+      }
 
+      console.log('Successfully inserted products:', data);
       return products.length;
     } catch (error: any) {
+      console.error('CSV Import Error:', error);
+      setDebugInfo(`CSV Import Debug Info:
+Headers found: ${error.headers || 'Not available'}
+Error: ${error.message}
+Stack: ${error.stack || 'Not available'}`);
       throw new Error(`CSV Import Error: ${error.message}`);
     }
   };
@@ -221,7 +258,16 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
+        console.log('File uploaded, content length:', content.length);
         setCsvData(content);
+      };
+      reader.onerror = (e) => {
+        console.error('File reading error:', e);
+        toast({
+          title: "File Reading Error",
+          description: "Failed to read the CSV file. Please try again.",
+          variant: "destructive",
+        });
       };
       reader.readAsText(file);
     } else {
@@ -253,14 +299,24 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
     }
 
     setLoading(true);
+    setDebugInfo(""); // Clear previous debug info
 
     try {
+      console.log(`Starting ${importMethod} import process...`);
       const count = importMethod === 'json' ? await handleJsonImport() : await handleCsvImport(csvData);
+      
+      console.log(`Import completed successfully. Imported ${count} products.`);
       
       onProductsImported(count);
       setJsonData("");
       setCsvData("");
       setCsvFile(null);
+      setDebugInfo("");
+      
+      toast({
+        title: "Import Successful",
+        description: `Successfully imported ${count} products.`,
+      });
     } catch (error: any) {
       console.error('Import error:', error);
       toast({
@@ -345,6 +401,19 @@ Smart Watch,SW001,299.99,TechWear,Fitness tracking smartwatch,https://example.co
               <strong>Google Shopping Feeds Supported:</strong> This importer automatically maps Google Shopping feed columns like 'title', 'image link', 'additional image link', 'product type', and others to the appropriate inventory fields.
             </AlertDescription>
           </Alert>
+
+          {/* Debug Info Display */}
+          {debugInfo && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Debug Information:</strong>
+                <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-x-auto whitespace-pre-wrap">
+                  {debugInfo}
+                </pre>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {importMethod === 'json' && (
             <div className="space-y-2">
