@@ -9,6 +9,62 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      asset_library: {
+        Row: {
+          asset_type: string
+          asset_url: string
+          content: string | null
+          created_at: string
+          description: string | null
+          favorited: boolean | null
+          id: string
+          instruction: string
+          original_asset_id: string | null
+          source_system: string
+          tags: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          asset_type: string
+          asset_url: string
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          favorited?: boolean | null
+          id?: string
+          instruction: string
+          original_asset_id?: string | null
+          source_system: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          asset_type?: string
+          asset_url?: string
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          favorited?: boolean | null
+          id?: string
+          instruction?: string
+          original_asset_id?: string | null
+          source_system?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_library_original_asset_id_fkey"
+            columns: ["original_asset_id"]
+            isOneToOne: false
+            referencedRelation: "generated_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_assets: {
         Row: {
           approved: boolean | null

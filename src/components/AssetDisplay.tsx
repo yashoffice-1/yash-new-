@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +5,7 @@ import { Download, Copy, Check, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SaveAssetDialog } from "./SaveAssetDialog";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';
 
@@ -195,7 +195,22 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
                   )}
                 </div>
                 
-                <div className="ml-4">
+                <div className="ml-4 flex flex-col space-y-2">
+                  {/* Save to Library Button */}
+                  {asset.url && (
+                    <SaveAssetDialog
+                      asset={{
+                        id: asset.id,
+                        type: asset.type,
+                        url: asset.url,
+                        instruction: asset.instruction,
+                        content: asset.content,
+                        source_system: asset.source_system,
+                      }}
+                    />
+                  )}
+
+                  {/* Download/Copy Button */}
                   {asset.type === 'content' ? (
                     <Button
                       size="sm"
