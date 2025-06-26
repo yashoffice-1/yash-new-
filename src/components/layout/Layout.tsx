@@ -1,18 +1,16 @@
 
+import { ReactNode } from "react";
 import { Header } from "./Header";
-import { useView } from "@/contexts/ViewContext";
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { isAdmin } = useView();
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Header />
-      <main className={`container mx-auto px-4 py-6 ${isAdmin ? 'max-w-7xl' : 'max-w-4xl'}`}>
+      <main className="container mx-auto px-4 py-8">
         {children}
       </main>
     </div>

@@ -1,25 +1,22 @@
 
-import React, { createContext, useContext, useState } from 'react';
-
-type ViewMode = 'admin' | 'user';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 interface ViewContextType {
-  viewMode: ViewMode;
-  setViewMode: (mode: ViewMode) => void;
   isAdmin: boolean;
+  toggleView: () => void;
 }
 
 const ViewContext = createContext<ViewContextType | undefined>(undefined);
 
-export function ViewProvider({ children }: { children: React.ReactNode }) {
-  const [viewMode, setViewMode] = useState<ViewMode>('user');
+export function ViewProvider({ children }: { children: ReactNode }) {
+  const [isAdmin, setIsAdmin] = useState(true); // Start in admin mode
+
+  const toggleView = () => {
+    setIsAdmin(prev => !prev);
+  };
 
   return (
-    <ViewContext.Provider value={{
-      viewMode,
-      setViewMode,
-      isAdmin: viewMode === 'admin'
-    }}>
+    <ViewContext.Provider value={{ isAdmin, toggleView }}>
       {children}
     </ViewContext.Provider>
   );

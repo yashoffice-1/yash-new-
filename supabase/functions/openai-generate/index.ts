@@ -10,7 +10,7 @@ const corsHeaders = {
 };
 
 interface OpenAIRequest {
-  type: 'clean-instruction' | 'generate-content';
+  type: 'clean-instruction' | 'marketing-content';
   instruction: string;
   productInfo?: {
     name: string;
@@ -49,7 +49,7 @@ Guidelines:
 ${productInfo ? `Product context: ${productInfo.name} - ${productInfo.description}` : ''}
 
 Return only the optimized instruction, no explanation.`;
-    } else if (type === 'generate-content') {
+    } else if (type === 'marketing-content') {
       systemPrompt = `You are a professional marketing copywriter. Create engaging marketing content based on the provided instruction. Focus on benefits, emotional appeal, and clear calls to action.`;
 
       userPrompt = `Create marketing content based on this instruction: "${instruction}"
