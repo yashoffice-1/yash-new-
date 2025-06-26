@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, FileText, AlertCircle } from "lucide-react";
+import { Upload, FileText, AlertCircle, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -54,6 +54,71 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
     return result;
   };
 
+  const mapGoogleShoppingFields = (headers: string[], values: string[]) => {
+    const product: any = { status: 'active', images: [], metadata: {} };
+
+    headers.forEach((header, index) => {
+      const value = values[index] ? values[index].trim() : '';
+      const lowerHeader = header.toLowerCase().trim();
+      
+      // Map Google Shopping fields to our schema
+      switch (lowerHeader) {
+        case 'title':
+        case 'name':
+          product.name = value;
+          break;
+        case 'description':
+          product.description = value || null;
+          break;
+        case 'price':
+        case 'sale price':
+          if (value && !isNaN(parseFloat(value.replace(/[^\d.-]/g, '')))) {
+            product.price = parseFloat(value.replace(/[^\d.-]/g, ''));
+          }
+          break;
+        case 'id':
+        case 'sku':
+        case 'mpn':
+          product.sku = value || null;
+          break;
+        case 'product type':
+        case 'google product category':
+          product.category = value || null;
+          break;
+        case 'brand':
+          product.brand = value || null;
+          break;
+        case 'image link':
+        case 'image_link':
+          if (value) {
+            product.images = [value];
+          }
+          break;
+        case 'additional image link':
+        case 'additional_image_link':
+          if (value && product.images.length > 0) {
+            // Split multiple additional images by semicolon or pipe
+            const additionalImages = value.split(/[;|]/).map((url: string) => url.trim()).filter((url: string) => url !== '');
+            product.images = [...product.images, ...additionalImages];
+          }
+          break;
+        case 'images':
+          if (value) {
+            // Split by semicolon and filter out empty strings
+            product.images = value.split(';').map((url: string) => url.trim()).filter((url: string) => url !== '');
+          }
+          break;
+        default:
+          // Add other fields to metadata for reference
+          if (value) {
+            product.metadata[header] = value;
+          }
+      }
+    });
+
+    return product;
+  };
+
   const handleJsonImport = async () => {
     try {
       const products = JSON.parse(jsonData);
@@ -64,18 +129,19 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
 
       // Validate and transform products
       const validProducts = products.map((product, index) => {
-        if (!product.name) {
-          throw new Error(`Product at index ${index} is missing required 'name' field`);
+        if (!product.name && !product.title) {
+          throw new Error(`Product at index ${index} is missing required 'name' or 'title' field`);
         }
 
         return {
-          name: product.name,
+          name: product.name || product.title,
           description: product.description || null,
           price: product.price ? parseFloat(product.price) : null,
-          sku: product.sku || null,
-          category: product.category || null,
+          sku: product.sku || product.id || null,
+          category: product.category || product.product_type || null,
           brand: product.brand || null,
-          images: Array.isArray(product.images) ? product.images : [],
+          images: Array.isArray(product.images) ? product.images : 
+                 product.image_link ? [product.image_link] : [],
           metadata: product.metadata || {},
           status: 'active',
         };
@@ -102,60 +168,27 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
         throw new Error("CSV must have at least a header row and one data row");
       }
 
-      const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+      const headers = parseCSVLine(lines[0]).map(h => h.trim());
       const products = [];
 
       console.log('CSV Headers:', headers);
 
-      // Check if 'name' column exists
-      if (!headers.includes('name')) {
-        throw new Error("CSV must contain a 'name' column");
+      // Check if required fields exist (flexible for Google Shopping feeds)
+      const hasName = headers.some(h => ['name', 'title'].includes(h.toLowerCase()));
+      if (!hasName) {
+        throw new Error("CSV must contain a 'name' or 'title' column");
       }
 
       for (let i = 1; i < lines.length; i++) {
         const values = parseCSVLine(lines[i]);
-        const product: any = { status: 'active', images: [], metadata: {} };
-
+        
         console.log(`Processing row ${i + 1}:`, values);
 
-        headers.forEach((header, index) => {
-          const value = values[index] ? values[index].trim() : '';
-          
-          switch (header) {
-            case 'name':
-              product.name = value;
-              break;
-            case 'description':
-              product.description = value || null;
-              break;
-            case 'price':
-              product.price = value && !isNaN(parseFloat(value)) ? parseFloat(value) : null;
-              break;
-            case 'sku':
-              product.sku = value || null;
-              break;
-            case 'category':
-              product.category = value || null;
-              break;
-            case 'brand':
-              product.brand = value || null;
-              break;
-            case 'images':
-              if (value) {
-                // Split by semicolon and filter out empty strings
-                product.images = value.split(';').map((url: string) => url.trim()).filter((url: string) => url !== '');
-              }
-              break;
-            default:
-              // Add other fields to metadata
-              if (value) {
-                product.metadata[header] = value;
-              }
-          }
-        });
+        // Use the Google Shopping field mapper
+        const product = mapGoogleShoppingFields(headers, values);
 
         if (!product.name || product.name === '') {
-          throw new Error(`Row ${i + 1} is missing required 'name' field or name is empty`);
+          throw new Error(`Row ${i + 1} is missing required name/title field or it is empty`);
         }
 
         console.log(`Processed product for row ${i + 1}:`, product);
@@ -256,6 +289,10 @@ export function ImportProductsDialog({ open, onOpenChange, onProductsImported }:
 Premium Headphones,High-quality wireless headphones,199.99,HP001,Electronics,AudioTech,https://example.com/image1.jpg;https://example.com/image2.jpg
 Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https://example.com/watch.jpg`;
 
+  const googleShoppingExample = `title,id,price,brand,description,image link,additional image link,product type
+Premium Headphones,HP001,199.99,AudioTech,High-quality wireless headphones,https://example.com/image1.jpg,https://example.com/image2.jpg,Electronics > Audio
+Smart Watch,SW001,299.99,TechWear,Fitness tracking smartwatch,https://example.com/watch.jpg,,Electronics > Wearables`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -265,7 +302,7 @@ Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https:
             <span>Import Products</span>
           </DialogTitle>
           <DialogDescription>
-            Import multiple products from JSON, CSV data, or upload a CSV file
+            Import multiple products from JSON, CSV data, or upload a CSV file. Supports Google Shopping feeds and custom formats.
           </DialogDescription>
         </DialogHeader>
 
@@ -300,6 +337,14 @@ Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https:
               <span>CSV File</span>
             </Button>
           </div>
+
+          {/* Google Shopping Feed Info */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Google Shopping Feeds Supported:</strong> This importer automatically maps Google Shopping feed columns like 'title', 'image link', 'additional image link', 'product type', and others to the appropriate inventory fields.
+            </AlertDescription>
+          </Alert>
 
           {importMethod === 'json' && (
             <div className="space-y-2">
@@ -338,14 +383,26 @@ Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https:
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>CSV Format Example:</strong>
-                  <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-x-auto">
-                    {csvExample}
-                  </pre>
+                  <strong>CSV Format Examples:</strong>
+                  <div className="mt-2 space-y-2">
+                    <div>
+                      <p className="text-xs font-medium">Standard Format:</p>
+                      <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
+                        {csvExample}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium">Google Shopping Feed Format:</p>
+                      <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
+                        {googleShoppingExample}
+                      </pre>
+                    </div>
+                  </div>
                   <p className="mt-2 text-xs">
                     • Separate multiple image URLs with semicolons (;)<br/>
-                    • 'name' column is required<br/>
-                    • Values with commas should be enclosed in quotes
+                    • Required: 'name' or 'title' column<br/>
+                    • Values with commas should be enclosed in quotes<br/>
+                    • Supports Google Shopping feed columns automatically
                   </p>
                 </AlertDescription>
               </Alert>
@@ -384,9 +441,10 @@ Smart Watch,Fitness tracking smartwatch,299.99,SW001,Electronics,TechWear,https:
                   <strong>CSV File Requirements:</strong>
                   <p className="mt-2 text-xs">
                     • First row must contain column headers<br/>
-                    • 'name' column is required<br/>
-                    • Supported columns: name, description, price, sku, category, brand, images<br/>
-                    • Separate multiple image URLs with semicolons (;)
+                    • Required: 'name' or 'title' column<br/>
+                    • Supported columns: name, title, description, price, sku, id, category, product_type, brand, images, image_link, additional_image_link<br/>
+                    • Separate multiple image URLs with semicolons (;)<br/>
+                    • Google Shopping feed formats are automatically detected and mapped
                   </p>
                 </AlertDescription>
               </Alert>
