@@ -22,6 +22,20 @@ interface RunwayRequest {
   };
 }
 
+// Function to create a concise prompt from the instruction and product info
+function createConcisePrompt(instruction: string, productInfo?: { name: string; description: string }): string {
+  // Limit the instruction to 500 characters to avoid API issues
+  const truncatedInstruction = instruction.length > 500 ? instruction.substring(0, 500) + "..." : instruction;
+  
+  // Create a simple, focused prompt
+  if (productInfo?.name) {
+    const productName = productInfo.name.substring(0, 100); // Limit product name
+    return `${truncatedInstruction} Product: ${productName}`;
+  }
+  
+  return truncatedInstruction;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -52,9 +66,10 @@ serve(async (req) => {
 
     console.log(`Starting RunwayML ${type} generation`);
 
-    // Enhanced prompt with product context
-    const enhancedPrompt = `${instruction}. Product: ${productInfo?.name || 'Premium Wireless Headphones'}. ${productInfo?.description || 'High-quality audio device with professional design'}`;
-    console.log('Enhanced prompt:', enhancedPrompt);
+    // Create a concise prompt to avoid API issues
+    const concisePrompt = createConcisePrompt(instruction, productInfo);
+    console.log('Concise prompt:', concisePrompt);
+    console.log('Prompt length:', concisePrompt.length);
 
     // Use RunwayML's correct API structure based on documentation
     let requestBody: any;
@@ -63,7 +78,7 @@ serve(async (req) => {
     if (type === 'image') {
       // Use correct image generation endpoint and structure
       requestBody = {
-        promptText: enhancedPrompt,
+        promptText: concisePrompt,
         model: "gen4_image",
         ratio: "1920:1080"
       };
@@ -85,7 +100,7 @@ serve(async (req) => {
         requestBody = {
           model: 'gen4_turbo',
           promptImage: imageUrl,
-          promptText: enhancedPrompt,
+          promptText: concisePrompt,
           ratio: '1280:720',
           duration: 5
         };
@@ -94,7 +109,7 @@ serve(async (req) => {
         // Text-to-video generation
         requestBody = {
           model: 'gen4_turbo',
-          promptText: enhancedPrompt,
+          promptText: concisePrompt,
           ratio: '1280:720',
           duration: 5
         };
