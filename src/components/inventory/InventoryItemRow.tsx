@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Package, Image, Video, FileText, Layers } from "lucide-react";
 import { GenerationModal } from "./GenerationModal";
+import { GenerationResultsModal } from "./GenerationResultsModal";
+import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { useVideoGeneration } from "@/hooks/useVideoGeneration";
+import { useContentGeneration } from "@/hooks/useContentGeneration";
 
 interface InventoryItem {
   id: string;
@@ -21,6 +25,18 @@ interface InventoryItem {
   updated_at: string;
 }
 
+interface GeneratedAsset {
+  id: string;
+  type: 'image' | 'video' | 'content' | 'formats';
+  url?: string;
+  content?: string;
+  instruction: string;
+  timestamp: Date;
+  source_system?: string;
+  status?: string;
+  message?: string;
+}
+
 interface InventoryItemRowProps {
   product: InventoryItem;
   onGenerate: (productId: string, type: 'image' | 'video' | 'content' | 'formats') => void;
@@ -28,18 +44,115 @@ interface InventoryItemRowProps {
 
 export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps) {
   const [showModal, setShowModal] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
   const [generationType, setGenerationType] = useState<'image' | 'video' | 'content' | 'formats'>('image');
+  const [generatedAssets, setGeneratedAssets] = useState<GeneratedAsset[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const primaryImage = product.images?.[0];
+
+  const productInfo = {
+    name: product.name,
+    description: product.description,
+    category: product.category,
+    brand: product.brand,
+  };
+
+  const { generateImage } = useImageGeneration({
+    onSuccess: (image) => {
+      const asset: GeneratedAsset = {
+        id: image.id,
+        type: 'image',
+        url: image.url,
+        instruction: '',
+        timestamp: image.timestamp,
+        source_system: image.source_system,
+        status: image.status,
+        message: image.message
+      };
+      setGeneratedAssets(prev => [asset, ...prev]);
+      setIsGenerating(false);
+      setShowResultsModal(true);
+    }
+  });
+
+  const { generateVideo } = useVideoGeneration({
+    onSuccess: (video) => {
+      const asset: GeneratedAsset = {
+        id: video.id,
+        type: 'video',
+        url: video.url,
+        instruction: '',
+        timestamp: video.timestamp,
+        source_system: video.source_system,
+        message: video.message
+      };
+      setGeneratedAssets(prev => [asset, ...prev]);
+      setIsGenerating(false);
+      setShowResultsModal(true);
+    }
+  });
+
+  const { generateContent } = useContentGeneration({
+    onSuccess: (content) => {
+      const asset: GeneratedAsset = {
+        id: `content-${Date.now()}`,
+        type: 'content',
+        content: content.content,
+        instruction: '',
+        timestamp: content.timestamp,
+        source_system: 'openai'
+      };
+      setGeneratedAssets(prev => [asset, ...prev]);
+      setIsGenerating(false);
+      setShowResultsModal(true);
+    },
+    productInfo
+  });
 
   const handleGenerateClick = (type: 'image' | 'video' | 'content' | 'formats') => {
     setGenerationType(type);
     setShowModal(true);
   };
 
-  const handleConfirmGeneration = (instruction: string) => {
-    onGenerate(product.id, generationType);
+  const handleConfirmGeneration = async (instruction: string) => {
+    setIsGenerating(true);
     setShowModal(false);
+    
+    // Store the instruction for the results
+    const currentInstruction = instruction;
+    
+    try {
+      switch (generationType) {
+        case 'image':
+          await generateImage(currentInstruction);
+          break;
+        case 'video':
+          await generateVideo(currentInstruction, primaryImage);
+          break;
+        case 'content':
+          await generateContent(currentInstruction);
+          break;
+        case 'formats':
+          // For formats, generate multiple types
+          await generateImage(currentInstruction);
+          await generateVideo(currentInstruction, primaryImage);
+          await generateContent(currentInstruction);
+          break;
+      }
+      
+      // Update the instruction in the latest asset
+      setGeneratedAssets(prev => prev.map((asset, index) => 
+        index === 0 ? { ...asset, instruction: currentInstruction } : asset
+      ));
+      
+    } catch (error) {
+      console.error('Generation error:', error);
+      setIsGenerating(false);
+    }
+    
+    // Trigger the original onGenerate callback
+    onGenerate(product.id, generationType);
   };
 
   const getGenerationTypeLabel = () => {
@@ -111,6 +224,7 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
                 size="sm"
                 onClick={() => handleGenerateClick('image')}
                 className="flex items-center space-x-1"
+                disabled={isGenerating}
               >
                 <Image className="h-4 w-4" />
                 <span className="hidden sm:inline">Image</span>
@@ -121,6 +235,7 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
                 size="sm"
                 onClick={() => handleGenerateClick('video')}
                 className="flex items-center space-x-1"
+                disabled={isGenerating}
               >
                 <Video className="h-4 w-4" />
                 <span className="hidden sm:inline">Video</span>
@@ -131,6 +246,7 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
                 size="sm"
                 onClick={() => handleGenerateClick('content')}
                 className="flex items-center space-x-1"
+                disabled={isGenerating}
               >
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Content</span>
@@ -141,6 +257,7 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
                 size="sm"
                 onClick={() => handleGenerateClick('formats')}
                 className="flex items-center space-x-1"
+                disabled={isGenerating}
               >
                 <Layers className="h-4 w-4" />
                 <span className="hidden sm:inline">Formats</span>
@@ -157,6 +274,18 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
         product={product}
         generationType={generationType}
         title={getGenerationTypeLabel()}
+      />
+
+      <GenerationResultsModal
+        isOpen={showResultsModal}
+        onClose={() => setShowResultsModal(false)}
+        product={product}
+        assets={generatedAssets}
+        isGenerating={isGenerating}
+        onStartOver={() => {
+          setShowResultsModal(false);
+          setGeneratedAssets([]);
+        }}
       />
     </>
   );

@@ -1,10 +1,12 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Package } from "lucide-react";
+import { Package, Sparkles, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface InventoryItem {
   id: string;
@@ -30,8 +32,37 @@ interface GenerationModalProps {
   title: string;
 }
 
+const SUGGESTION_PROMPTS = {
+  image: [
+    "Create a high-quality product showcase image with modern styling",
+    "Design a social media ready image with vibrant colors",
+    "Generate a lifestyle image showing the product in use",
+    "Create an advertising banner with promotional text"
+  ],
+  video: [
+    "Create a dynamic product showcase video with smooth transitions",
+    "Generate an engaging social media video with motion graphics",
+    "Create a product demo video highlighting key features",
+    "Design a promotional video with cinematic effects"
+  ],
+  content: [
+    "Write compelling marketing copy for social media",
+    "Create persuasive product descriptions for e-commerce",
+    "Generate email marketing content with call-to-action",
+    "Write SEO-optimized product content for web"
+  ],
+  formats: [
+    "Create multiple format variations for different platforms",
+    "Generate content optimized for various social media channels",
+    "Create a complete marketing package with different sizes",
+    "Design responsive content for web and mobile"
+  ]
+};
+
 export function GenerationModal({ isOpen, onClose, onConfirm, product, generationType, title }: GenerationModalProps) {
+  const { toast } = useToast();
   const [instruction, setInstruction] = useState('');
+  const [isImprovingInstruction, setIsImprovingInstruction] = useState(false);
 
   const getDefaultInstruction = () => {
     const brandText = product.brand ? `for ${product.brand}` : '';
@@ -51,13 +82,78 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     }
   };
 
-  const handleOpen = () => {
+  useEffect(() => {
     if (isOpen && !instruction) {
       setInstruction(getDefaultInstruction());
+    }
+  }, [isOpen, product, generationType]);
+
+  const handleSuggestionClick = (suggestion: string) => {
+    const enhancedSuggestion = `${suggestion} for ${product.name}${product.brand ? ` by ${product.brand}` : ''}${product.description ? `. ${product.description}` : ''}`;
+    setInstruction(enhancedSuggestion);
+  };
+
+  const handleImproveInstruction = async () => {
+    if (!instruction.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an instruction first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsImprovingInstruction(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('openai-generate', {
+        body: {
+          type: 'clean-instruction',
+          instruction: instruction.trim(),
+          productInfo: {
+            name: product.name,
+            description: product.description,
+            category: product.category,
+            brand: product.brand
+          }
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to improve instruction');
+      }
+
+      setInstruction(data.result);
+      toast({
+        title: "Instruction Improved",
+        description: "Your instruction has been optimized for better AI generation.",
+      });
+    } catch (error) {
+      console.error('Error improving instruction:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to improve instruction. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImprovingInstruction(false);
     }
   };
 
   const handleConfirm = () => {
+    if (!instruction.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an instruction before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     onConfirm(instruction);
     setInstruction('');
   };
@@ -69,7 +165,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl" onOpenAutoFocus={handleOpen}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
@@ -112,12 +208,49 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                 </Badge>
               )}
             </div>
+            {product.description && (
+              <p className="text-xs text-gray-600 mt-1 line-clamp-2">{product.description}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Suggestions */}
+        <div className="space-y-3">
+          <h4 className="text-sm font-medium">Quick Ideas From Your Marketing Calendar</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {SUGGESTION_PROMPTS[generationType].map((suggestion, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                size="sm"
+                onClick={() => handleSuggestionClick(suggestion)}
+                className="text-left h-auto p-3 whitespace-normal"
+              >
+                <div className="text-xs">{suggestion}</div>
+              </Button>
+            ))}
           </div>
         </div>
 
         {/* Instruction Input */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Generation Instructions</label>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium">Generation Instructions</label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleImproveInstruction}
+              disabled={isImprovingInstruction || !instruction.trim()}
+              className="flex items-center space-x-1"
+            >
+              {isImprovingInstruction ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              <span>AI Improve</span>
+            </Button>
+          </div>
           <Textarea
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
