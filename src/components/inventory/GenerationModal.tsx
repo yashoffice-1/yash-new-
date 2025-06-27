@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +88,13 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     }
   }, [isOpen, product, generationType]);
 
+  // Reset instruction when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setInstruction('');
+    }
+  }, [isOpen]);
+
   const handleSuggestionClick = (suggestion: string) => {
     const enhancedSuggestion = `${suggestion} for ${product.name}${product.brand ? ` by ${product.brand}` : ''}${product.description ? `. ${product.description}` : ''}`;
     setInstruction(enhancedSuggestion);
@@ -155,12 +162,11 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     }
     
     onConfirm(instruction);
-    setInstruction('');
   };
 
   const handleClose = () => {
+    // Only allow closing if not generating
     onClose();
-    setInstruction('');
   };
 
   return (
@@ -262,14 +268,14 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           </p>
         </div>
 
-        <DialogFooter>
+        <div className="flex justify-between items-center pt-4 border-t">
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
           <Button onClick={handleConfirm} disabled={!instruction.trim()}>
             Generate {generationType}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

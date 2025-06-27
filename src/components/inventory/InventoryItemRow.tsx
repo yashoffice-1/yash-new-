@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,6 +47,7 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
   const [generationType, setGenerationType] = useState<'image' | 'video' | 'content' | 'formats'>('image');
   const [generatedAssets, setGeneratedAssets] = useState<GeneratedAsset[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [currentInstruction, setCurrentInstruction] = useState('');
   
   const primaryImage = product.images?.[0];
 
@@ -64,15 +64,15 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
         id: image.id,
         type: 'image',
         url: image.url,
-        instruction: '',
+        instruction: currentInstruction,
         timestamp: image.timestamp,
         source_system: image.source_system,
         status: image.status,
         message: image.message
       };
-      setGeneratedAssets(prev => [asset, ...prev]);
+      setGeneratedAssets([asset]);
       setIsGenerating(false);
-      setShowResultsModal(true);
+      // Don't close the modal here, let the results modal handle the flow
     }
   });
 
@@ -82,14 +82,13 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
         id: video.id,
         type: 'video',
         url: video.url,
-        instruction: '',
+        instruction: currentInstruction,
         timestamp: video.timestamp,
         source_system: video.source_system,
         message: video.message
       };
-      setGeneratedAssets(prev => [asset, ...prev]);
+      setGeneratedAssets([asset]);
       setIsGenerating(false);
-      setShowResultsModal(true);
     }
   });
 
@@ -99,53 +98,46 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
         id: `content-${Date.now()}`,
         type: 'content',
         content: content.content,
-        instruction: '',
+        instruction: currentInstruction,
         timestamp: content.timestamp,
         source_system: 'openai'
       };
-      setGeneratedAssets(prev => [asset, ...prev]);
+      setGeneratedAssets([asset]);
       setIsGenerating(false);
-      setShowResultsModal(true);
     },
     productInfo
   });
 
   const handleGenerateClick = (type: 'image' | 'video' | 'content' | 'formats') => {
     setGenerationType(type);
+    setGeneratedAssets([]); // Clear previous results
     setShowModal(true);
+    setShowResultsModal(false);
   };
 
   const handleConfirmGeneration = async (instruction: string) => {
+    setCurrentInstruction(instruction);
     setIsGenerating(true);
-    setShowModal(false);
-    
-    // Store the instruction for the results
-    const currentInstruction = instruction;
+    // Don't close the modal immediately - keep it open to show the results
     
     try {
       switch (generationType) {
         case 'image':
-          await generateImage(currentInstruction);
+          await generateImage(instruction);
           break;
         case 'video':
-          await generateVideo(currentInstruction, primaryImage);
+          await generateVideo(instruction, primaryImage);
           break;
         case 'content':
-          await generateContent(currentInstruction);
+          await generateContent(instruction);
           break;
         case 'formats':
           // For formats, generate multiple types
-          await generateImage(currentInstruction);
-          await generateVideo(currentInstruction, primaryImage);
-          await generateContent(currentInstruction);
+          await generateImage(instruction);
+          await generateVideo(instruction, primaryImage);
+          await generateContent(instruction);
           break;
       }
-      
-      // Update the instruction in the latest asset
-      setGeneratedAssets(prev => prev.map((asset, index) => 
-        index === 0 ? { ...asset, instruction: currentInstruction } : asset
-      ));
-      
     } catch (error) {
       console.error('Generation error:', error);
       setIsGenerating(false);
@@ -153,6 +145,31 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
     
     // Trigger the original onGenerate callback
     onGenerate(product.id, generationType);
+  };
+
+  const handleCloseGenerationModal = () => {
+    if (!isGenerating) {
+      setShowModal(false);
+      setCurrentInstruction('');
+      
+      // If we have generated assets, show the results modal
+      if (generatedAssets.length > 0) {
+        setShowResultsModal(true);
+      }
+    }
+  };
+
+  const handleCloseResultsModal = () => {
+    setShowResultsModal(false);
+    setGeneratedAssets([]);
+    setCurrentInstruction('');
+  };
+
+  const handleStartOver = () => {
+    setShowResultsModal(false);
+    setGeneratedAssets([]);
+    setCurrentInstruction('');
+    setShowModal(true);
   };
 
   const getGenerationTypeLabel = () => {
@@ -269,7 +286,7 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
 
       <GenerationModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={handleCloseGenerationModal}
         onConfirm={handleConfirmGeneration}
         product={product}
         generationType={generationType}
@@ -278,14 +295,11 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
 
       <GenerationResultsModal
         isOpen={showResultsModal}
-        onClose={() => setShowResultsModal(false)}
+        onClose={handleCloseResultsModal}
         product={product}
         assets={generatedAssets}
         isGenerating={isGenerating}
-        onStartOver={() => {
-          setShowResultsModal(false);
-          setGeneratedAssets([]);
-        }}
+        onStartOver={handleStartOver}
       />
     </>
   );
