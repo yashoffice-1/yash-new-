@@ -502,15 +502,15 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   const getButtonText = () => {
     switch (currentGenerationType) {
       case 'image':
-        return 'I like the Description, Generate Image >>';
+        return 'Generate Image';
       case 'video':
-        return 'I like the Description, Generate Video >>';
+        return 'Generate Video';
       case 'content':
-        return 'I like the Description, Generate Marketing Content >>';
+        return 'Generate Content';
       case 'formats':
-        return 'I like the Description, Generate Formats >>';
+        return 'Generate Combos';
       default:
-        return 'I like the Description, Generate >>';
+        return 'Generate';
     }
   };
 
