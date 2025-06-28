@@ -419,50 +419,18 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   const handleGenerateAdditionalContent = async () => {
     if (!generatedAsset) return;
     
-    setIsGeneratingAdditionalContent(true);
+    // Instead of generating content here, go back to the first flow with content generation type
+    // and set the generated image to be displayed
+    setShowResults(false);
+    setAdditionalContent(null);
+    setIsGeneratingAdditionalContent(false);
     
-    try {
-      // Create a content instruction based on the original asset
-      const contentInstruction = `Create compelling marketing text to go with this ${generatedAsset.type} asset for ${product.name}. The original instruction was: "${generatedAsset.instruction}". Generate engaging copy that would work well for an ad, post, or content piece.`;
-      
-      const { data, error } = await supabase.functions.invoke('openai-generate', {
-        body: {
-          type: 'marketing-content',
-          instruction: contentInstruction,
-          productInfo: {
-            name: product.name,
-            description: product.description,
-            category: product.category,
-            brand: product.brand
-          }
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to generate additional content');
-      }
-
-      setAdditionalContent(data.result);
-      
-      toast({
-        title: "Additional Content Generated",
-        description: "Marketing text has been created to go with your asset!",
-      });
-
-    } catch (error) {
-      console.error('Error generating additional content:', error);
-      toast({
-        title: "Generation Failed",
-        description: error.message || "Failed to generate additional content. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingAdditionalContent(false);
-    }
+    // Switch to content generation mode and show the first flow with the image
+    const contentInstruction = `Create compelling marketing text to go with this ${generatedAsset.type} asset for ${product.name}. Generate engaging copy that would work well for an ad, post, or content piece.`;
+    setInstruction(contentInstruction);
+    
+    // The modal will now show the first flow for content generation with the image visible
+    // We need to modify the first flow to show the generated asset when available
   };
 
   const handleClose = () => {
@@ -528,7 +496,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
               <div className="space-y-2">
                 <h4 className="font-medium">Marketing Text for Your Asset:</h4>
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <pre className="whitespace-pre-wrap text-sm text-green-800">{additionalContent}</pre>
+                  <div className="whitespace-pre-wrap text-sm text-green-800">{additionalContent}</div>
                 </div>
               </div>
             )}
@@ -584,17 +552,8 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                   onClick={handleGenerateAdditionalContent}
                   disabled={isGeneratingAdditionalContent}
                 >
-                  {isGeneratingAdditionalContent ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Generating Text...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-5 w-5 mr-2" />
-                      Do you Need Text to Go with the Asset For an Ad, Post or Content?
-                    </>
-                  )}
+                  <Save className="h-5 w-5 mr-2" />
+                  Do you Need Text to Go with the Asset For an Ad, Post or Content?
                 </Button>
               </div>
             )}
@@ -613,6 +572,30 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
             Some Quick Ideas From Your Marketing Calendar and Previous Generations:
           </DialogDescription>
         </DialogHeader>
+
+        {/* Show generated asset from previous generation if switching to content generation */}
+        {generatedAsset && generatedAsset.type !== 'content' && (
+          <div className="mb-6">
+            <h4 className="font-medium mb-2">Your Generated {generatedAsset.type}:</h4>
+            <div className="flex justify-center">
+              <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-sm">
+                {generatedAsset.type === 'image' && generatedAsset.url ? (
+                  <img
+                    src={generatedAsset.url}
+                    alt="Generated content"
+                    className="w-full h-auto object-contain"
+                  />
+                ) : generatedAsset.type === 'video' && generatedAsset.url ? (
+                  <video
+                    src={generatedAsset.url}
+                    controls
+                    className="w-full h-auto max-h-64"
+                  />
+                ) : null}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Suggestions */}
         <div className="space-y-3">
