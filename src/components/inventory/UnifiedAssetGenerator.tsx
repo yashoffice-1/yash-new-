@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Package, Sparkles, Lightbulb } from 'lucide-react';
+import { Loader2, Package, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -40,10 +41,13 @@ interface UnifiedAssetGeneratorProps {
   initialAssetType: 'image' | 'video' | 'content' | 'ad';
 }
 
-interface SuggestionItem {
-  id: string;
-  text: string;
-  category: 'marketing_calendar' | 'ai_brain' | 'quick_start';
+interface GeneratedAsset {
+  type: string;
+  content?: string;
+  url?: string;
+  instruction: string;
+  status?: string;
+  message?: string;
 }
 
 const CHANNELS = [
@@ -200,14 +204,14 @@ export function UnifiedAssetGenerator({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImproving, setIsImproving] = useState<Record<string, boolean>>({});
   const [configs, setConfigs] = useState<Record<string, AssetGenerationConfig>>({});
-  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [generatedAssets, setGeneratedAssets] = useState<Record<string, GeneratedAsset>>({});
+  const [loadingInstructions, setLoadingInstructions] = useState(false);
 
   const isMultiProduct = selectedProducts.length > 1;
 
-  // Generate smart suggestions based on product and marketing calendar
-  const generateSuggestions = async (product: InventoryItem, config: AssetGenerationConfig) => {
-    setLoadingSuggestions(true);
+  // Generate initial instruction based on product and config
+  const generateInitialInstruction = async (product: InventoryItem, config: AssetGenerationConfig) => {
+    setLoadingInstructions(true);
     
     try {
       const { data, error } = await supabase.functions.invoke('openai-generate', {
@@ -226,90 +230,52 @@ export function UnifiedAssetGenerator({
       });
 
       if (error || !data.success) {
-        throw new Error(data?.error || 'Failed to generate suggestions');
+        throw new Error(data?.error || 'Failed to generate instruction');
       }
 
-      // Parse the suggestions from the AI response
-      const aiSuggestions = data.result.split('\n').filter(Boolean).map((text: string, index: number) => ({
-        id: `ai-${index}`,
-        text: text.replace(/^[\d\-\*\.\s]+/, '').trim(),
-        category: 'ai_brain' as const
-      }));
-
-      // Add some default marketing calendar suggestions
-      const calendarSuggestions: SuggestionItem[] = [
-        {
-          id: 'cal-1',
-          text: `Create a summer promotion highlighting the ${product.name} with a special discount offer`,
-          category: 'marketing_calendar'
-        },
-        {
-          id: 'cal-2', 
-          text: `Design a back-to-school campaign featuring the practical benefits of ${product.name}`,
-          category: 'marketing_calendar'
-        }
-      ];
-
-      // Add quick start suggestions
-      const quickStartSuggestions: SuggestionItem[] = [
-        {
-          id: 'quick-1',
-          text: `Showcase the key features and benefits of ${product.name} in an engaging visual format`,
-          category: 'quick_start'
-        },
-        {
-          id: 'quick-2',
-          text: `Create a lifestyle image showing ${product.name} in use by your target audience`,
-          category: 'quick_start'
-        }
-      ];
-
-      setSuggestions([...aiSuggestions, ...calendarSuggestions, ...quickStartSuggestions]);
+      // Get the first suggestion as the initial instruction
+      const suggestions = data.result.split('\n').filter(Boolean);
+      const initialInstruction = suggestions[0]?.replace(/^[\d\-\*\.\s]+/, '').trim() || 
+        `Create compelling ${config.asset_type} content for ${product.name} optimized for ${config.channel}`;
+      
+      return initialInstruction;
 
     } catch (error) {
-      console.error('Error generating suggestions:', error);
-      // Fallback to default suggestions
-      setSuggestions([
-        {
-          id: 'default-1',
-          text: `Create compelling marketing content for ${product.name}`,
-          category: 'quick_start'
-        },
-        {
-          id: 'default-2',
-          text: `Highlight the unique features and benefits of this ${product.category || 'product'}`,
-          category: 'ai_brain'
-        }
-      ]);
+      console.error('Error generating initial instruction:', error);
+      return `Create compelling ${config.asset_type} content for ${product.name} optimized for ${config.channel}`;
     } finally {
-      setLoadingSuggestions(false);
+      setLoadingInstructions(false);
     }
   };
 
   useEffect(() => {
     if (isOpen) {
-      const initialConfig: AssetGenerationConfig = {
-        channel: 'facebook',
-        asset_type: initialAssetType,
-        type: getDefaultType('facebook', initialAssetType),
-        specification: '',
-        description: ''
+      const initializeConfigs = async () => {
+        const initialConfig: AssetGenerationConfig = {
+          channel: 'facebook',
+          asset_type: initialAssetType,
+          type: getDefaultType('facebook', initialAssetType),
+          specification: '',
+          description: ''
+        };
+        
+        if (isMultiProduct && applyToAll) {
+          const instruction = await generateInitialInstruction(selectedProducts[0], initialConfig);
+          initialConfig.description = instruction;
+          setConfigs({ 'all': initialConfig });
+        } else {
+          const newConfigs: Record<string, AssetGenerationConfig> = {};
+          for (const product of selectedProducts) {
+            const productConfig = { ...initialConfig };
+            const instruction = await generateInitialInstruction(product, productConfig);
+            productConfig.description = instruction;
+            newConfigs[product.id] = productConfig;
+          }
+          setConfigs(newConfigs);
+        }
       };
-      
-      if (isMultiProduct && applyToAll) {
-        setConfigs({ 'all': initialConfig });
-      } else {
-        const newConfigs: Record<string, AssetGenerationConfig> = {};
-        selectedProducts.forEach(product => {
-          newConfigs[product.id] = { ...initialConfig };
-        });
-        setConfigs(newConfigs);
-      }
 
-      // Generate suggestions for the first product
-      if (selectedProducts.length > 0) {
-        generateSuggestions(selectedProducts[0], initialConfig);
-      }
+      initializeConfigs();
     }
   }, [isOpen, selectedProducts, initialAssetType, applyToAll]);
 
@@ -324,7 +290,7 @@ export function UnifiedAssetGenerator({
     return TYPE_OPTIONS[key] || [];
   };
 
-  const updateConfig = (productId: string, field: keyof AssetGenerationConfig, value: string) => {
+  const updateConfig = async (productId: string, field: keyof AssetGenerationConfig, value: string) => {
     setConfigs(prev => {
       const newConfigs = { ...prev };
       const config = newConfigs[productId] || {} as AssetGenerationConfig;
@@ -336,6 +302,16 @@ export function UnifiedAssetGenerator({
         );
         config.type = newType;
         config.specification = SPECIFICATIONS[newType as keyof typeof SPECIFICATIONS] || '';
+        
+        // Regenerate instruction when channel or asset type changes
+        const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
+        const updatedConfig = { ...config, [field]: value as any };
+        generateInitialInstruction(product, updatedConfig).then(instruction => {
+          setConfigs(current => ({
+            ...current,
+            [productId]: { ...current[productId], description: instruction }
+          }));
+        });
       } else if (field === 'type') {
         config.specification = SPECIFICATIONS[value as keyof typeof SPECIFICATIONS] || '';
       }
@@ -343,21 +319,7 @@ export function UnifiedAssetGenerator({
       config[field] = value as any;
       newConfigs[productId] = config;
       
-      // Regenerate suggestions when channel or asset type changes
-      if (field === 'channel' || field === 'asset_type') {
-        const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
-        generateSuggestions(product, config);
-      }
-      
       return newConfigs;
-    });
-  };
-
-  const applySuggestion = (productId: string, suggestionText: string) => {
-    updateConfig(productId, 'description', suggestionText);
-    toast({
-      title: "Suggestion Applied",
-      description: "The suggestion has been added to your instruction.",
     });
   };
 
@@ -435,7 +397,7 @@ export function UnifiedAssetGenerator({
       const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
       const fullInstruction = generateTaggedInstruction(config, product);
 
-      let result;
+      let result: GeneratedAsset;
       
       if (config.asset_type === 'content') {
         const { data, error } = await supabase.functions.invoke('openai-generate', {
@@ -491,12 +453,12 @@ export function UnifiedAssetGenerator({
         };
       }
 
+      setGeneratedAssets(prev => ({ ...prev, [productId]: result }));
+      
       toast({
         title: "Generation Successful",
         description: `Your ${config.asset_type} has been generated successfully!`,
       });
-
-      console.log('Generated asset:', result);
       
     } catch (error) {
       console.error('Generation error:', error);
@@ -508,6 +470,69 @@ export function UnifiedAssetGenerator({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const renderGeneratedAsset = (productId: string) => {
+    const asset = generatedAssets[productId];
+    if (!asset) return null;
+
+    return (
+      <div className="mt-4 p-4 border rounded-lg bg-green-50">
+        <h4 className="font-medium mb-2">Generated {asset.type}</h4>
+        {asset.type === 'content' && asset.content ? (
+          <div className="whitespace-pre-wrap text-sm bg-white p-3 rounded border">
+            {asset.content}
+          </div>
+        ) : asset.url ? (
+          <div className="space-y-2">
+            {asset.type === 'image' || asset.type === 'ad' ? (
+              <img 
+                src={asset.url} 
+                alt="Generated asset" 
+                className="max-w-full h-auto rounded border"
+                onError={(e) => {
+                  console.error('Image failed to load:', asset.url);
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : asset.type === 'video' ? (
+              <video 
+                controls 
+                className="max-w-full h-auto rounded border"
+                onError={(e) => {
+                  console.error('Video failed to load:', asset.url);
+                }}
+              >
+                <source src={asset.url} type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+            ) : null}
+            <div className="flex space-x-2">
+              <Button
+                size="sm"
+                onClick={() => window.open(asset.url, '_blank')}
+              >
+                Open in New Tab
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(asset.url || '');
+                  toast({ title: "URL copied to clipboard" });
+                }}
+              >
+                Copy URL
+              </Button>
+            </div>
+          </div>
+        ) : asset.status === 'error' ? (
+          <div className="text-red-600 text-sm">
+            {asset.message || 'Generation failed'}
+          </div>
+        ) : null}
+      </div>
+    );
   };
 
   const renderProductConfig = (product: InventoryItem, configKey: string) => {
@@ -613,59 +638,27 @@ export function UnifiedAssetGenerator({
           </div>
         </div>
 
-        {/* Smart Suggestions */}
-        {suggestions.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Lightbulb className="h-4 w-4 text-yellow-500" />
-              <Label className="text-sm font-medium">
-                Some Quick Ideas From Your Marketing Calendar and Previous Generations
-              </Label>
-            </div>
-            
-            {loadingSuggestions ? (
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Loading smart suggestions...</span>
-              </div>
-            ) : (
-              <div className="grid gap-2 max-h-32 overflow-y-auto">
-                {suggestions.slice(0, 4).map(suggestion => (
-                  <Button
-                    key={suggestion.id}
-                    variant="outline"
-                    size="sm"
-                    className="text-left justify-start h-auto py-2 px-3 text-xs"
-                    onClick={() => applySuggestion(configKey, suggestion.text)}
-                  >
-                    <div className="flex items-start space-x-2">
-                      <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
-                        suggestion.category === 'marketing_calendar' ? 'bg-blue-400' :
-                        suggestion.category === 'ai_brain' ? 'bg-purple-400' : 'bg-green-400'
-                      }`} />
-                      <span className="line-clamp-2">{suggestion.text}</span>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Instruction Box */}
         <div className="space-y-2">
           <Label>📝 Instruction</Label>
-          <Textarea
-            value={config.description}
-            onChange={(e) => updateConfig(configKey, 'description', e.target.value)}
-            placeholder="Enter your generation instructions..."
-            className="min-h-[100px]"
-          />
+          {loadingInstructions ? (
+            <div className="flex items-center space-x-2 text-sm text-gray-500 p-3 border rounded-md">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Generating smart instruction...</span>
+            </div>
+          ) : (
+            <Textarea
+              value={config.description}
+              onChange={(e) => updateConfig(configKey, 'description', e.target.value)}
+              placeholder="Enter your generation instructions..."
+              className="min-h-[100px]"
+            />
+          )}
           <Button
             variant="outline"
             size="sm"
             onClick={() => handleImproveInstruction(configKey)}
-            disabled={isImproving[configKey] || !config.description?.trim()}
+            disabled={isImproving[configKey] || !config.description?.trim() || loadingInstructions}
             className="flex items-center space-x-1"
           >
             {isImproving[configKey] ? (
@@ -685,7 +678,7 @@ export function UnifiedAssetGenerator({
         {/* Generate Button */}
         <Button
           onClick={() => handleGenerate(configKey)}
-          disabled={isGenerating || !config.description?.trim()}
+          disabled={isGenerating || !config.description?.trim() || loadingInstructions}
           className="w-full"
         >
           {isGenerating ? (
@@ -697,6 +690,9 @@ export function UnifiedAssetGenerator({
             `Generate ${config.asset_type || 'Asset'}`
           )}
         </Button>
+
+        {/* Generated Asset Display */}
+        {renderGeneratedAsset(configKey)}
       </div>
     );
   };
