@@ -8,29 +8,9 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Library, Package } from "lucide-react";
 
-interface InventoryItem {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number | null;
-  sku: string | null;
-  category: string | null;
-  brand: string | null;
-  images: string[];
-  metadata: any;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export function MainContent() {
   const { isAdmin } = useView();
   const [activeTab, setActiveTab] = useState<'inventory' | 'library'>('inventory');
-  const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
-
-  const handleProductSelect = (product: InventoryItem) => {
-    setSelectedProduct(product);
-  };
 
   if (isAdmin) {
     return <AdminDashboard />;
@@ -46,7 +26,7 @@ export function MainContent() {
           className="rounded-b-none flex items-center space-x-2"
         >
           <Package className="h-4 w-4" />
-          <span>Inventory</span>
+          <span>Enhanced Product Generator</span>
         </Button>
         
         <Button 
