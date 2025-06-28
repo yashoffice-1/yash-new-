@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Package, Sparkles } from 'lucide-react';
+import { Loader2, Package, Sparkles, Lightbulb } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -38,6 +38,12 @@ interface UnifiedAssetGeneratorProps {
   onClose: () => void;
   selectedProducts: InventoryItem[];
   initialAssetType: 'image' | 'video' | 'content' | 'ad';
+}
+
+interface SuggestionItem {
+  id: string;
+  text: string;
+  category: 'marketing_calendar' | 'ai_brain' | 'quick_start';
 }
 
 const CHANNELS = [
@@ -192,9 +198,93 @@ export function UnifiedAssetGenerator({
   const { toast } = useToast();
   const [applyToAll, setApplyToAll] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isImproving, setIsImproving] = useState<Record<string, boolean>>({});
   const [configs, setConfigs] = useState<Record<string, AssetGenerationConfig>>({});
+  const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
   const isMultiProduct = selectedProducts.length > 1;
+
+  // Generate smart suggestions based on product and marketing calendar
+  const generateSuggestions = async (product: InventoryItem, config: AssetGenerationConfig) => {
+    setLoadingSuggestions(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('openai-generate', {
+        body: {
+          type: 'marketing-suggestions',
+          productInfo: {
+            name: product.name,
+            description: product.description,
+            category: product.category,
+            brand: product.brand
+          },
+          channel: config.channel,
+          assetType: config.asset_type,
+          format: config.type
+        }
+      });
+
+      if (error || !data.success) {
+        throw new Error(data?.error || 'Failed to generate suggestions');
+      }
+
+      // Parse the suggestions from the AI response
+      const aiSuggestions = data.result.split('\n').filter(Boolean).map((text: string, index: number) => ({
+        id: `ai-${index}`,
+        text: text.replace(/^[\d\-\*\.\s]+/, '').trim(),
+        category: 'ai_brain' as const
+      }));
+
+      // Add some default marketing calendar suggestions
+      const calendarSuggestions: SuggestionItem[] = [
+        {
+          id: 'cal-1',
+          text: `Create a summer promotion highlighting the ${product.name} with a special discount offer`,
+          category: 'marketing_calendar'
+        },
+        {
+          id: 'cal-2', 
+          text: `Design a back-to-school campaign featuring the practical benefits of ${product.name}`,
+          category: 'marketing_calendar'
+        }
+      ];
+
+      // Add quick start suggestions
+      const quickStartSuggestions: SuggestionItem[] = [
+        {
+          id: 'quick-1',
+          text: `Showcase the key features and benefits of ${product.name} in an engaging visual format`,
+          category: 'quick_start'
+        },
+        {
+          id: 'quick-2',
+          text: `Create a lifestyle image showing ${product.name} in use by your target audience`,
+          category: 'quick_start'
+        }
+      ];
+
+      setSuggestions([...aiSuggestions, ...calendarSuggestions, ...quickStartSuggestions]);
+
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      // Fallback to default suggestions
+      setSuggestions([
+        {
+          id: 'default-1',
+          text: `Create compelling marketing content for ${product.name}`,
+          category: 'quick_start'
+        },
+        {
+          id: 'default-2',
+          text: `Highlight the unique features and benefits of this ${product.category || 'product'}`,
+          category: 'ai_brain'
+        }
+      ]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -207,15 +297,18 @@ export function UnifiedAssetGenerator({
       };
       
       if (isMultiProduct && applyToAll) {
-        // Single config for all products
         setConfigs({ 'all': initialConfig });
       } else {
-        // Individual configs for each product
         const newConfigs: Record<string, AssetGenerationConfig> = {};
         selectedProducts.forEach(product => {
           newConfigs[product.id] = { ...initialConfig };
         });
         setConfigs(newConfigs);
+      }
+
+      // Generate suggestions for the first product
+      if (selectedProducts.length > 0) {
+        generateSuggestions(selectedProducts[0], initialConfig);
       }
     }
   }, [isOpen, selectedProducts, initialAssetType, applyToAll]);
@@ -237,7 +330,6 @@ export function UnifiedAssetGenerator({
       const config = newConfigs[productId] || {} as AssetGenerationConfig;
       
       if (field === 'channel' || field === 'asset_type') {
-        // Auto-update type when channel or asset_type changes
         const newType = getDefaultType(
           field === 'channel' ? value : config.channel,
           field === 'asset_type' ? value : config.asset_type
@@ -245,14 +337,27 @@ export function UnifiedAssetGenerator({
         config.type = newType;
         config.specification = SPECIFICATIONS[newType as keyof typeof SPECIFICATIONS] || '';
       } else if (field === 'type') {
-        // Auto-update specification when type changes
         config.specification = SPECIFICATIONS[value as keyof typeof SPECIFICATIONS] || '';
       }
       
       config[field] = value as any;
       newConfigs[productId] = config;
       
+      // Regenerate suggestions when channel or asset type changes
+      if (field === 'channel' || field === 'asset_type') {
+        const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
+        generateSuggestions(product, config);
+      }
+      
       return newConfigs;
+    });
+  };
+
+  const applySuggestion = (productId: string, suggestionText: string) => {
+    updateConfig(productId, 'description', suggestionText);
+    toast({
+      title: "Suggestion Applied",
+      description: "The suggestion has been added to your instruction.",
     });
   };
 
@@ -269,7 +374,16 @@ export function UnifiedAssetGenerator({
 
   const handleImproveInstruction = async (productId: string) => {
     const config = configs[productId];
-    if (!config?.description.trim()) return;
+    if (!config?.description.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an instruction first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsImproving(prev => ({ ...prev, [productId]: true }));
 
     try {
       const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
@@ -282,6 +396,12 @@ export function UnifiedAssetGenerator({
             description: product.description,
             category: product.category,
             brand: product.brand
+          },
+          context: {
+            channel: config.channel,
+            assetType: config.asset_type,
+            format: config.type,
+            specification: config.specification
           }
         }
       });
@@ -299,9 +419,11 @@ export function UnifiedAssetGenerator({
       console.error('Error improving instruction:', error);
       toast({
         title: "Error",
-        description: "Failed to improve instruction. Please try again.",
+        description: error.message || "Failed to improve instruction. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsImproving(prev => ({ ...prev, [productId]: false }));
     }
   };
 
@@ -339,9 +461,8 @@ export function UnifiedAssetGenerator({
           instruction: fullInstruction
         };
       } else {
-        // For image, video, or ad generation using RunwayML
         const requestBody: any = {
-          type: config.asset_type === 'ad' ? 'image' : config.asset_type, // Treat ads as images for now
+          type: config.asset_type === 'ad' ? 'image' : config.asset_type,
           instruction: fullInstruction,
           productInfo: {
             name: product.name,
@@ -375,7 +496,6 @@ export function UnifiedAssetGenerator({
         description: `Your ${config.asset_type} has been generated successfully!`,
       });
 
-      // Here you would typically save to library or show results
       console.log('Generated asset:', result);
       
     } catch (error) {
@@ -428,7 +548,6 @@ export function UnifiedAssetGenerator({
 
         {/* Configuration Fields */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Channel */}
           <div className="space-y-2">
             <Label>📡 Channel</Label>
             <Select
@@ -448,7 +567,6 @@ export function UnifiedAssetGenerator({
             </Select>
           </div>
 
-          {/* Asset Type */}
           <div className="space-y-2">
             <Label>🧩 Type</Label>
             <Select
@@ -468,7 +586,6 @@ export function UnifiedAssetGenerator({
             </Select>
           </div>
 
-          {/* Format */}
           <div className="space-y-2">
             <Label>🎛️ Format</Label>
             <Select
@@ -488,7 +605,6 @@ export function UnifiedAssetGenerator({
             </Select>
           </div>
 
-          {/* Specification */}
           <div className="space-y-2">
             <Label>⚙️ Specification</Label>
             <div className="px-3 py-2 border rounded-md bg-gray-50 text-sm text-gray-600">
@@ -496,6 +612,45 @@ export function UnifiedAssetGenerator({
             </div>
           </div>
         </div>
+
+        {/* Smart Suggestions */}
+        {suggestions.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Lightbulb className="h-4 w-4 text-yellow-500" />
+              <Label className="text-sm font-medium">
+                Some Quick Ideas From Your Marketing Calendar and Previous Generations
+              </Label>
+            </div>
+            
+            {loadingSuggestions ? (
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Loading smart suggestions...</span>
+              </div>
+            ) : (
+              <div className="grid gap-2 max-h-32 overflow-y-auto">
+                {suggestions.slice(0, 4).map(suggestion => (
+                  <Button
+                    key={suggestion.id}
+                    variant="outline"
+                    size="sm"
+                    className="text-left justify-start h-auto py-2 px-3 text-xs"
+                    onClick={() => applySuggestion(configKey, suggestion.text)}
+                  >
+                    <div className="flex items-start space-x-2">
+                      <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${
+                        suggestion.category === 'marketing_calendar' ? 'bg-blue-400' :
+                        suggestion.category === 'ai_brain' ? 'bg-purple-400' : 'bg-green-400'
+                      }`} />
+                      <span className="line-clamp-2">{suggestion.text}</span>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Instruction Box */}
         <div className="space-y-2">
@@ -510,11 +665,20 @@ export function UnifiedAssetGenerator({
             variant="outline"
             size="sm"
             onClick={() => handleImproveInstruction(configKey)}
-            disabled={!config.description?.trim()}
+            disabled={isImproving[configKey] || !config.description?.trim()}
             className="flex items-center space-x-1"
           >
-            <Sparkles className="h-3 w-3" />
-            <span>Improve with AI</span>
+            {isImproving[configKey] ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Improving...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-3 w-3" />
+                <span>Improve with AI</span>
+              </>
+            )}
           </Button>
         </div>
 
@@ -563,7 +727,6 @@ export function UnifiedAssetGenerator({
         {/* Generation Configs */}
         <div className="space-y-6">
           {isMultiProduct && applyToAll ? (
-            // Single config for all products
             <div>
               <h3 className="text-lg font-medium mb-4">
                 Configuration for All Products ({selectedProducts.length} items)
@@ -571,7 +734,6 @@ export function UnifiedAssetGenerator({
               {renderProductConfig(selectedProducts[0], 'all')}
             </div>
           ) : (
-            // Individual configs
             <div>
               <h3 className="text-lg font-medium mb-4">
                 {isMultiProduct ? 'Individual Product Configurations' : 'Product Configuration'}

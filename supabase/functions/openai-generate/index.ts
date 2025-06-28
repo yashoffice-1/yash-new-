@@ -10,14 +10,23 @@ const corsHeaders = {
 };
 
 interface OpenAIRequest {
-  type: 'clean-instruction' | 'marketing-content';
-  instruction: string;
+  type: 'clean-instruction' | 'marketing-content' | 'marketing-suggestions';
+  instruction?: string;
   productInfo?: {
     name: string;
     description: string;
     category?: string | null;
     brand?: string | null;
   };
+  context?: {
+    channel?: string;
+    assetType?: string;
+    format?: string;
+    specification?: string;
+  };
+  channel?: string;
+  assetType?: string;
+  format?: string;
 }
 
 serve(async (req) => {
@@ -27,7 +36,7 @@ serve(async (req) => {
   }
 
   try {
-    const { type, instruction, productInfo }: OpenAIRequest = await req.json();
+    const { type, instruction, productInfo, context, channel, assetType, format }: OpenAIRequest = await req.json();
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -44,17 +53,46 @@ Guidelines:
 - Add marketing angle and target audience consideration
 - Ensure it's actionable for content generation
 - Make it professional but engaging
-- Keep it concise (under 200 words)`;
+- Keep it concise (under 200 words)
+- Consider the channel, asset type, and format context provided`;
+
+      const contextInfo = context ? `
+Context: Creating ${context.assetType} content for ${context.channel} in ${context.format} format (${context.specification})` : '';
 
       userPrompt = `Please optimize this instruction for marketing content generation: "${instruction}"
 
-${productInfo ? `Product context: ${productInfo.name}${productInfo.brand ? ` by ${productInfo.brand}` : ''}${productInfo.category ? ` in ${productInfo.category}` : ''}${productInfo.description ? ` - ${productInfo.description}` : ''}` : ''}
+${productInfo ? `Product context: ${productInfo.name}${productInfo.brand ? ` by ${productInfo.brand}` : ''}${productInfo.category ? ` in ${productInfo.category}` : ''}${productInfo.description ? ` - ${productInfo.description}` : ''}` : ''}${contextInfo}
 
 Return only the optimized instruction, no explanation.`;
+
+    } else if (type === 'marketing-suggestions') {
+      systemPrompt = `You are a creative marketing strategist specializing in generating smart, actionable content ideas based on products, channels, and marketing trends. Generate 4-6 specific, creative instruction suggestions that would work well for the given context.
+
+Focus on:
+- Channel-specific best practices
+- Seasonal marketing opportunities  
+- Target audience engagement
+- Product positioning strategies
+- Current marketing trends
+- Conversion-focused approaches`;
+
+      userPrompt = `Generate creative marketing instruction suggestions for:
+
+Product: ${productInfo?.name || 'Product'}
+${productInfo?.brand ? `Brand: ${productInfo.brand}` : ''}
+${productInfo?.category ? `Category: ${productInfo.category}` : ''}
+${productInfo?.description ? `Description: ${productInfo.description}` : ''}
+
+Channel: ${channel || 'social media'}
+Asset Type: ${assetType || 'content'}
+Format: ${format || 'post'}
+
+Return 4-6 specific, creative instruction suggestions (one per line). Each should be actionable and tailored to the channel and product. Focus on different angles like benefits, lifestyle, social proof, urgency, education, etc.`;
+
     } else if (type === 'marketing-content') {
       // Detect the channel/platform from the instruction
       let platformContext = '';
-      const instructionLower = instruction.toLowerCase();
+      const instructionLower = instruction?.toLowerCase() || '';
       
       if (instructionLower.includes('facebook') || instructionLower.includes('fb ad')) {
         platformContext = 'Facebook advertising platform with engaging headline, benefit-focused copy, and strong CTA';
@@ -106,8 +144,8 @@ Format your response as clean, readable text with clear sections. Use line break
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 500,
+        temperature: type === 'marketing-suggestions' ? 0.8 : 0.7,
+        max_tokens: type === 'marketing-suggestions' ? 600 : 500,
       }),
     });
 
