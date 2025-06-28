@@ -8,7 +8,7 @@ export interface AssetLibraryItem {
   title: string;
   description?: string;
   tags?: string[];
-  asset_type: 'image' | 'video' | 'content';
+  asset_type: 'image' | 'video' | 'content' | 'formats';
   asset_url: string;
   content?: string;
   instruction: string;
@@ -27,7 +27,7 @@ export function useAssetLibrary() {
     title: string;
     description?: string;
     tags?: string[];
-    asset_type: 'image' | 'video' | 'content';
+    asset_type: 'image' | 'video' | 'content' | 'formats';
     asset_url: string;
     content?: string;
     instruction: string;
