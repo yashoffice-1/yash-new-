@@ -470,12 +470,6 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     }
   };
 
-  const handleClose = () => {
-    if (!isGenerating) {
-      onClose();
-    }
-  };
-
   if (showResults && generatedAsset) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
