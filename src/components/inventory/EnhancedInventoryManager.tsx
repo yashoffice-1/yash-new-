@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, Image, Video, FileText, Megaphone, SelectAll, X } from "lucide-react";
+import { Search, Package, Image, Video, FileText, Megaphone, CheckSquare, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedAssetGenerator } from "./UnifiedAssetGenerator";
@@ -295,7 +294,7 @@ export function EnhancedInventoryManager() {
               {selectedProducts.length === filteredInventory.length ? (
                 <X className="h-4 w-4" />
               ) : (
-                <SelectAll className="h-4 w-4" />
+                <CheckSquare className="h-4 w-4" />
               )}
               <span>
                 {selectedProducts.length === filteredInventory.length ? 'Deselect All' : 'Select All'}

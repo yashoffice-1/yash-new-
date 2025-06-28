@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -75,14 +74,31 @@ const TYPE_OPTIONS = {
   'google-ads-content': ['Search Ad Copy', 'Display Ad Text'],
   'google-ads-ad': ['Search Ad', 'Display Ad', 'Shopping Ad'],
   'email-image': ['Header Image', 'Product Image', 'Banner'],
+  'email-video': ['Product Demo', 'Promotional Video'],
   'email-content': ['Subject Line', 'Body Copy', 'CTA'],
+  'email-ad': ['Newsletter Ad', 'Promotional Email'],
   'sms-content': ['Text Message', 'MMS Caption'],
+  'sms-ad': ['Promotional SMS', 'Alert Message'],
   'linkedin-image': ['Post Image', 'Article Header'],
+  'linkedin-video': ['Post Video', 'Article Video'],
   'linkedin-content': ['Post Copy', 'Article Content'],
+  'linkedin-ad': ['Sponsored Content', 'Message Ad'],
   'twitter-image': ['Tweet Image', 'Header Image'],
+  'twitter-video': ['Tweet Video', 'Promotional Video'],
   'twitter-content': ['Tweet Copy', 'Thread'],
+  'twitter-ad': ['Promoted Tweet', 'Video Ad'],
+  'tiktok-image': ['Video Thumbnail', 'Profile Image'],
   'tiktok-video': ['Short Video', 'Ad Video'],
-  'youtube-video': ['Short', 'Ad Video', 'Thumbnail']
+  'tiktok-content': ['Video Caption', 'Bio'],
+  'tiktok-ad': ['In-Feed Ad', 'Brand Takeover'],
+  'youtube-image': ['Thumbnail', 'Channel Art'],
+  'youtube-video': ['Short', 'Ad Video', 'Content Video'],
+  'youtube-content': ['Video Title', 'Description'],
+  'youtube-ad': ['Video Ad', 'Display Ad'],
+  'pinterest-image': ['Pin Image', 'Board Cover'],
+  'pinterest-video': ['Video Pin', 'Story Pin'],
+  'pinterest-content': ['Pin Description', 'Board Description'],
+  'pinterest-ad': ['Promoted Pin', 'Shopping Ad']
 };
 
 const SPECIFICATIONS = {
