@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -288,33 +287,84 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     onConfirm(instruction);
   };
 
-  const handleDownload = () => {
-    if (generatedAsset?.url) {
-      const link = document.createElement('a');
-      link.href = generatedAsset.url;
-      link.download = `${product.name}-${generatedAsset.type}-${generatedAsset.id}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
+  const handleDownload = async () => {
+    if (!generatedAsset) {
       toast({
-        title: "Download Started",
-        description: `${generatedAsset.type} asset download initiated.`,
+        title: "Download Failed",
+        description: "No asset available to download.",
+        variant: "destructive",
       });
-    } else if (generatedAsset?.content) {
-      const blob = new Blob([generatedAsset.content], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${product.name}-content-${generatedAsset.id}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
+      return;
+    }
+
+    try {
+      if (generatedAsset.url) {
+        // For image/video assets with URLs
+        const response = await fetch(generatedAsset.url);
+        if (!response.ok) {
+          throw new Error('Failed to fetch asset');
+        }
+        
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        
+        // Determine file extension based on asset type and content type
+        let extension = '';
+        const contentType = blob.type;
+        
+        if (generatedAsset.type === 'image') {
+          if (contentType.includes('png')) extension = '.png';
+          else if (contentType.includes('jpeg') || contentType.includes('jpg')) extension = '.jpg';
+          else if (contentType.includes('webp')) extension = '.webp';
+          else extension = '.png'; // default
+        } else if (generatedAsset.type === 'video') {
+          if (contentType.includes('mp4')) extension = '.mp4';
+          else if (contentType.includes('webm')) extension = '.webm';
+          else if (contentType.includes('mov')) extension = '.mov';
+          else extension = '.mp4'; // default
+        }
+        
+        const fileName = `${product.name.replace(/[^a-zA-Z0-9]/g, '_')}-${generatedAsset.type}-${Date.now()}${extension}`;
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Download Started",
+          description: `${generatedAsset.type} asset downloaded as ${fileName}`,
+        });
+      } else if (generatedAsset.content && generatedAsset.type === 'content') {
+        // For content assets
+        const blob = new Blob([generatedAsset.content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const fileName = `${product.name.replace(/[^a-zA-Z0-9]/g, '_')}-content-${Date.now()}.txt`;
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Download Started",
+          description: `Content downloaded as ${fileName}`,
+        });
+      } else {
+        throw new Error('No downloadable content available');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
       toast({
-        title: "Download Started",
-        description: "Content file download initiated.",
+        title: "Download Failed",
+        description: "Failed to download the asset. Please try again.",
+        variant: "destructive",
       });
     }
   };
@@ -440,6 +490,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
               <Button
                 onClick={handleDownload}
                 className="flex items-center space-x-1"
+                disabled={!generatedAsset.url && !generatedAsset.content}
               >
                 <Download className="h-4 w-4" />
                 <span>Download</span>
