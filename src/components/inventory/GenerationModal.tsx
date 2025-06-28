@@ -59,10 +59,12 @@ const SUGGESTION_PROMPTS = {
     "Design a promotional video with cinematic effects"
   ],
   content: [
-    "Write compelling Facebook Ad copy",
-    "Create engaging Instagram Story text",
-    "Generate SMS marketing message",
-    "Write email marketing content with call-to-action"
+    "Write compelling Facebook Ad copy with headline and CTA",
+    "Create engaging Instagram Story text with hashtags",
+    "Generate SMS marketing message under 160 characters",
+    "Write email marketing content with subject line",
+    "Create LinkedIn promotional post copy",
+    "Generate Twitter/X ad copy with engagement focus"
   ],
   formats: [
     "Create multiple format variations for different platforms",
@@ -94,7 +96,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       case 'video':
         return `Create an engaging video ${brandText} ${categoryText}. Showcase ${product.name} with dynamic visuals and smooth transitions.`;
       case 'content':
-        return `Write compelling marketing copy for ${product.name} ${brandText} ${categoryText}. Create engaging text suitable for social media advertising and promotional campaigns.`;
+        return `Write compelling marketing copy for ${product.name} ${brandText} ${categoryText}. Create engaging text suitable for social media advertising and promotional campaigns. Include headline, body text, and call-to-action.`;
       case 'formats':
         return `Generate multiple format variations ${brandText} ${categoryText}. Create different sizes and layouts for ${product.name} across various platforms.`;
       default:
@@ -124,16 +126,20 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     if (suggestion === "4th of July Message") {
       setInstruction(`I want this product to showcase 4th of July SALE with Fireworks in the background and the message "4th of July SUPER SALE" and the number "30% OFF"`);
     } else if (currentGenerationType === 'content') {
-      // For content generation, create channel-specific instructions
+      // For content generation, create channel-specific instructions that focus ONLY on content
       let channelInstruction = '';
       if (suggestion.includes('Facebook Ad')) {
-        channelInstruction = `Create compelling Facebook Ad copy for ${product.name}. Write engaging text that includes a strong headline, benefits-focused body text, and clear call-to-action. Format for Facebook advertising standards with attention-grabbing opening and compelling offer.`;
+        channelInstruction = `Create compelling Facebook Ad copy for ${product.name}. Write a strong attention-grabbing headline, benefits-focused body text highlighting key features, and a clear call-to-action. Format specifically for Facebook advertising standards with engaging opening and compelling offer that drives clicks.`;
       } else if (suggestion.includes('Instagram Story')) {
-        channelInstruction = `Create engaging Instagram Story text for ${product.name}. Write short, punchy copy that works well with visual content. Include relevant hashtags and a strong call-to-action suitable for Stories format.`;
+        channelInstruction = `Create engaging Instagram Story text for ${product.name}. Write short, punchy copy that works well with visual content. Include 3-5 relevant hashtags and a strong call-to-action suitable for Stories format. Keep text minimal but impactful.`;
       } else if (suggestion.includes('SMS')) {
-        channelInstruction = `Generate SMS marketing message for ${product.name}. Keep it concise (under 160 characters), include clear value proposition, and strong call-to-action. Make it personal and urgent to drive immediate action.`;
+        channelInstruction = `Generate SMS marketing message for ${product.name}. Keep it concise (under 160 characters), include clear value proposition, create urgency, and strong call-to-action. Make it personal and direct to drive immediate action.`;
       } else if (suggestion.includes('email')) {
-        channelInstruction = `Write email marketing content for ${product.name}. Create subject line, engaging body copy with benefits and features, and compelling call-to-action. Format for email marketing best practices.`;
+        channelInstruction = `Write email marketing content for ${product.name}. Create compelling subject line, engaging body copy with benefits and features, and compelling call-to-action. Format for email marketing best practices with clear structure.`;
+      } else if (suggestion.includes('LinkedIn')) {
+        channelInstruction = `Create professional LinkedIn promotional post for ${product.name}. Write business-focused copy that highlights value proposition, professional benefits, and includes appropriate LinkedIn hashtags with clear call-to-action.`;
+      } else if (suggestion.includes('Twitter') || suggestion.includes('X')) {
+        channelInstruction = `Generate Twitter/X ad copy for ${product.name}. Create concise, engaging text under 280 characters with strong hook, key benefit, and clear call-to-action. Include 2-3 relevant hashtags for maximum engagement.`;
       } else {
         channelInstruction = `${suggestion} for ${product.name}${product.brand ? ` by ${product.brand}` : ''}${product.description ? `. ${product.description}` : ''}`;
       }
@@ -208,87 +214,106 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     setIsGenerating(true);
     
     try {
-      let functionName = 'runwayml-generate';
-      let requestBody: any = {
-        type: currentGenerationType,
-        instruction: instruction,
-        productInfo: {
-          name: product.name,
-          description: product.description
-        }
-      };
-
-      // Add image URL for video generation if available
-      if (currentGenerationType === 'video' && product.images && product.images.length > 0) {
-        requestBody.imageUrl = product.images[0];
-      }
-
-      // Use different function for content generation
+      // For content generation, ONLY use OpenAI and focus exclusively on text content
       if (currentGenerationType === 'content') {
-        functionName = 'openai-generate';
-        requestBody = {
-          type: 'marketing-content',
-          instruction: instruction,
-          productInfo: {
-            name: product.name,
-            description: product.description,
-            category: product.category,
-            brand: product.brand
+        const { data, error } = await supabase.functions.invoke('openai-generate', {
+          body: {
+            type: 'marketing-content',
+            instruction: instruction,
+            productInfo: {
+              name: product.name,
+              description: product.description,
+              category: product.category,
+              brand: product.brand
+            }
           }
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (!data.success && !data.result) {
+          throw new Error(data.error || 'Failed to generate content');
+        }
+
+        const asset: GeneratedAsset = {
+          id: `content-${Date.now()}`,
+          type: 'content',
+          content: data.result,
+          instruction: instruction,
+          timestamp: new Date(),
+          source_system: 'openai'
         };
-      }
 
-      console.log(`Calling ${functionName} with:`, requestBody);
+        setGeneratedAsset(asset);
+        setShowResults(true);
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: requestBody
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data.success && !data.asset_url && !data.result) {
-        throw new Error(data.error || `Failed to generate ${currentGenerationType}`);
-      }
-
-      const asset: GeneratedAsset = {
-        id: data.asset_id || `${currentGenerationType}-${Date.now()}`,
-        type: currentGenerationType,
-        url: data.asset_url,
-        content: data.result,
-        instruction: instruction,
-        timestamp: new Date(),
-        source_system: currentGenerationType === 'content' ? 'openai' : 'runway',
-        status: data.status,
-        message: data.message
-      };
-
-      setGeneratedAsset(asset);
-      setShowResults(true);
-
-      // Show appropriate success messages
-      if (currentGenerationType === 'content') {
         toast({
           title: "Content Generated",
           description: "Your marketing content has been created successfully!",
         });
-      } else if (data.status === 'processing') {
-        toast({
-          title: `${currentGenerationType} Generation Started`,
-          description: `Your ${currentGenerationType} is being generated by RunwayML. This may take a few minutes.`,
-        });
-      } else if (data.status === 'error') {
-        toast({
-          title: "Using Placeholder",
-          description: data.message || `RunwayML API issue detected. Using placeholder ${currentGenerationType} for testing.`,
-          variant: "destructive",
-        });
       } else {
-        toast({
-          title: `${currentGenerationType} Generated`,
-          description: `Your ${currentGenerationType} has been created successfully!`,
+        // For other generation types (image, video, formats), use RunwayML
+        let requestBody: any = {
+          type: currentGenerationType,
+          instruction: instruction,
+          productInfo: {
+            name: product.name,
+            description: product.description
+          }
+        };
+
+        // Add image URL for video generation if available
+        if (currentGenerationType === 'video' && product.images && product.images.length > 0) {
+          requestBody.imageUrl = product.images[0];
+        }
+
+        console.log(`Calling runwayml-generate with:`, requestBody);
+
+        const { data, error } = await supabase.functions.invoke('runwayml-generate', {
+          body: requestBody
         });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (!data.success && !data.asset_url) {
+          throw new Error(data.error || `Failed to generate ${currentGenerationType}`);
+        }
+
+        const asset: GeneratedAsset = {
+          id: data.asset_id || `${currentGenerationType}-${Date.now()}`,
+          type: currentGenerationType,
+          url: data.asset_url,
+          instruction: instruction,
+          timestamp: new Date(),
+          source_system: 'runway',
+          status: data.status,
+          message: data.message
+        };
+
+        setGeneratedAsset(asset);
+        setShowResults(true);
+
+        if (data.status === 'processing') {
+          toast({
+            title: `${currentGenerationType} Generation Started`,
+            description: `Your ${currentGenerationType} is being generated by RunwayML. This may take a few minutes.`,
+          });
+        } else if (data.status === 'error') {
+          toast({
+            title: "Using Placeholder",
+            description: data.message || `RunwayML API issue detected. Using placeholder ${currentGenerationType} for testing.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: `${currentGenerationType} Generated`,
+            description: `Your ${currentGenerationType} has been created successfully!`,
+          });
+        }
       }
 
     } catch (error) {
@@ -474,6 +499,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     }
   };
 
+  // Results view when asset is generated
   if (showResults && generatedAsset) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -528,42 +554,53 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
               </div>
             )}
 
-            {/* Single Asset Display (when no campaign) */}
+            {/* Single Asset Display (when no campaign) - Content gets special treatment */}
             {!(previousAsset && generatedAsset.type === 'content') && (
               <div className="flex justify-center">
-                <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-md">
-                  {generatedAsset.type === 'image' && generatedAsset.url ? (
-                    <img
-                      src={generatedAsset.url}
-                      alt="Generated content"
-                      className="w-full h-auto object-contain"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.innerHTML = 
-                          '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Image failed to load</span></div>';
-                      }}
-                    />
-                  ) : generatedAsset.type === 'video' && generatedAsset.url ? (
-                    <video
-                      src={generatedAsset.url}
-                      controls
-                      className="w-full h-auto max-h-96"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement!.innerHTML = 
-                          '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Video failed to load</span></div>';
-                      }}
-                    />
-                  ) : generatedAsset.type === 'content' && generatedAsset.content ? (
-                    <div className="p-4 bg-white rounded-lg border max-w-2xl">
-                      <div className="whitespace-pre-wrap text-sm">{generatedAsset.content}</div>
+                {generatedAsset.type === 'content' && generatedAsset.content ? (
+                  <div className="w-full max-w-3xl">
+                    <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                      <div className="text-center mb-4">
+                        <Badge className="bg-blue-600 text-white px-3 py-1">
+                          Marketing Content Generated
+                        </Badge>
+                      </div>
+                      <div className="bg-white rounded-lg p-6 border shadow-sm">
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed">{generatedAsset.content}</div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="w-full h-48 flex items-center justify-center bg-gray-100">
-                      <Loader2 className="h-8 w-8 animate-spin" />
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-md">
+                    {generatedAsset.type === 'image' && generatedAsset.url ? (
+                      <img
+                        src={generatedAsset.url}
+                        alt="Generated content"
+                        className="w-full h-auto object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement!.innerHTML = 
+                            '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Image failed to load</span></div>';
+                        }}
+                      />
+                    ) : generatedAsset.type === 'video' && generatedAsset.url ? (
+                      <video
+                        src={generatedAsset.url}
+                        controls
+                        className="w-full h-auto max-h-96"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement!.innerHTML = 
+                            '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Video failed to load</span></div>';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-48 flex items-center justify-center bg-gray-100">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -621,7 +658,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
               </Button>
             </div>
 
-            {/* Generate Additional Content Button */}
+            {/* Generate Additional Content Button - Only show for non-content types */}
             {generatedAsset.type !== 'content' && (
               <div className="text-center">
                 <Button
@@ -639,13 +676,22 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     );
   }
 
+  // Main generation form
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>What Do you Want To Generate?</DialogTitle>
+          <DialogTitle>
+            {currentGenerationType === 'content' 
+              ? 'Generate Marketing Content' 
+              : 'What Do you Want To Generate?'
+            }
+          </DialogTitle>
           <DialogDescription>
-            Some Quick Ideas From Your Marketing Calendar and Previous Generations:
+            {currentGenerationType === 'content' 
+              ? 'Content-focused suggestions for text and copy generation:'
+              : 'Some Quick Ideas From Your Marketing Calendar and Previous Generations:'
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -708,7 +754,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
               </div>
               <div className="bg-yellow-300 text-black px-2 py-1 rounded text-xs">
                 {currentGenerationType === 'content' 
-                  ? "Specify the ad channel (Facebook, Instagram, SMS, Email) and type of content you want to create"
+                  ? "Specify the ad channel (Facebook, Instagram, SMS, Email, LinkedIn, Twitter) and type of marketing content you want to create. Focus on text, headlines, and copy only."
                   : "If you want a Message with the Product Like \"SALE\" be sure you use quotes to send the instructions"
                 }
               </div>
@@ -717,7 +763,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}
                 placeholder={currentGenerationType === 'content' 
-                  ? "Example: Create compelling Facebook Ad copy for this product with attention-grabbing headline, benefits-focused body text, and strong call-to-action"
+                  ? "Example: Create compelling Facebook Ad copy for this product with attention-grabbing headline, benefits-focused body text highlighting key features, and strong call-to-action that drives clicks"
                   : "Example: I want this product to showcase 4th of July SALE with Fireworks in the background and the message '4th of July SUPER SALE' and the number '30% OFF'"
                 }
                 className="min-h-[120px] bg-white"
@@ -746,8 +792,18 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <h3 className="text-lg font-medium">Generating Content...</h3>
-              <p className="text-gray-500">This may take a few moments</p>
+              <h3 className="text-lg font-medium">
+                {currentGenerationType === 'content' 
+                  ? 'Generating Marketing Content...' 
+                  : 'Generating Content...'
+                }
+              </h3>
+              <p className="text-gray-500">
+                {currentGenerationType === 'content' 
+                  ? 'Creating compelling marketing copy for your product'
+                  : 'This may take a few moments'
+                }
+              </p>
             </div>
           </div>
         )}
@@ -764,7 +820,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                 Generating...
               </>
             ) : (
-              `I like the Description, Generate ${currentGenerationType} >>`
+              `I like the Description, Generate ${currentGenerationType === 'content' ? 'Marketing Content' : currentGenerationType} >>`
             )}
           </Button>
         </div>
