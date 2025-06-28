@@ -60,10 +60,10 @@ const SUGGESTION_PROMPTS = {
     "Design a promotional video with cinematic effects"
   ],
   content: [
-    "Write compelling marketing copy for social media",
-    "Create persuasive product descriptions for e-commerce",
-    "Generate email marketing content with call-to-action",
-    "Write SEO-optimized product content for web"
+    "Write compelling Facebook Ad copy",
+    "Create engaging Instagram Story text",
+    "Generate SMS marketing message",
+    "Write email marketing content with call-to-action"
   ],
   formats: [
     "Create multiple format variations for different platforms",
@@ -82,20 +82,20 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   const [generatedAsset, setGeneratedAsset] = useState<GeneratedAsset | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
-  const [isGeneratingAdditionalContent, setIsGeneratingAdditionalContent] = useState(false);
-  const [additionalContent, setAdditionalContent] = useState<string | null>(null);
+  const [previousAsset, setPreviousAsset] = useState<GeneratedAsset | null>(null);
+  const [currentGenerationType, setCurrentGenerationType] = useState<'image' | 'video' | 'content' | 'formats'>(generationType);
 
-  const getDefaultInstruction = () => {
+  const getDefaultInstruction = (type: 'image' | 'video' | 'content' | 'formats') => {
     const brandText = product.brand ? `for ${product.brand}` : '';
     const categoryText = product.category ? `in the ${product.category} category` : '';
     
-    switch (generationType) {
+    switch (type) {
       case 'image':
         return `Create a high-quality promotional image ${brandText} ${categoryText}. Focus on ${product.name} with clean, modern styling.`;
       case 'video':
         return `Create an engaging video ${brandText} ${categoryText}. Showcase ${product.name} with dynamic visuals and smooth transitions.`;
       case 'content':
-        return `Write compelling marketing content ${brandText} ${categoryText}. Highlight the key features and benefits of ${product.name}.`;
+        return `Write compelling marketing copy for ${product.name} ${brandText} ${categoryText}. Create engaging text suitable for social media advertising and promotional campaigns.`;
       case 'formats':
         return `Generate multiple format variations ${brandText} ${categoryText}. Create different sizes and layouts for ${product.name} across various platforms.`;
       default:
@@ -105,9 +105,9 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
 
   useEffect(() => {
     if (isOpen && !instruction) {
-      setInstruction(getDefaultInstruction());
+      setInstruction(getDefaultInstruction(currentGenerationType));
     }
-  }, [isOpen, product, generationType]);
+  }, [isOpen, product, currentGenerationType]);
 
   // Reset state when modal closes or opens
   useEffect(() => {
@@ -116,14 +116,29 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       setGeneratedAsset(null);
       setShowResults(false);
       setIsGenerating(false);
-      setAdditionalContent(null);
-      setIsGeneratingAdditionalContent(false);
+      setPreviousAsset(null);
+      setCurrentGenerationType(generationType);
     }
-  }, [isOpen]);
+  }, [isOpen, generationType]);
 
   const handleSuggestionClick = (suggestion: string) => {
     if (suggestion === "4th of July Message") {
       setInstruction(`I want this product to showcase 4th of July SALE with Fireworks in the background and the message "4th of July SUPER SALE" and the number "30% OFF"`);
+    } else if (currentGenerationType === 'content') {
+      // For content generation, create channel-specific instructions
+      let channelInstruction = '';
+      if (suggestion.includes('Facebook Ad')) {
+        channelInstruction = `Create compelling Facebook Ad copy for ${product.name}. Write engaging text that includes a strong headline, benefits-focused body text, and clear call-to-action. Format for Facebook advertising standards with attention-grabbing opening and compelling offer.`;
+      } else if (suggestion.includes('Instagram Story')) {
+        channelInstruction = `Create engaging Instagram Story text for ${product.name}. Write short, punchy copy that works well with visual content. Include relevant hashtags and a strong call-to-action suitable for Stories format.`;
+      } else if (suggestion.includes('SMS')) {
+        channelInstruction = `Generate SMS marketing message for ${product.name}. Keep it concise (under 160 characters), include clear value proposition, and strong call-to-action. Make it personal and urgent to drive immediate action.`;
+      } else if (suggestion.includes('email')) {
+        channelInstruction = `Write email marketing content for ${product.name}. Create subject line, engaging body copy with benefits and features, and compelling call-to-action. Format for email marketing best practices.`;
+      } else {
+        channelInstruction = `${suggestion} for ${product.name}${product.brand ? ` by ${product.brand}` : ''}${product.description ? `. ${product.description}` : ''}`;
+      }
+      setInstruction(channelInstruction);
     } else {
       const enhancedSuggestion = `${suggestion} for ${product.name}${product.brand ? ` by ${product.brand}` : ''}${product.description ? `. ${product.description}` : ''}`;
       setInstruction(enhancedSuggestion);
@@ -196,7 +211,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     try {
       let functionName = 'runwayml-generate';
       let requestBody: any = {
-        type: generationType, // Use the actual generation type
+        type: currentGenerationType,
         instruction: instruction,
         productInfo: {
           name: product.name,
@@ -205,12 +220,12 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       };
 
       // Add image URL for video generation if available
-      if (generationType === 'video' && product.images && product.images.length > 0) {
+      if (currentGenerationType === 'video' && product.images && product.images.length > 0) {
         requestBody.imageUrl = product.images[0];
       }
 
       // Use different function for content generation
-      if (generationType === 'content') {
+      if (currentGenerationType === 'content') {
         functionName = 'openai-generate';
         requestBody = {
           type: 'marketing-content',
@@ -234,18 +249,18 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         throw new Error(error.message);
       }
 
-      if (!data.success && !data.asset_url && !data.content) {
-        throw new Error(data.error || `Failed to generate ${generationType}`);
+      if (!data.success && !data.asset_url && !data.result) {
+        throw new Error(data.error || `Failed to generate ${currentGenerationType}`);
       }
 
       const asset: GeneratedAsset = {
-        id: data.asset_id || `${generationType}-${Date.now()}`,
-        type: generationType,
+        id: data.asset_id || `${currentGenerationType}-${Date.now()}`,
+        type: currentGenerationType,
         url: data.asset_url,
-        content: data.result || data.content,
+        content: data.result,
         instruction: instruction,
         timestamp: new Date(),
-        source_system: generationType === 'content' ? 'openai' : 'runway',
+        source_system: currentGenerationType === 'content' ? 'openai' : 'runway',
         status: data.status,
         message: data.message
       };
@@ -254,26 +269,26 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       setShowResults(true);
 
       // Show appropriate success messages
-      if (generationType === 'content') {
+      if (currentGenerationType === 'content') {
         toast({
           title: "Content Generated",
-          description: "Your content has been created successfully!",
+          description: "Your marketing content has been created successfully!",
         });
       } else if (data.status === 'processing') {
         toast({
-          title: `${generationType} Generation Started`,
-          description: `Your ${generationType} is being generated by RunwayML. This may take a few minutes.`,
+          title: `${currentGenerationType} Generation Started`,
+          description: `Your ${currentGenerationType} is being generated by RunwayML. This may take a few minutes.`,
         });
       } else if (data.status === 'error') {
         toast({
           title: "Using Placeholder",
-          description: data.message || `RunwayML API issue detected. Using placeholder ${generationType} for testing.`,
+          description: data.message || `RunwayML API issue detected. Using placeholder ${currentGenerationType} for testing.`,
           variant: "destructive",
         });
       } else {
         toast({
-          title: `${generationType} Generated`,
-          description: `Your ${generationType} has been created successfully!`,
+          title: `${currentGenerationType} Generated`,
+          description: `Your ${currentGenerationType} has been created successfully!`,
         });
       }
 
@@ -281,7 +296,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       console.error('Generation error:', error);
       toast({
         title: "Generation Failed",
-        description: error.message || `Failed to generate ${generationType}. Please try again.`,
+        description: error.message || `Failed to generate ${currentGenerationType}. Please try again.`,
         variant: "destructive",
       });
     } finally {
@@ -411,26 +426,21 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   const handleStartOver = () => {
     setShowResults(false);
     setGeneratedAsset(null);
-    setInstruction(getDefaultInstruction());
-    setAdditionalContent(null);
-    setIsGeneratingAdditionalContent(false);
+    setInstruction(getDefaultInstruction(currentGenerationType));
+    setPreviousAsset(null);
   };
 
-  const handleGenerateAdditionalContent = async () => {
-    if (!generatedAsset) return;
-    
-    // Instead of generating content here, go back to the first flow with content generation type
-    // and set the generated image to be displayed
-    setShowResults(false);
-    setAdditionalContent(null);
-    setIsGeneratingAdditionalContent(false);
-    
-    // Switch to content generation mode and show the first flow with the image
-    const contentInstruction = `Create compelling marketing text to go with this ${generatedAsset.type} asset for ${product.name}. Generate engaging copy that would work well for an ad, post, or content piece.`;
+  const handleGenerateAdditionalContent = () => {
+    // Store the current asset as previous asset
+    setPreviousAsset(generatedAsset);
+    // Switch to content generation mode
+    setCurrentGenerationType('content');
+    // Set appropriate instruction for content generation
+    const contentInstruction = `Create compelling marketing text to accompany this ${generatedAsset?.type} asset for ${product.name}. Generate engaging copy that would work well for an ad, social media post, or promotional content. Include a catchy headline, persuasive body text, and strong call-to-action.`;
     setInstruction(contentInstruction);
-    
-    // The modal will now show the first flow for content generation with the image visible
-    // We need to modify the first flow to show the generated asset when available
+    // Go back to the first flow
+    setShowResults(false);
+    setGeneratedAsset(null);
   };
 
   const handleClose = () => {
@@ -474,8 +484,8 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                     }}
                   />
                 ) : generatedAsset.type === 'content' && generatedAsset.content ? (
-                  <div className="p-4 bg-white rounded-lg max-w-2xl">
-                    <pre className="whitespace-pre-wrap text-sm">{generatedAsset.content}</pre>
+                  <div className="p-4 bg-white rounded-lg border max-w-2xl">
+                    <div className="whitespace-pre-wrap text-sm">{generatedAsset.content}</div>
                   </div>
                 ) : (
                   <div className="w-full h-48 flex items-center justify-center bg-gray-100">
@@ -488,16 +498,6 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
             {generatedAsset.message && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
                 <p className="text-sm text-blue-800">{generatedAsset.message}</p>
-              </div>
-            )}
-
-            {/* Additional Content Display */}
-            {additionalContent && (
-              <div className="space-y-2">
-                <h4 className="font-medium">Marketing Text for Your Asset:</h4>
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="whitespace-pre-wrap text-sm text-green-800">{additionalContent}</div>
-                </div>
               </div>
             )}
 
@@ -545,12 +545,11 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
             </div>
 
             {/* Generate Additional Content Button */}
-            {!additionalContent && generatedAsset.type !== 'content' && (
+            {generatedAsset.type !== 'content' && (
               <div className="text-center">
                 <Button
                   className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
                   onClick={handleGenerateAdditionalContent}
-                  disabled={isGeneratingAdditionalContent}
                 >
                   <Save className="h-5 w-5 mr-2" />
                   Do you Need Text to Go with the Asset For an Ad, Post or Content?
@@ -573,21 +572,21 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           </DialogDescription>
         </DialogHeader>
 
-        {/* Show generated asset from previous generation if switching to content generation */}
-        {generatedAsset && generatedAsset.type !== 'content' && (
+        {/* Show previous asset if switching to content generation */}
+        {previousAsset && currentGenerationType === 'content' && (
           <div className="mb-6">
-            <h4 className="font-medium mb-2">Your Generated {generatedAsset.type}:</h4>
+            <h4 className="font-medium mb-2">Your Generated {previousAsset.type}:</h4>
             <div className="flex justify-center">
               <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-sm">
-                {generatedAsset.type === 'image' && generatedAsset.url ? (
+                {previousAsset.type === 'image' && previousAsset.url ? (
                   <img
-                    src={generatedAsset.url}
+                    src={previousAsset.url}
                     alt="Generated content"
                     className="w-full h-auto object-contain"
                   />
-                ) : generatedAsset.type === 'video' && generatedAsset.url ? (
+                ) : previousAsset.type === 'video' && previousAsset.url ? (
                   <video
-                    src={generatedAsset.url}
+                    src={previousAsset.url}
                     controls
                     className="w-full h-auto max-h-64"
                   />
@@ -600,7 +599,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         {/* Suggestions */}
         <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-            {SUGGESTION_PROMPTS[generationType].map((suggestion, index) => (
+            {SUGGESTION_PROMPTS[currentGenerationType].map((suggestion, index) => (
               <Button
                 key={index}
                 variant="outline"
@@ -622,13 +621,19 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                 Type Your Instructions Here.
               </div>
               <div className="bg-yellow-300 text-black px-2 py-1 rounded text-xs">
-                If you want a Message with the Product Like "SALE" be sure you use quotes to send the instructions
+                {currentGenerationType === 'content' 
+                  ? "Specify the ad channel (Facebook, Instagram, SMS, Email) and type of content you want to create"
+                  : "If you want a Message with the Product Like \"SALE\" be sure you use quotes to send the instructions"
+                }
               </div>
               
               <Textarea
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}
-                placeholder="Example: I want this product to showcase 4th of July SALE with Fireworks in the background and the message '4th of July SUPER SALE' and the number '30% OFF'"
+                placeholder={currentGenerationType === 'content' 
+                  ? "Example: Create compelling Facebook Ad copy for this product with attention-grabbing headline, benefits-focused body text, and strong call-to-action"
+                  : "Example: I want this product to showcase 4th of July SALE with Fireworks in the background and the message '4th of July SUPER SALE' and the number '30% OFF'"
+                }
                 className="min-h-[120px] bg-white"
               />
               
@@ -673,7 +678,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                 Generating...
               </>
             ) : (
-              `I like the Description, Generate ${generationType} >>`
+              `I like the Description, Generate ${currentGenerationType} >>`
             )}
           </Button>
         </div>

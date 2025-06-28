@@ -15,6 +15,8 @@ interface OpenAIRequest {
   productInfo?: {
     name: string;
     description: string;
+    category?: string | null;
+    brand?: string | null;
   };
 }
 
@@ -46,36 +48,51 @@ Guidelines:
 
       userPrompt = `Please optimize this instruction for marketing content generation: "${instruction}"
 
-${productInfo ? `Product context: ${productInfo.name} - ${productInfo.description}` : ''}
+${productInfo ? `Product context: ${productInfo.name}${productInfo.brand ? ` by ${productInfo.brand}` : ''}${productInfo.category ? ` in ${productInfo.category}` : ''}${productInfo.description ? ` - ${productInfo.description}` : ''}` : ''}
 
 Return only the optimized instruction, no explanation.`;
     } else if (type === 'marketing-content') {
-      systemPrompt = `You are a professional marketing copywriter. Create engaging marketing content based on the provided instruction. Focus on benefits, emotional appeal, and clear calls to action. Return your response in a clean, readable format.`;
+      // Detect the channel/platform from the instruction
+      let platformContext = '';
+      const instructionLower = instruction.toLowerCase();
+      
+      if (instructionLower.includes('facebook') || instructionLower.includes('fb ad')) {
+        platformContext = 'Facebook advertising platform with engaging headline, benefit-focused copy, and strong CTA';
+      } else if (instructionLower.includes('instagram story')) {
+        platformContext = 'Instagram Story format with short, punchy text and relevant hashtags';
+      } else if (instructionLower.includes('sms')) {
+        platformContext = 'SMS marketing with concise message under 160 characters';
+      } else if (instructionLower.includes('email')) {
+        platformContext = 'Email marketing with subject line and structured body content';
+      } else {
+        platformContext = 'general marketing content with professional tone';
+      }
+
+      systemPrompt = `You are a professional marketing copywriter specializing in creating compelling content for different advertising channels and platforms. Create engaging marketing content that is properly formatted for the specified platform. Focus on benefits, emotional appeal, and clear calls to action.
+
+Platform Context: ${platformContext}
+
+Return clean, formatted text that can be used directly in marketing campaigns. Do NOT return JSON format.`;
 
       userPrompt = `Create marketing content based on this instruction: "${instruction}"
 
-${productInfo ? `Product: ${productInfo.name} - ${productInfo.description}` : ''}
+Product Details:
+- Name: ${productInfo?.name || 'Product'}
+${productInfo?.brand ? `- Brand: ${productInfo.brand}` : ''}
+${productInfo?.category ? `- Category: ${productInfo.category}` : ''}
+${productInfo?.description ? `- Description: ${productInfo.description}` : ''}
 
-Please create:
-1. A compelling headline (max 10 words)
-2. Main marketing copy (2-3 sentences)
-3. Call to action (max 5 words)
-4. 3 relevant hashtags
+Please create properly formatted marketing content with:
 
-Format your response as clean, readable text with clear sections - NOT as JSON. Use this format:
+1. HEADLINE: (compelling, attention-grabbing headline)
+2. BODY TEXT: (persuasive copy highlighting benefits and features)
+3. CALL TO ACTION: (clear, action-oriented CTA)
+4. HASHTAGS: (3-5 relevant hashtags if appropriate for the platform)
 
-HEADLINE:
-[Your headline here]
-
-MARKETING COPY:
-[Your marketing copy here]
-
-CALL TO ACTION:
-[Your call to action here]
-
-HASHTAGS:
-[Your hashtags here]`;
+Format your response as clean, readable text with clear sections. Use line breaks between sections for better readability.`;
     }
+
+    console.log(`Sending to OpenAI - Type: ${type}, System: ${systemPrompt.substring(0, 100)}...`);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -102,7 +119,7 @@ HASHTAGS:
     const data = await response.json();
     const result = data.choices[0].message.content;
 
-    console.log(`OpenAI ${type} request completed successfully`);
+    console.log(`OpenAI ${type} request completed successfully. Result length: ${result.length} characters`);
 
     return new Response(JSON.stringify({ 
       success: true, 
