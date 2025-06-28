@@ -768,6 +768,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     }
   };
 
+  // Updated function to use currentGenerationType instead of generationType
   const getButtonText = () => {
     switch (currentGenerationType) {
       case 'image':
@@ -780,6 +781,22 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         return 'Generate Formats';
       default:
         return 'Generate';
+    }
+  };
+
+  // Updated function to get the modal title based on currentGenerationType
+  const getModalTitle = () => {
+    switch (currentGenerationType) {
+      case 'image':
+        return 'Generate Image';
+      case 'video':
+        return 'Generate Video';
+      case 'content':
+        return 'Generate Marketing Content';
+      case 'formats':
+        return 'Generate Formats';
+      default:
+        return 'Generate Content';
     }
   };
 
@@ -812,12 +829,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            {currentGenerationType === 'content' 
-              ? 'Generate Marketing Content' 
-              : 'What Do you Want To Generate?'
-            }
-          </DialogTitle>
+          <DialogTitle>{getModalTitle()}</DialogTitle>
           <DialogDescription>
             {currentGenerationType === 'content' 
               ? 'Content-focused suggestions for text and copy generation:'
