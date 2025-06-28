@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -494,15 +495,17 @@ export function UnifiedAssetGenerator({
   };
 
   const handleRedoGeneration = async (productId: string) => {
-    // Clear the current asset and regenerate
+    // Clear the current asset to allow instruction editing
     setGeneratedAssets(prev => {
       const newAssets = { ...prev };
       delete newAssets[productId];
       return newAssets;
     });
     
-    // Trigger new generation
-    await handleGenerate(productId);
+    toast({
+      title: "Ready to Regenerate",
+      description: "You can now modify your instruction and generate again.",
+    });
   };
 
   const handleDownloadAsset = (asset: GeneratedAsset) => {
