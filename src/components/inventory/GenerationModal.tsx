@@ -388,6 +388,9 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       setIsGenerating(false);
       setPreviousAsset(null);
       setCurrentGenerationType(generationType);
+    } else {
+      // When modal opens, set the current generation type based on the prop
+      setCurrentGenerationType(generationType);
     }
   }, [isOpen, generationType]);
 
@@ -796,7 +799,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       case 'formats':
         return 'Generate Formats';
       default:
-        return 'Generate Content';
+        return 'Generate Image'; // Changed default from 'Generate Content' to 'Generate Image'
     }
   };
 
