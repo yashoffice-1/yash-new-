@@ -12,6 +12,18 @@ interface GeneratedVideo {
   message?: string; // For HeyGen Zapier workflow feedback
 }
 
+interface FormatSpecs {
+  channel?: string;
+  assetType?: string;
+  format?: string;
+  specification?: string;
+  width?: number;
+  height?: number;
+  dimensions?: string;
+  aspectRatio?: number;
+  duration?: string;
+}
+
 interface UseVideoGenerationProps {
   onSuccess?: (video: GeneratedVideo) => void;
 }
@@ -23,11 +35,14 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
   const generateVideo = async (
     instruction: string, 
     imageUrl?: string, 
-    provider: 'runway' | 'heygen' = 'runway'
+    provider: 'runway' | 'heygen' = 'runway',
+    formatSpecs?: FormatSpecs
   ): Promise<GeneratedVideo | null> => {
     setIsGenerating(true);
     
     try {
+      console.log('Starting video generation with format specs:', formatSpecs);
+      
       const functionName = provider === 'runway' ? 'runwayml-generate' : 'heygen-generate';
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: {
@@ -37,6 +52,11 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
           productInfo: {
             name: "Premium Wireless Headphones",
             description: "High-quality audio experience with noise cancellation"
+          },
+          formatSpecs: formatSpecs || {
+            width: 1080,
+            height: 1920,
+            dimensions: "1080x1920"
           }
         }
       });
@@ -60,8 +80,8 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
 
       // Show different success messages based on provider
       const successMessage = provider === 'runway' 
-        ? `Your video has been created using RunwayML!`
-        : `Video generation request sent to HeyGen via Google Sheets + Zapier automation!`;
+        ? `Video created using RunwayML with format: ${formatSpecs?.format || 'video'} (${formatSpecs?.dimensions || '1080x1920'})`
+        : `Video generation request sent to HeyGen via Google Sheets + Zapier automation with format: ${formatSpecs?.format || 'video'}`;
 
       toast({
         title: "Video Generation Started",

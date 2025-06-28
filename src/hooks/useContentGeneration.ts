@@ -8,6 +8,15 @@ interface GeneratedContent {
   timestamp: Date;
 }
 
+interface FormatSpecs {
+  channel?: string;
+  assetType?: string;
+  format?: string;
+  specification?: string;
+  maxChars?: number;
+  requirements?: string;
+}
+
 interface UseContentGenerationProps {
   onSuccess?: (content: GeneratedContent) => void;
   productInfo?: {
@@ -22,10 +31,15 @@ export function useContentGeneration({ onSuccess, productInfo }: UseContentGener
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
-  const generateContent = async (instruction: string): Promise<GeneratedContent | null> => {
+  const generateContent = async (
+    instruction: string, 
+    formatSpecs?: FormatSpecs
+  ): Promise<GeneratedContent | null> => {
     setIsGenerating(true);
     
     try {
+      console.log('Generating content with format specs:', formatSpecs);
+      
       const defaultProductInfo = {
         name: "Premium Wireless Headphones",
         description: "High-quality audio experience with noise cancellation"
@@ -35,7 +49,11 @@ export function useContentGeneration({ onSuccess, productInfo }: UseContentGener
         body: {
           type: 'marketing-content',
           instruction: instruction,
-          productInfo: productInfo || defaultProductInfo
+          productInfo: productInfo || defaultProductInfo,
+          formatSpecs: formatSpecs || {
+            format: 'general',
+            specification: 'Standard marketing content'
+          }
         }
       });
 
@@ -54,7 +72,7 @@ export function useContentGeneration({ onSuccess, productInfo }: UseContentGener
 
       toast({
         title: "Content Generated",
-        description: "Your marketing content has been created successfully!",
+        description: `Your ${formatSpecs?.format || 'marketing content'} has been created with format requirements: ${formatSpecs?.specification || 'standard'}`,
       });
 
       onSuccess?.(content);

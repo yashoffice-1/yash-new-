@@ -417,6 +417,7 @@ export function UnifiedAssetGenerator({
       const config = configs[productId];
       const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
       const fullInstruction = generateTaggedInstruction(config, product);
+      const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
 
       let result: GeneratedAsset;
       
@@ -430,6 +431,13 @@ export function UnifiedAssetGenerator({
               description: product.description,
               category: product.category,
               brand: product.brand
+            },
+            formatSpecs: {
+              channel: config.channel,
+              assetType: config.asset_type,
+              format: config.type,
+              specification: specification,
+              dimensions: specification
             }
           }
         });
@@ -444,12 +452,27 @@ export function UnifiedAssetGenerator({
           instruction: fullInstruction
         };
       } else {
+        // Parse dimensions from specification for image/video generation
+        const dimensionMatch = specification.match(/(\d+)x(\d+)/);
+        const width = dimensionMatch ? parseInt(dimensionMatch[1]) : 1024;
+        const height = dimensionMatch ? parseInt(dimensionMatch[2]) : 1024;
+        
         const requestBody: any = {
           type: config.asset_type === 'ad' ? 'image' : config.asset_type,
           instruction: fullInstruction,
           productInfo: {
             name: product.name,
             description: product.description
+          },
+          formatSpecs: {
+            channel: config.channel,
+            assetType: config.asset_type,
+            format: config.type,
+            specification: specification,
+            width: width,
+            height: height,
+            dimensions: `${width}x${height}`,
+            aspectRatio: width / height
           }
         };
 
@@ -479,7 +502,7 @@ export function UnifiedAssetGenerator({
       
       toast({
         title: "Generation Successful",
-        description: `Your ${config.asset_type} has been generated successfully!`,
+        description: `Your ${config.asset_type} has been generated with format: ${specification}`,
       });
       
     } catch (error) {
