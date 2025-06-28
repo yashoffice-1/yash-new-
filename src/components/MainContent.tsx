@@ -6,7 +6,7 @@ import { AssetLibrary } from "./AssetLibrary";
 import { InventoryDisplay } from "./inventory/InventoryDisplay";
 import { useState } from "react";
 import { Button } from "./ui/button";
-import { Image, Library, Package } from "lucide-react";
+import { Library, Package } from "lucide-react";
 
 interface InventoryItem {
   id: string;
@@ -25,12 +25,11 @@ interface InventoryItem {
 
 export function MainContent() {
   const { isAdmin } = useView();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'generate' | 'library'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'library'>('inventory');
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
 
   const handleProductSelect = (product: InventoryItem) => {
     setSelectedProduct(product);
-    setActiveTab('generate');
   };
 
   if (isAdmin) {
@@ -51,15 +50,6 @@ export function MainContent() {
         </Button>
         
         <Button 
-          variant={activeTab === 'generate' ? 'default' : 'ghost'} 
-          onClick={() => setActiveTab('generate')}
-          className="rounded-b-none flex items-center space-x-2"
-        >
-          <Image className="h-4 w-4" />
-          <span>Generate Content</span>
-        </Button>
-        
-        <Button 
           variant={activeTab === 'library' ? 'default' : 'ghost'} 
           onClick={() => setActiveTab('library')}
           className="rounded-b-none flex items-center space-x-2"
@@ -71,7 +61,6 @@ export function MainContent() {
 
       {/* Tab Content */}
       {activeTab === 'inventory' && <InventoryDisplay />}
-      {activeTab === 'generate' && <UserDashboard selectedProduct={selectedProduct} />}
       {activeTab === 'library' && <AssetLibrary />}
     </div>
   );
