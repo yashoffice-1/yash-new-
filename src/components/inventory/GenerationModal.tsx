@@ -395,27 +395,53 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     setIsSavingToLibrary(true);
     
     try {
-      await saveToLibrary({
-        title: `${product.name} - ${generatedAsset.type}`,
-        description: generatedAsset.instruction,
-        tags: [product.category, product.brand, generatedAsset.type].filter(Boolean),
-        asset_type: generatedAsset.type === 'formats' ? 'image' : generatedAsset.type,
-        asset_url: generatedAsset.url || '',
-        content: generatedAsset.content,
-        instruction: generatedAsset.instruction,
-        source_system: generatedAsset.source_system as 'runway' | 'heygen' | 'openai',
-        original_asset_id: generatedAsset.id
-      });
-      
-      toast({
-        title: "Saved to Library",
-        description: "Asset has been successfully saved to your library!",
-      });
+      // If we have both a visual asset (previousAsset) and content (current asset), save them as a campaign
+      if (previousAsset && generatedAsset.type === 'content' && generatedAsset.content) {
+        // Save as a combined campaign entry
+        const campaignTitle = `${product.name} - Complete Campaign (${previousAsset.type} + content)`;
+        const campaignDescription = `Visual Asset: ${previousAsset.instruction}\n\nMarketing Content: ${generatedAsset.instruction}`;
+        
+        // Create a combined asset entry that includes both visual and text
+        await saveToLibrary({
+          title: campaignTitle,
+          description: campaignDescription,
+          tags: [product.category, product.brand, 'campaign', previousAsset.type, 'content'].filter(Boolean),
+          asset_type: previousAsset.type, // Use the visual asset type as primary
+          asset_url: previousAsset.url || '',
+          content: `VISUAL ASSET: ${previousAsset.url || 'N/A'}\n\nMARKETING CONTENT:\n${generatedAsset.content}`,
+          instruction: `Combined Campaign - Visual: ${previousAsset.instruction} | Content: ${generatedAsset.instruction}`,
+          source_system: 'openai', // Since content was generated last
+          original_asset_id: generatedAsset.id
+        });
+        
+        toast({
+          title: "Campaign Saved to Library",
+          description: "Complete campaign with visual asset and marketing content saved together!",
+        });
+      } else {
+        // Save individual asset as before
+        await saveToLibrary({
+          title: `${product.name} - ${generatedAsset.type}`,
+          description: generatedAsset.instruction,
+          tags: [product.category, product.brand, generatedAsset.type].filter(Boolean),
+          asset_type: generatedAsset.type === 'formats' ? 'image' : generatedAsset.type,
+          asset_url: generatedAsset.url || '',
+          content: generatedAsset.content,
+          instruction: generatedAsset.instruction,
+          source_system: generatedAsset.source_system as 'runway' | 'heygen' | 'openai',
+          original_asset_id: generatedAsset.id
+        });
+        
+        toast({
+          title: "Asset Saved to Library",
+          description: "Asset has been successfully saved to your library!",
+        });
+      }
     } catch (error) {
       console.error('Error saving to library:', error);
       toast({
         title: "Save Failed", 
-        description: "Failed to save asset to library. Please try again.",
+        description: "Failed to save to library. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -458,42 +484,89 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Generated Asset Display */}
-            <div className="flex justify-center">
-              <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-md">
-                {generatedAsset.type === 'image' && generatedAsset.url ? (
-                  <img
-                    src={generatedAsset.url}
-                    alt="Generated content"
-                    className="w-full h-auto object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement!.innerHTML = 
-                        '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Image failed to load</span></div>';
-                    }}
-                  />
-                ) : generatedAsset.type === 'video' && generatedAsset.url ? (
-                  <video
-                    src={generatedAsset.url}
-                    controls
-                    className="w-full h-auto max-h-96"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement!.innerHTML = 
-                        '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Video failed to load</span></div>';
-                    }}
-                  />
-                ) : generatedAsset.type === 'content' && generatedAsset.content ? (
-                  <div className="p-4 bg-white rounded-lg border max-w-2xl">
+            {/* Show both assets when we have a campaign */}
+            {previousAsset && generatedAsset.type === 'content' && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <Badge variant="outline" className="mb-4 bg-green-100 text-green-800 border-green-300">
+                    Complete Marketing Campaign
+                  </Badge>
+                </div>
+                
+                {/* Visual Asset */}
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h4 className="font-medium mb-3 text-center">Your Visual Asset:</h4>
+                  <div className="flex justify-center">
+                    <div className="relative rounded-lg overflow-hidden bg-white shadow max-w-md">
+                      {previousAsset.type === 'image' && previousAsset.url ? (
+                        <img
+                          src={previousAsset.url}
+                          alt="Generated visual content"
+                          className="w-full h-auto object-contain max-h-60"
+                        />
+                      ) : previousAsset.type === 'video' && previousAsset.url ? (
+                        <video
+                          src={previousAsset.url}
+                          controls
+                          className="w-full h-auto max-h-60"
+                        />
+                      ) : (
+                        <div className="w-full h-32 flex items-center justify-center bg-gray-100">
+                          <Package className="h-6 w-6 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Marketing Content */}
+                <div className="border rounded-lg p-4 bg-blue-50">
+                  <h4 className="font-medium mb-3 text-center">Your Marketing Content:</h4>
+                  <div className="bg-white rounded-lg p-4 border">
                     <div className="whitespace-pre-wrap text-sm">{generatedAsset.content}</div>
                   </div>
-                ) : (
-                  <div className="w-full h-48 flex items-center justify-center bg-gray-100">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                  </div>
-                )}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Single Asset Display (when no campaign) */}
+            {!(previousAsset && generatedAsset.type === 'content') && (
+              <div className="flex justify-center">
+                <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-md">
+                  {generatedAsset.type === 'image' && generatedAsset.url ? (
+                    <img
+                      src={generatedAsset.url}
+                      alt="Generated content"
+                      className="w-full h-auto object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.innerHTML = 
+                          '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Image failed to load</span></div>';
+                      }}
+                    />
+                  ) : generatedAsset.type === 'video' && generatedAsset.url ? (
+                    <video
+                      src={generatedAsset.url}
+                      controls
+                      className="w-full h-auto max-h-96"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.innerHTML = 
+                          '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Video failed to load</span></div>';
+                      }}
+                    />
+                  ) : generatedAsset.type === 'content' && generatedAsset.content ? (
+                    <div className="p-4 bg-white rounded-lg border max-w-2xl">
+                      <div className="whitespace-pre-wrap text-sm">{generatedAsset.content}</div>
+                    </div>
+                  ) : (
+                    <div className="w-full h-48 flex items-center justify-center bg-gray-100">
+                      <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {generatedAsset.message && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
@@ -540,7 +613,12 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                <span>Save to Library</span>
+                <span>
+                  {previousAsset && generatedAsset.type === 'content' 
+                    ? 'Save Complete Campaign' 
+                    : 'Save to Library'
+                  }
+                </span>
               </Button>
             </div>
 
