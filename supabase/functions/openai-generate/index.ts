@@ -50,25 +50,31 @@ ${productInfo ? `Product context: ${productInfo.name} - ${productInfo.descriptio
 
 Return only the optimized instruction, no explanation.`;
     } else if (type === 'marketing-content') {
-      systemPrompt = `You are a professional marketing copywriter. Create engaging marketing content based on the provided instruction. Focus on benefits, emotional appeal, and clear calls to action.`;
+      systemPrompt = `You are a professional marketing copywriter. Create engaging marketing content based on the provided instruction. Focus on benefits, emotional appeal, and clear calls to action. Return your response in a clean, readable format.`;
 
       userPrompt = `Create marketing content based on this instruction: "${instruction}"
 
 ${productInfo ? `Product: ${productInfo.name} - ${productInfo.description}` : ''}
 
-Generate:
+Please create:
 1. A compelling headline (max 10 words)
 2. Main marketing copy (2-3 sentences)
 3. Call to action (max 5 words)
 4. 3 relevant hashtags
 
-Format as JSON:
-{
-  "headline": "...",
-  "copy": "...",
-  "cta": "...",
-  "hashtags": ["#tag1", "#tag2", "#tag3"]
-}`;
+Format your response as clean, readable text with clear sections - NOT as JSON. Use this format:
+
+HEADLINE:
+[Your headline here]
+
+MARKETING COPY:
+[Your marketing copy here]
+
+CALL TO ACTION:
+[Your call to action here]
+
+HASHTAGS:
+[Your hashtags here]`;
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
