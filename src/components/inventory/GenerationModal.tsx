@@ -564,7 +564,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>What Do you Want To Generate?</DialogTitle>
           <DialogDescription>
@@ -572,27 +572,36 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           </DialogDescription>
         </DialogHeader>
 
-        {/* Show previous asset if switching to content generation */}
+        {/* Show previous asset prominently when generating content */}
         {previousAsset && currentGenerationType === 'content' && (
-          <div className="mb-6">
-            <h4 className="font-medium mb-2">Your Generated {previousAsset.type}:</h4>
+          <div className="mb-6 border-2 border-green-500 rounded-lg p-4 bg-green-50">
+            <h4 className="font-semibold text-green-800 mb-3 text-center">
+              Your Generated {previousAsset.type.charAt(0).toUpperCase() + previousAsset.type.slice(1)} - Now Creating Marketing Text:
+            </h4>
             <div className="flex justify-center">
-              <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-sm">
+              <div className="relative rounded-lg overflow-hidden bg-white shadow-lg max-w-md">
                 {previousAsset.type === 'image' && previousAsset.url ? (
                   <img
                     src={previousAsset.url}
                     alt="Generated content"
-                    className="w-full h-auto object-contain"
+                    className="w-full h-auto object-contain max-h-80"
                   />
                 ) : previousAsset.type === 'video' && previousAsset.url ? (
                   <video
                     src={previousAsset.url}
                     controls
-                    className="w-full h-auto max-h-64"
+                    className="w-full h-auto max-h-80"
                   />
-                ) : null}
+                ) : (
+                  <div className="w-full h-48 flex items-center justify-center bg-gray-100">
+                    <Package className="h-8 w-8 text-gray-400" />
+                  </div>
+                )}
               </div>
             </div>
+            <p className="text-center text-sm text-green-700 mt-2">
+              Generate marketing copy to accompany this visual asset
+            </p>
           </div>
         )}
 
