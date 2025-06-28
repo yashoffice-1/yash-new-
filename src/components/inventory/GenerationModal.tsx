@@ -74,6 +74,275 @@ const SUGGESTION_PROMPTS = {
   ]
 };
 
+function InstructionForm({
+  instruction,
+  setInstruction,
+  isImprovingInstruction,
+  handleImproveInstruction,
+  currentGenerationType,
+}: {
+  instruction: string;
+  setInstruction: React.Dispatch<React.SetStateAction<string>>;
+  isImprovingInstruction: boolean;
+  handleImproveInstruction: () => Promise<void>;
+  currentGenerationType: 'image' | 'video' | 'content' | 'formats';
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="border-2 border-black rounded-lg p-4 bg-gray-50">
+        <div className="space-y-2">
+          <div className="bg-yellow-300 text-black px-2 py-1 rounded text-sm font-semibold">
+            Type Your Instructions Here.
+          </div>
+          <div className="bg-yellow-300 text-black px-2 py-1 rounded text-xs">
+            {currentGenerationType === 'content' 
+              ? "Specify the ad channel (Facebook, Instagram, SMS, Email, LinkedIn, Twitter) and type of marketing content you want to create. Focus on text, headlines, and copy only."
+              : "If you want a Message with the Product Like \"SALE\" be sure you use quotes to send the instructions"
+            }
+          </div>
+          
+          <Textarea
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            placeholder={currentGenerationType === 'content' 
+              ? "Example: Create compelling Facebook Ad copy for this product with attention-grabbing headline, benefits-focused body text highlighting key features, and strong call-to-action that drives clicks"
+              : "Example: I want this product to showcase 4th of July SALE with Fireworks in the background and the message '4th of July SUPER SALE' and the number '30% OFF'"
+            }
+            className="min-h-[120px] bg-white"
+          />
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImproveInstruction}
+            disabled={isImprovingInstruction || !instruction.trim()}
+            className="flex items-center space-x-1"
+          >
+            {isImprovingInstruction ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Sparkles className="h-3 w-3" />
+            )}
+            <span>Improved with AI</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SuggestionButtons({
+  currentGenerationType,
+  handleSuggestionClick,
+}: {
+  currentGenerationType: 'image' | 'video' | 'content' | 'formats';
+  handleSuggestionClick: (suggestion: string) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+        {SUGGESTION_PROMPTS[currentGenerationType].map((suggestion, index) => (
+          <Button
+            key={index}
+            variant="outline"
+            size="sm"
+            onClick={() => handleSuggestionClick(suggestion)}
+            className="text-left h-auto p-3 whitespace-normal text-xs"
+          >
+            {suggestion}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResultsDisplay({
+  generatedAsset,
+  previousAsset,
+  product,
+  isSavingToLibrary,
+  handleStartOver,
+  handleDownload,
+  handleSaveToLibrary,
+  handleGenerateAdditionalContent,
+}: {
+  generatedAsset: GeneratedAsset;
+  previousAsset: GeneratedAsset | null;
+  product: InventoryItem;
+  isSavingToLibrary: boolean;
+  handleStartOver: () => void;
+  handleDownload: () => void;
+  handleSaveToLibrary: () => Promise<void>;
+  handleGenerateAdditionalContent: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Show both assets when we have a campaign */}
+      {previousAsset && generatedAsset.type === 'content' && (
+        <div className="space-y-4">
+          <div className="text-center">
+            <Badge variant="outline" className="mb-4 bg-green-100 text-green-800 border-green-300">
+              Complete Marketing Campaign
+            </Badge>
+          </div>
+          
+          {/* Visual Asset */}
+          <div className="border rounded-lg p-4 bg-gray-50">
+            <h4 className="font-medium mb-3 text-center">Your Visual Asset:</h4>
+            <div className="flex justify-center">
+              <div className="relative rounded-lg overflow-hidden bg-white shadow max-w-md">
+                {previousAsset.type === 'image' && previousAsset.url ? (
+                  <img
+                    src={previousAsset.url}
+                    alt="Generated visual content"
+                    className="w-full h-auto object-contain max-h-60"
+                  />
+                ) : previousAsset.type === 'video' && previousAsset.url ? (
+                  <video
+                    src={previousAsset.url}
+                    controls
+                    className="w-full h-auto max-h-60"
+                  />
+                ) : (
+                  <div className="w-full h-32 flex items-center justify-center bg-gray-100">
+                    <Package className="h-6 w-6 text-gray-400" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Marketing Content */}
+          <div className="border rounded-lg p-4 bg-blue-50">
+            <h4 className="font-medium mb-3 text-center">Your Marketing Content:</h4>
+            <div className="bg-white rounded-lg p-4 border">
+              <div className="whitespace-pre-wrap text-sm">{generatedAsset.content}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Single Asset Display (when no campaign) - Content gets special treatment */}
+      {!(previousAsset && generatedAsset.type === 'content') && (
+        <div className="flex justify-center">
+          {generatedAsset.type === 'content' && generatedAsset.content ? (
+            <div className="w-full max-w-3xl">
+              <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                <div className="text-center mb-4">
+                  <Badge className="bg-blue-600 text-white px-3 py-1">
+                    Marketing Content Generated
+                  </Badge>
+                </div>
+                <div className="bg-white rounded-lg p-6 border shadow-sm">
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{generatedAsset.content}</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-md">
+              {generatedAsset.type === 'image' && generatedAsset.url ? (
+                <img
+                  src={generatedAsset.url}
+                  alt="Generated content"
+                  className="w-full h-auto object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerHTML = 
+                      '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Image failed to load</span></div>';
+                  }}
+                />
+              ) : generatedAsset.type === 'video' && generatedAsset.url ? (
+                <video
+                  src={generatedAsset.url}
+                  controls
+                  className="w-full h-auto max-h-96"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerHTML = 
+                      '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Video failed to load</span></div>';
+                  }}
+                />
+              ) : (
+                <div className="w-full h-48 flex items-center justify-center bg-gray-100">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {generatedAsset.message && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
+          <p className="text-sm text-blue-800">{generatedAsset.message}</p>
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap justify-center gap-3">
+        <Button
+          variant="outline"
+          onClick={handleStartOver}
+          className="flex items-center space-x-1 border-red-500 text-red-500 hover:bg-red-50"
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Modify Asset</span>
+        </Button>
+        
+        <Button
+          variant="outline"
+          onClick={handleStartOver}
+          className="flex items-center space-x-1 border-blue-500 text-blue-500 hover:bg-blue-50"
+        >
+          <RefreshCw className="h-4 w-4" />
+          <span>Start All Over</span>
+        </Button>
+
+        <Button
+          onClick={handleDownload}
+          className="flex items-center space-x-1"
+          disabled={!generatedAsset.url && !generatedAsset.content}
+        >
+          <Download className="h-4 w-4" />
+          <span>Download</span>
+        </Button>
+
+        <Button
+          onClick={handleSaveToLibrary}
+          disabled={isSavingToLibrary}
+          className="flex items-center space-x-1 bg-purple-600 hover:bg-purple-700"
+        >
+          {isSavingToLibrary ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          <span>
+            {previousAsset && generatedAsset.type === 'content' 
+              ? 'Save Complete Campaign' 
+              : 'Save to Library'
+            }
+          </span>
+        </Button>
+      </div>
+
+      {/* Generate Additional Content Button - Only show for non-content types */}
+      {generatedAsset.type !== 'content' && (
+        <div className="text-center">
+          <Button
+            className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+            onClick={handleGenerateAdditionalContent}
+          >
+            <Save className="h-5 w-5 mr-2" />
+            Do you Need Text to Go with the Asset For an Ad, Post or Content?
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GenerationModal({ isOpen, onClose, onConfirm, product, generationType, title }: GenerationModalProps) {
   const { toast } = useToast();
   const { saveToLibrary } = useAssetLibrary();
@@ -508,7 +777,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       case 'content':
         return 'Generate Content';
       case 'formats':
-        return 'Generate Combos';
+        return 'Generate Formats';
       default:
         return 'Generate';
     }
@@ -523,169 +792,16 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
             <DialogTitle>Here is Your Generated {generatedAsset.type}:</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
-            {/* Show both assets when we have a campaign */}
-            {previousAsset && generatedAsset.type === 'content' && (
-              <div className="space-y-4">
-                <div className="text-center">
-                  <Badge variant="outline" className="mb-4 bg-green-100 text-green-800 border-green-300">
-                    Complete Marketing Campaign
-                  </Badge>
-                </div>
-                
-                {/* Visual Asset */}
-                <div className="border rounded-lg p-4 bg-gray-50">
-                  <h4 className="font-medium mb-3 text-center">Your Visual Asset:</h4>
-                  <div className="flex justify-center">
-                    <div className="relative rounded-lg overflow-hidden bg-white shadow max-w-md">
-                      {previousAsset.type === 'image' && previousAsset.url ? (
-                        <img
-                          src={previousAsset.url}
-                          alt="Generated visual content"
-                          className="w-full h-auto object-contain max-h-60"
-                        />
-                      ) : previousAsset.type === 'video' && previousAsset.url ? (
-                        <video
-                          src={previousAsset.url}
-                          controls
-                          className="w-full h-auto max-h-60"
-                        />
-                      ) : (
-                        <div className="w-full h-32 flex items-center justify-center bg-gray-100">
-                          <Package className="h-6 w-6 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Marketing Content */}
-                <div className="border rounded-lg p-4 bg-blue-50">
-                  <h4 className="font-medium mb-3 text-center">Your Marketing Content:</h4>
-                  <div className="bg-white rounded-lg p-4 border">
-                    <div className="whitespace-pre-wrap text-sm">{generatedAsset.content}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Single Asset Display (when no campaign) - Content gets special treatment */}
-            {!(previousAsset && generatedAsset.type === 'content') && (
-              <div className="flex justify-center">
-                {generatedAsset.type === 'content' && generatedAsset.content ? (
-                  <div className="w-full max-w-3xl">
-                    <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
-                      <div className="text-center mb-4">
-                        <Badge className="bg-blue-600 text-white px-3 py-1">
-                          Marketing Content Generated
-                        </Badge>
-                      </div>
-                      <div className="bg-white rounded-lg p-6 border shadow-sm">
-                        <div className="whitespace-pre-wrap text-sm leading-relaxed">{generatedAsset.content}</div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-md">
-                    {generatedAsset.type === 'image' && generatedAsset.url ? (
-                      <img
-                        src={generatedAsset.url}
-                        alt="Generated content"
-                        className="w-full h-auto object-contain"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement!.innerHTML = 
-                            '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Image failed to load</span></div>';
-                        }}
-                      />
-                    ) : generatedAsset.type === 'video' && generatedAsset.url ? (
-                      <video
-                        src={generatedAsset.url}
-                        controls
-                        className="w-full h-auto max-h-96"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement!.innerHTML = 
-                            '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Video failed to load</span></div>';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-48 flex items-center justify-center bg-gray-100">
-                        <Loader2 className="h-8 w-8 animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {generatedAsset.message && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                <p className="text-sm text-blue-800">{generatedAsset.message}</p>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap justify-center gap-3">
-              <Button
-                variant="outline"
-                onClick={handleStartOver}
-                className="flex items-center space-x-1 border-red-500 text-red-500 hover:bg-red-50"
-              >
-                <RefreshCw className="h-4 w-4" />
-                <span>Modify Asset</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={handleStartOver}
-                className="flex items-center space-x-1 border-blue-500 text-blue-500 hover:bg-blue-50"
-              >
-                <RefreshCw className="h-4 w-4" />
-                <span>Start All Over</span>
-              </Button>
-
-              <Button
-                onClick={handleDownload}
-                className="flex items-center space-x-1"
-                disabled={!generatedAsset.url && !generatedAsset.content}
-              >
-                <Download className="h-4 w-4" />
-                <span>Download</span>
-              </Button>
-
-              <Button
-                onClick={handleSaveToLibrary}
-                disabled={isSavingToLibrary}
-                className="flex items-center space-x-1 bg-purple-600 hover:bg-purple-700"
-              >
-                {isSavingToLibrary ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                <span>
-                  {previousAsset && generatedAsset.type === 'content' 
-                    ? 'Save Complete Campaign' 
-                    : 'Save to Library'
-                  }
-                </span>
-              </Button>
-            </div>
-
-            {/* Generate Additional Content Button - Only show for non-content types */}
-            {generatedAsset.type !== 'content' && (
-              <div className="text-center">
-                <Button
-                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
-                  onClick={handleGenerateAdditionalContent}
-                >
-                  <Save className="h-5 w-5 mr-2" />
-                  Do you Need Text to Go with the Asset For an Ad, Post or Content?
-                </Button>
-              </div>
-            )}
-          </div>
+          <ResultsDisplay
+            generatedAsset={generatedAsset}
+            previousAsset={previousAsset}
+            product={product}
+            isSavingToLibrary={isSavingToLibrary}
+            handleStartOver={handleStartOver}
+            handleDownload={handleDownload}
+            handleSaveToLibrary={handleSaveToLibrary}
+            handleGenerateAdditionalContent={handleGenerateAdditionalContent}
+          />
         </DialogContent>
       </Dialog>
     );
@@ -743,64 +859,18 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           </div>
         )}
 
-        {/* Suggestions */}
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-            {SUGGESTION_PROMPTS[currentGenerationType].map((suggestion, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                size="sm"
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="text-left h-auto p-3 whitespace-normal text-xs"
-              >
-                {suggestion}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <SuggestionButtons
+          currentGenerationType={currentGenerationType}
+          handleSuggestionClick={handleSuggestionClick}
+        />
 
-        {/* Instruction Input */}
-        <div className="space-y-3">
-          <div className="border-2 border-black rounded-lg p-4 bg-gray-50">
-            <div className="space-y-2">
-              <div className="bg-yellow-300 text-black px-2 py-1 rounded text-sm font-semibold">
-                Type Your Instructions Here.
-              </div>
-              <div className="bg-yellow-300 text-black px-2 py-1 rounded text-xs">
-                {currentGenerationType === 'content' 
-                  ? "Specify the ad channel (Facebook, Instagram, SMS, Email, LinkedIn, Twitter) and type of marketing content you want to create. Focus on text, headlines, and copy only."
-                  : "If you want a Message with the Product Like \"SALE\" be sure you use quotes to send the instructions"
-                }
-              </div>
-              
-              <Textarea
-                value={instruction}
-                onChange={(e) => setInstruction(e.target.value)}
-                placeholder={currentGenerationType === 'content' 
-                  ? "Example: Create compelling Facebook Ad copy for this product with attention-grabbing headline, benefits-focused body text highlighting key features, and strong call-to-action that drives clicks"
-                  : "Example: I want this product to showcase 4th of July SALE with Fireworks in the background and the message '4th of July SUPER SALE' and the number '30% OFF'"
-                }
-                className="min-h-[120px] bg-white"
-              />
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleImproveInstruction}
-                disabled={isImprovingInstruction || !instruction.trim()}
-                className="flex items-center space-x-1"
-              >
-                {isImprovingInstruction ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Sparkles className="h-3 w-3" />
-                )}
-                <span>Improved with AI</span>
-              </Button>
-            </div>
-          </div>
-        </div>
+        <InstructionForm
+          instruction={instruction}
+          setInstruction={setInstruction}
+          isImprovingInstruction={isImprovingInstruction}
+          handleImproveInstruction={handleImproveInstruction}
+          currentGenerationType={currentGenerationType}
+        />
 
         {/* Generation Status */}
         {isGenerating && (
