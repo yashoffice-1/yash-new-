@@ -81,6 +81,8 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   const [generatedAsset, setGeneratedAsset] = useState<GeneratedAsset | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
+  const [isGeneratingAdditionalContent, setIsGeneratingAdditionalContent] = useState(false);
+  const [additionalContent, setAdditionalContent] = useState<string | null>(null);
 
   const getDefaultInstruction = () => {
     const brandText = product.brand ? `for ${product.brand}` : '';
@@ -113,6 +115,8 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       setGeneratedAsset(null);
       setShowResults(false);
       setIsGenerating(false);
+      setAdditionalContent(null);
+      setIsGeneratingAdditionalContent(false);
     }
   }, [isOpen]);
 
@@ -407,6 +411,63 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     setShowResults(false);
     setGeneratedAsset(null);
     setInstruction(getDefaultInstruction());
+    setAdditionalContent(null);
+    setIsGeneratingAdditionalContent(false);
+  };
+
+  const handleGenerateAdditionalContent = async () => {
+    if (!generatedAsset) return;
+    
+    setIsGeneratingAdditionalContent(true);
+    
+    try {
+      // Create a content instruction based on the original asset
+      const contentInstruction = `Create compelling marketing text to go with this ${generatedAsset.type} asset for ${product.name}. The original instruction was: "${generatedAsset.instruction}". Generate engaging copy that would work well for an ad, post, or content piece.`;
+      
+      const { data, error } = await supabase.functions.invoke('openai-generate', {
+        body: {
+          type: 'marketing-content',
+          instruction: contentInstruction,
+          productInfo: {
+            name: product.name,
+            description: product.description,
+            category: product.category,
+            brand: product.brand
+          }
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate additional content');
+      }
+
+      setAdditionalContent(data.result);
+      
+      toast({
+        title: "Additional Content Generated",
+        description: "Marketing text has been created to go with your asset!",
+      });
+
+    } catch (error) {
+      console.error('Error generating additional content:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate additional content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAdditionalContent(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!isGenerating) {
+      onClose();
+    }
   };
 
   const handleClose = () => {
@@ -420,7 +481,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Here is Your Generated {generationType}:</DialogTitle>
+            <DialogTitle>Here is Your Generated {generatedAsset.type}:</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
@@ -467,6 +528,16 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
               </div>
             )}
 
+            {/* Additional Content Display */}
+            {additionalContent && (
+              <div className="space-y-2">
+                <h4 className="font-medium">Marketing Text for Your Asset:</h4>
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <pre className="whitespace-pre-wrap text-sm text-green-800">{additionalContent}</pre>
+                </div>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex flex-wrap justify-center gap-3">
               <Button
@@ -510,22 +581,28 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
               </Button>
             </div>
 
-            {/* Generate Content Option */}
-            <div className="text-center">
-              <Button
-                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
-                onClick={() => {
-                  // This would trigger content generation
-                  toast({
-                    title: "Content Generation",
-                    description: "Content generation feature coming soon!",
-                  });
-                }}
-              >
-                <Save className="h-5 w-5 mr-2" />
-                Do you Need Text to Go with the Asset For an Ad, Post or Content?
-              </Button>
-            </div>
+            {/* Generate Additional Content Button */}
+            {!additionalContent && generatedAsset.type !== 'content' && (
+              <div className="text-center">
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+                  onClick={handleGenerateAdditionalContent}
+                  disabled={isGeneratingAdditionalContent}
+                >
+                  {isGeneratingAdditionalContent ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Generating Text...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-5 w-5 mr-2" />
+                      Do you Need Text to Go with the Asset For an Ad, Post or Content?
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
