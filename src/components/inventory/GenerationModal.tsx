@@ -499,6 +499,21 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     }
   };
 
+  const getButtonText = () => {
+    switch (currentGenerationType) {
+      case 'image':
+        return 'I like the Description, Generate Image >>';
+      case 'video':
+        return 'I like the Description, Generate Video >>';
+      case 'content':
+        return 'I like the Description, Generate Marketing Content >>';
+      case 'formats':
+        return 'I like the Description, Generate Formats >>';
+      default:
+        return 'I like the Description, Generate >>';
+    }
+  };
+
   // Results view when asset is generated
   if (showResults && generatedAsset) {
     return (
@@ -820,7 +835,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                 Generating...
               </>
             ) : (
-              `I like the Description, Generate ${currentGenerationType === 'content' ? 'Marketing Content' : currentGenerationType} >>`
+              getButtonText()
             )}
           </Button>
         </div>
