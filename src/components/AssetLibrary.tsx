@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Download, Copy, Trash2, Search, Filter } from 'lucide-react';
+import { Heart, Download, Copy, Trash2, Search, Filter, AlertCircle } from 'lucide-react';
 import { useAssetLibrary, AssetLibraryItem } from '@/hooks/useAssetLibrary';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,6 +21,7 @@ export function AssetLibrary() {
 
   const loadAssets = async () => {
     const data = await getLibraryAssets();
+    console.log('Loaded assets from library:', data);
     setAssets(data);
     setFilteredAssets(data);
   };
@@ -201,11 +202,34 @@ export function AssetLibrary() {
                   <CardContent className="space-y-4">
                     {/* Asset Preview */}
                     {asset.asset_type === 'image' && asset.asset_url && (
-                      <div className="aspect-video bg-gray-100 rounded overflow-hidden">
+                      <div className="aspect-video bg-gray-100 rounded overflow-hidden relative">
                         <img 
                           src={asset.asset_url} 
                           alt={asset.title}
                           className="w-full h-full object-cover"
+                          onLoad={() => {
+                            console.log('Image loaded successfully:', asset.asset_url);
+                          }}
+                          onError={(e) => {
+                            console.error('Image failed to load:', asset.asset_url, e);
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            // Show error message
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'w-full h-full flex items-center justify-center bg-red-50 text-red-600 text-sm p-4';
+                            errorDiv.innerHTML = `
+                              <div class="text-center">
+                                <div class="flex items-center justify-center mb-2">
+                                  <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                </div>
+                                <p class="font-medium">Image failed to load</p>
+                                <p class="text-xs mt-1 break-all">${asset.asset_url}</p>
+                              </div>
+                            `;
+                            target.parentElement?.appendChild(errorDiv);
+                          }}
                         />
                       </div>
                     )}
@@ -216,6 +240,12 @@ export function AssetLibrary() {
                           src={asset.asset_url} 
                           className="w-full h-full object-contain"
                           controls
+                          onLoadedData={() => {
+                            console.log('Video loaded successfully:', asset.asset_url);
+                          }}
+                          onError={(e) => {
+                            console.error('Video failed to load:', asset.asset_url, e);
+                          }}
                         />
                       </div>
                     )}
@@ -223,6 +253,15 @@ export function AssetLibrary() {
                     {asset.asset_type === 'content' && asset.content && (
                       <div className="bg-gray-50 p-3 rounded text-sm max-h-32 overflow-y-auto">
                         <p className="whitespace-pre-wrap line-clamp-4">{asset.content}</p>
+                      </div>
+                    )}
+
+                    {/* Debug Info */}
+                    {asset.asset_type === 'image' && (
+                      <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        <p><strong>URL:</strong> {asset.asset_url}</p>
+                        <p><strong>Type:</strong> {asset.asset_type}</p>
+                        <p><strong>Source:</strong> {asset.source_system}</p>
                       </div>
                     )}
 
