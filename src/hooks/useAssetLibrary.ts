@@ -39,8 +39,8 @@ export function useAssetLibrary() {
       let finalAssetUrl = asset.asset_url;
       let storedFileName: string | undefined;
 
-      // Only download and store if it's not a content type and the URL is external
-      if (asset.asset_type !== 'content' && asset.asset_url && !asset.asset_url.includes('supabase')) {
+      // Only download and store if it's not a content/formats type and the URL is external
+      if (asset.asset_type !== 'content' && asset.asset_type !== 'formats' && asset.asset_url && !asset.asset_url.includes('supabase')) {
         toast({
           title: "Processing Asset",
           description: "Downloading and storing your asset...",

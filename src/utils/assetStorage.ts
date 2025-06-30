@@ -8,13 +8,13 @@ export interface DownloadedAsset {
 
 export async function downloadAndStoreAsset(
   externalUrl: string, 
-  assetType: 'image' | 'video' | 'content',
+  assetType: 'image' | 'video' | 'content' | 'formats',
   fileName?: string
 ): Promise<DownloadedAsset> {
   try {
-    // For content type, we don't need to download anything
-    if (assetType === 'content') {
-      return { url: externalUrl, fileName: fileName || 'content.txt' };
+    // For content and formats types, we don't need to download anything
+    if (assetType === 'content' || assetType === 'formats') {
+      return { url: externalUrl, fileName: fileName || `${assetType}.txt` };
     }
 
     // Generate a unique filename if not provided
