@@ -456,6 +456,17 @@ export function UnifiedAssetGenerator({
         const width = dimensionMatch ? parseInt(dimensionMatch[1]) : 1024;
         const height = dimensionMatch ? parseInt(dimensionMatch[2]) : 1024;
         
+        // Parse duration for video content
+        const durationMatch = specification.match(/(\d+)(?:s|sec|seconds?)/i);
+        const duration = durationMatch ? parseInt(durationMatch[1]) : 5;
+        
+        // Calculate aspect ratio
+        const aspectRatio = width && height ? `${width}:${height}` : '1:1';
+        
+        console.log(`Generating ${config.asset_type} with specifications:`, {
+          width, height, duration, aspectRatio, specification
+        });
+        
         const requestBody: any = {
           type: config.asset_type === 'ad' ? 'image' : config.asset_type,
           instruction: fullInstruction,
@@ -471,13 +482,17 @@ export function UnifiedAssetGenerator({
             width: width,
             height: height,
             dimensions: `${width}x${height}`,
-            aspectRatio: width / height
+            aspectRatio: aspectRatio,
+            duration: `${duration}s`
           }
         };
 
+        // Add image URL for video generation if available
         if (config.asset_type === 'video' && product.images?.length > 0) {
           requestBody.imageUrl = product.images[0];
         }
+
+        console.log('Sending request to RunwayML with format specs:', requestBody.formatSpecs);
 
         const { data, error } = await supabase.functions.invoke('runwayml-generate', {
           body: requestBody

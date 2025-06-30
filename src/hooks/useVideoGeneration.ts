@@ -44,23 +44,27 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
       console.log('Starting video generation with format specs:', formatSpecs);
       
       const functionName = provider === 'runway' ? 'runwayml-generate' : 'heygen-generate';
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: {
-          type: 'video',
-          instruction: instruction,
-          imageUrl: imageUrl,
-          productInfo: {
-            name: "Premium Wireless Headphones",
-            description: "High-quality audio experience with noise cancellation"
-          },
-          formatSpecs: formatSpecs || {
-            width: 1080,
-            height: 1920,
-            dimensions: "1080x1920",
-            aspectRatio: "9:16",
-            duration: "5 seconds"
-          }
+      const requestBody = {
+        type: 'video',
+        instruction: instruction,
+        imageUrl: imageUrl,
+        productInfo: {
+          name: "Premium Wireless Headphones",
+          description: "High-quality audio experience with noise cancellation"
+        },
+        formatSpecs: formatSpecs || {
+          width: 1080,
+          height: 1920,
+          dimensions: "1080x1920",
+          aspectRatio: "9:16",
+          duration: "5s"
         }
+      };
+
+      console.log('Sending video generation request with format specs:', requestBody);
+
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: requestBody
       });
 
       if (error) {
@@ -82,12 +86,13 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
 
       // Show different success messages based on provider
       const aspectRatio = formatSpecs?.aspectRatio || '9:16';
-      const duration = formatSpecs?.duration || '5 seconds';
+      const duration = formatSpecs?.duration || '5s';
       const dimensions = formatSpecs?.dimensions || '1080x1920';
+      const specification = formatSpecs?.specification || 'default';
       
       const successMessage = provider === 'runway' 
-        ? `Video created using RunwayML with ${aspectRatio} aspect ratio (${dimensions}) for ${duration}`
-        : `Video generation request sent to HeyGen via Google Sheets + Zapier automation with ${aspectRatio} aspect ratio for ${duration}`;
+        ? `Video created using RunwayML with ${aspectRatio} aspect ratio (${dimensions}) for ${duration} with format: ${specification}`
+        : `Video generation request sent to HeyGen via Google Sheets + Zapier automation with ${aspectRatio} aspect ratio for ${duration} with format: ${specification}`;
 
       toast({
         title: "Video Generation Started",

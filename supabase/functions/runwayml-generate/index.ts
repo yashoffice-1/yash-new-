@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.1';
@@ -19,6 +18,17 @@ interface RunwayRequest {
   productInfo?: {
     name: string;
     description: string;
+  };
+  formatSpecs?: {
+    channel?: string;
+    assetType?: string;
+    format?: string;
+    specification?: string;
+    width?: number;
+    height?: number;
+    dimensions?: string;
+    aspectRatio?: string;
+    duration?: string;
   };
 }
 
@@ -42,7 +52,9 @@ serve(async (req) => {
   }
 
   try {
-    const { type, instruction, imageUrl, productInfo }: RunwayRequest = await req.json();
+    const { type, instruction, imageUrl, productInfo, formatSpecs }: RunwayRequest = await req.json();
+
+    console.log('Received format specifications:', formatSpecs);
 
     if (!runwayApiKey) {
       console.log('RunwayML API key not configured');
@@ -64,23 +76,31 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log(`Starting RunwayML ${type} generation`);
+    console.log(`Starting RunwayML ${type} generation with format specs`);
 
     // Create a concise prompt to avoid API issues
     const concisePrompt = createConcisePrompt(instruction, productInfo);
     console.log('Concise prompt:', concisePrompt);
     console.log('Prompt length:', concisePrompt.length);
 
+    // Extract dimensions from format specs or use defaults
+    const width = formatSpecs?.width || 1024;
+    const height = formatSpecs?.height || 1024;
+    const aspectRatio = formatSpecs?.aspectRatio || `${width}:${height}`;
+    const duration = formatSpecs?.duration ? parseInt(formatSpecs.duration.replace(/[^\d]/g, '')) : 5;
+
+    console.log('Using dimensions:', { width, height, aspectRatio, duration });
+
     // Use RunwayML's correct API structure based on documentation
     let requestBody: any;
     let apiEndpoint: string;
 
     if (type === 'image') {
-      // Use correct image generation endpoint and structure
+      // Use correct image generation endpoint and structure with format specs
       requestBody = {
         promptText: concisePrompt,
         model: "gen4_image",
-        ratio: "1920:1080"
+        ratio: aspectRatio === '1:1' ? '1920:1080' : aspectRatio // Map common ratios
       };
       
       // Add reference image if provided
@@ -94,15 +114,19 @@ serve(async (req) => {
       
       apiEndpoint = 'https://api.dev.runwayml.com/v1/text_to_image';
     } else {
-      // Use correct video generation endpoint and structure - updated based on documentation
+      // Use correct video generation endpoint and structure with format specs
+      const videoRatio = aspectRatio === '9:16' ? '1280:720' : 
+                        aspectRatio === '16:9' ? '1920:1080' : 
+                        aspectRatio === '1:1' ? '1280:720' : '1280:720';
+      
       if (imageUrl) {
         // Image-to-video generation
         requestBody = {
           model: 'gen4_turbo',
           promptImage: imageUrl,
           promptText: concisePrompt,
-          ratio: '1280:720',
-          duration: 5
+          ratio: videoRatio,
+          duration: Math.min(Math.max(duration, 5), 10) // Clamp between 5-10 seconds
         };
         apiEndpoint = 'https://api.dev.runwayml.com/v1/image_to_video';
       } else {
@@ -110,15 +134,15 @@ serve(async (req) => {
         requestBody = {
           model: 'gen4_turbo',
           promptText: concisePrompt,
-          ratio: '1280:720',
-          duration: 5
+          ratio: videoRatio,
+          duration: Math.min(Math.max(duration, 5), 10) // Clamp between 5-10 seconds
         };
         apiEndpoint = 'https://api.dev.runwayml.com/v1/text_to_video';
       }
     }
 
     console.log('Making API call to RunwayML:', apiEndpoint);
-    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+    console.log('Request body with format specs:', JSON.stringify(requestBody, null, 2));
 
     // Make the API call to RunwayML with correct headers
     const response = await fetch(apiEndpoint, {
@@ -150,7 +174,7 @@ serve(async (req) => {
       const { data: asset, error: dbError } = await supabase
         .from('generated_assets')
         .insert({
-          channel: 'instagram',
+          channel: formatSpecs?.channel || 'instagram',
           format: type === 'image' ? 'jpg' : 'mp4',
           source_system: 'runway',
           asset_type: type,
@@ -191,7 +215,7 @@ serve(async (req) => {
       const { data: asset, error: dbError } = await supabase
         .from('generated_assets')
         .insert({
-          channel: 'instagram',
+          channel: formatSpecs?.channel || 'instagram',
           format: type === 'image' ? 'jpg' : 'mp4',
           source_system: 'runway',
           asset_type: type,
@@ -233,7 +257,7 @@ serve(async (req) => {
       const { data: asset, error: dbError } = await supabase
         .from('generated_assets')
         .insert({
-          channel: 'instagram',
+          channel: formatSpecs?.channel || 'instagram',
           format: type === 'image' ? 'jpg' : 'mp4',
           source_system: 'runway',
           asset_type: type,
@@ -350,11 +374,11 @@ serve(async (req) => {
         : 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
     }
 
-    // Store the generated asset in database
+    // Store the generated asset in database with format specs
     const { data: asset, error: dbError } = await supabase
       .from('generated_assets')
       .insert({
-        channel: 'instagram',
+        channel: formatSpecs?.channel || 'instagram',
         format: type === 'image' ? 'jpg' : 'mp4',
         source_system: 'runway',
         asset_type: type,
@@ -370,7 +394,7 @@ serve(async (req) => {
       throw new Error(`Database error: ${dbError.message}`);
     }
 
-    console.log(`RunwayML ${type} generation completed with status: ${finalStatus}`);
+    console.log(`RunwayML ${type} generation completed with format specs: ${formatSpecs?.specification}`);
 
     return new Response(JSON.stringify({ 
       success: true, 
@@ -379,7 +403,7 @@ serve(async (req) => {
       type: type,
       runway_task_id: taskId,
       status: finalStatus,
-      message: message
+      message: message + ` Generated with specs: ${formatSpecs?.specification || 'default'}`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

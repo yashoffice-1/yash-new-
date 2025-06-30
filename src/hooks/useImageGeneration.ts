@@ -44,21 +44,25 @@ export function useImageGeneration({ onSuccess }: UseImageGenerationProps = {}) 
       console.log('Starting image generation with instruction:', instruction);
       console.log('Format specifications:', formatSpecs);
       
-      const { data, error } = await supabase.functions.invoke('runwayml-generate', {
-        body: {
-          type: 'image',
-          instruction: instruction,
-          productInfo: {
-            name: "Premium Wireless Headphones",
-            description: "High-quality audio experience with noise cancellation"
-          },
-          formatSpecs: formatSpecs || {
-            width: 1024,
-            height: 1024,
-            dimensions: "1024x1024",
-            aspectRatio: "1:1"
-          }
+      const requestBody = {
+        type: 'image',
+        instruction: instruction,
+        productInfo: {
+          name: "Premium Wireless Headphones",
+          description: "High-quality audio experience with noise cancellation"
+        },
+        formatSpecs: formatSpecs || {
+          width: 1024,
+          height: 1024,
+          dimensions: "1024x1024",
+          aspectRatio: "1:1"
         }
+      };
+
+      console.log('Sending request to RunwayML with format specs:', requestBody);
+      
+      const { data, error } = await supabase.functions.invoke('runwayml-generate', {
+        body: requestBody
       });
 
       console.log('Image generation response:', data);
@@ -98,7 +102,7 @@ export function useImageGeneration({ onSuccess }: UseImageGenerationProps = {}) 
       } else {
         toast({
           title: "Image Generated",
-          description: `Your ${formatSpecs?.aspectRatio || '1:1'} image (${formatSpecs?.dimensions || '1024x1024'}) has been created successfully!`,
+          description: `Your ${formatSpecs?.aspectRatio || '1:1'} image (${formatSpecs?.dimensions || '1024x1024'}) has been created successfully with format: ${formatSpecs?.specification || 'default'}!`,
         });
       }
 
