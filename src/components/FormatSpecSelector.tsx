@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface FormatSpecSelectorProps {
   assetType: 'image' | 'video';
@@ -33,10 +34,10 @@ const ASPECT_RATIOS = {
 };
 
 const VIDEO_DURATIONS = [
-  { value: '20', label: '20 seconds' },
-  { value: '15', label: '15 seconds' },
+  { value: '5', label: '5 seconds' },
   { value: '10', label: '10 seconds' },
-  { value: '5', label: '5 seconds' }
+  { value: '15', label: '15 seconds' },
+  { value: '20', label: '20 seconds' }
 ];
 
 export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs }: FormatSpecSelectorProps) {
@@ -102,23 +103,18 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs }: Fo
       {assetType === 'video' && (
         <div className="space-y-3">
           <Label className="text-sm font-medium text-gray-700">Duration</Label>
-          <RadioGroup 
-            value={selectedDuration} 
-            onValueChange={handleDurationChange}
-            className="space-y-2"
-          >
-            {VIDEO_DURATIONS.map((duration) => (
-              <div key={duration.value} className="flex items-center space-x-2">
-                <RadioGroupItem value={duration.value} id={`duration-${duration.value}`} />
-                <Label 
-                  htmlFor={`duration-${duration.value}`} 
-                  className="text-sm cursor-pointer flex-1"
-                >
+          <Select value={selectedDuration} onValueChange={handleDurationChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select duration" />
+            </SelectTrigger>
+            <SelectContent>
+              {VIDEO_DURATIONS.map((duration) => (
+                <SelectItem key={duration.value} value={duration.value}>
                   {duration.label}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
