@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -548,6 +547,36 @@ export function UnifiedAssetGenerator({
   };
 
   const renderAssetActions = (productId: string, asset: GeneratedAsset) => {
+    const config = configs[productId];
+    const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
+    
+    // Generate prefilled data for Save to Library
+    const generateSaveData = () => {
+      const channelLabel = CHANNELS.find(c => c.value === config?.channel)?.label || config?.channel;
+      const specification = config?.specification || SPECIFICATIONS[config?.type as keyof typeof SPECIFICATIONS] || '';
+      
+      return {
+        title: `${product.name} - ${channelLabel} ${config?.type || 'Asset'}`,
+        description: [
+          `Product: ${product.name}`,
+          product.brand ? `Brand: ${product.brand}` : '',
+          product.category ? `Category: ${product.category}` : '',
+          product.description ? `Description: ${product.description}` : '',
+          `Channel: ${channelLabel}`,
+          `Format: ${config?.type || 'N/A'}`,
+          specification ? `Specifications: ${specification}` : ''
+        ].filter(Boolean).join('\n'),
+        tags: [
+          product.brand?.toLowerCase(),
+          product.category?.toLowerCase(),
+          config?.channel,
+          config?.asset_type,
+          config?.type?.toLowerCase().replace(/\s+/g, '-'),
+          'generated'
+        ].filter(Boolean) as string[]
+      };
+    };
+
     return (
       <div className="flex flex-wrap gap-2 mt-4 p-3 bg-gray-50 rounded-lg border-t">
         {/* Save to Library */}
@@ -561,6 +590,7 @@ export function UnifiedAssetGenerator({
               content: asset.content,
               source_system: 'runway',
             }}
+            prefillData={generateSaveData()}
           />
         )}
 

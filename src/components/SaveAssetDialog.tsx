@@ -19,16 +19,31 @@ interface SaveAssetDialogProps {
     source_system?: string;
   };
   trigger?: React.ReactNode;
+  prefillData?: {
+    title: string;
+    description: string;
+    tags: string[];
+  };
 }
 
-export function SaveAssetDialog({ asset, trigger }: SaveAssetDialogProps) {
+export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialogProps) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState(prefillData?.title || '');
+  const [description, setDescription] = useState(prefillData?.description || '');
   const [tagInput, setTagInput] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>(prefillData?.tags || []);
   
   const { saveToLibrary, isLoading } = useAssetLibrary();
+
+  // Update state when prefillData changes or dialog opens
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (newOpen && prefillData) {
+      setTitle(prefillData.title);
+      setDescription(prefillData.description);
+      setTags(prefillData.tags);
+    }
+  };
 
   const addTag = (tag: string) => {
     const trimmedTag = tag.trim().toLowerCase();
@@ -86,7 +101,7 @@ export function SaveAssetDialog({ asset, trigger }: SaveAssetDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm">
@@ -121,7 +136,7 @@ export function SaveAssetDialog({ asset, trigger }: SaveAssetDialogProps) {
               placeholder="Optional description..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={3}
+              rows={5}
             />
           </div>
 
