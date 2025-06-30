@@ -10,6 +10,7 @@ import { Loader2, Package, Sparkles, Download, Save, Redo, X } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SaveAssetDialog } from '@/components/SaveAssetDialog';
+import { FormatSpecSelector } from '@/components/FormatSpecSelector';
 
 interface InventoryItem {
   id: string;
@@ -207,6 +208,7 @@ export function UnifiedAssetGenerator({
   const [configs, setConfigs] = useState<Record<string, AssetGenerationConfig>>({});
   const [generatedAssets, setGeneratedAssets] = useState<Record<string, GeneratedAsset>>({});
   const [loadingInstructions, setLoadingInstructions] = useState(false);
+  const [formatSpecs, setFormatSpecs] = useState<Record<string, any>>({});
 
   const isMultiProduct = selectedProducts.length > 1;
 
@@ -409,6 +411,13 @@ export function UnifiedAssetGenerator({
     }
   };
 
+  const handleFormatSpecChange = (productId: string, specs: any) => {
+    setFormatSpecs(prev => ({
+      ...prev,
+      [productId]: specs
+    }));
+  };
+
   const handleGenerate = async (productId: string) => {
     setIsGenerating(true);
     
@@ -417,6 +426,7 @@ export function UnifiedAssetGenerator({
       const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
       const fullInstruction = generateTaggedInstruction(config, product);
       const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
+      const currentFormatSpecs = formatSpecs[productId];
 
       let result: GeneratedAsset;
       
@@ -436,7 +446,8 @@ export function UnifiedAssetGenerator({
               assetType: config.asset_type,
               format: config.type,
               specification: specification,
-              dimensions: specification
+              dimensions: specification,
+              ...currentFormatSpecs
             }
           }
         });
@@ -451,17 +462,25 @@ export function UnifiedAssetGenerator({
           instruction: fullInstruction
         };
       } else {
-        // Parse dimensions from specification for image/video generation
-        const dimensionMatch = specification.match(/(\d+)x(\d+)/);
-        const width = dimensionMatch ? parseInt(dimensionMatch[1]) : 1024;
-        const height = dimensionMatch ? parseInt(dimensionMatch[2]) : 1024;
+        // Use format specs from FormatSpecSelector if available, otherwise parse from specification
+        let width, height, duration, aspectRatio;
         
-        // Parse duration for video content
-        const durationMatch = specification.match(/(\d+)(?:s|sec|seconds?)/i);
-        const duration = durationMatch ? parseInt(durationMatch[1]) : 5;
-        
-        // Calculate aspect ratio
-        const aspectRatio = width && height ? `${width}:${height}` : '1:1';
+        if (currentFormatSpecs) {
+          width = currentFormatSpecs.width;
+          height = currentFormatSpecs.height;
+          aspectRatio = currentFormatSpecs.aspectRatio;
+          duration = currentFormatSpecs.duration;
+        } else {
+          // Fallback to parsing from specification
+          const dimensionMatch = specification.match(/(\d+)x(\d+)/);
+          width = dimensionMatch ? parseInt(dimensionMatch[1]) : 1024;
+          height = dimensionMatch ? parseInt(dimensionMatch[2]) : 1024;
+          
+          const durationMatch = specification.match(/(\d+)(?:s|sec|seconds?)/i);
+          duration = durationMatch ? `${durationMatch[1]} seconds` : '5 seconds';
+          
+          aspectRatio = width && height ? `${width}:${height}` : '1:1';
+        }
         
         console.log(`Generating ${config.asset_type} with specifications:`, {
           width, height, duration, aspectRatio, specification
@@ -483,7 +502,8 @@ export function UnifiedAssetGenerator({
             height: height,
             dimensions: `${width}x${height}`,
             aspectRatio: aspectRatio,
-            duration: `${duration}s`
+            duration: duration,
+            ...currentFormatSpecs
           }
         };
 
@@ -514,9 +534,13 @@ export function UnifiedAssetGenerator({
 
       setGeneratedAssets(prev => ({ ...prev, [productId]: result }));
       
+      const formatInfo = currentFormatSpecs ? 
+        `${currentFormatSpecs.aspectRatio} (${currentFormatSpecs.dimensions})${config.asset_type === 'video' ? `, ${currentFormatSpecs.duration}` : ''}` :
+        specification;
+      
       toast({
         title: "Generation Successful",
-        description: `Your ${config.asset_type} has been generated with format: ${specification}`,
+        description: `Your ${config.asset_type} has been generated with format: ${formatInfo}`,
       });
       
     } catch (error) {
@@ -827,6 +851,18 @@ export function UnifiedAssetGenerator({
             </div>
           </div>
         </div>
+
+        {/* Format Specification Selector - Only show for image/video assets */}
+        {(config.asset_type === 'image' || config.asset_type === 'video' || config.asset_type === 'ad') && (
+          <div className="space-y-2">
+            <Label>🎯 Format Specifications</Label>
+            <FormatSpecSelector
+              assetType={config.asset_type === 'ad' ? 'image' : config.asset_type as 'image' | 'video'}
+              onSpecChange={(specs) => handleFormatSpecChange(configKey, specs)}
+              initialSpecs={formatSpecs[configKey]}
+            />
+          </div>
+        )}
 
         {/* Instruction Box */}
         <div className="space-y-2">
