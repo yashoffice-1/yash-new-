@@ -22,7 +22,8 @@ interface FormatSpecs {
   width?: number;
   height?: number;
   dimensions?: string;
-  aspectRatio?: number;
+  aspectRatio?: string;
+  duration?: string;
 }
 
 interface UseImageGenerationProps {
@@ -54,7 +55,8 @@ export function useImageGeneration({ onSuccess }: UseImageGenerationProps = {}) 
           formatSpecs: formatSpecs || {
             width: 1024,
             height: 1024,
-            dimensions: "1024x1024"
+            dimensions: "1024x1024",
+            aspectRatio: "1:1"
           }
         }
       });
@@ -85,7 +87,7 @@ export function useImageGeneration({ onSuccess }: UseImageGenerationProps = {}) 
       if (data.status === 'processing') {
         toast({
           title: "Image Generation Started",
-          description: `Creating ${formatSpecs?.format || 'image'} with dimensions ${formatSpecs?.dimensions || '1024x1024'}. This may take a few minutes.`,
+          description: `Creating ${formatSpecs?.aspectRatio || '1:1'} image with dimensions ${formatSpecs?.dimensions || '1024x1024'}. This may take a few minutes.`,
         });
       } else if (data.status === 'error') {
         toast({
@@ -96,7 +98,7 @@ export function useImageGeneration({ onSuccess }: UseImageGenerationProps = {}) 
       } else {
         toast({
           title: "Image Generated",
-          description: `Your ${formatSpecs?.format || 'image'} (${formatSpecs?.dimensions || '1024x1024'}) has been created successfully!`,
+          description: `Your ${formatSpecs?.aspectRatio || '1:1'} image (${formatSpecs?.dimensions || '1024x1024'}) has been created successfully!`,
         });
       }
 

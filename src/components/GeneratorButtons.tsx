@@ -1,17 +1,25 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
+import { FormatSpecSelector } from "./FormatSpecSelector";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';
 
 interface GeneratorButtonsProps {
   approvedInstruction: string | null;
   selectedImage: string | null;
-  onGenerate: (type: GeneratorType) => void;
+  onGenerate: (type: GeneratorType, formatSpecs?: any) => void;
   isGenerating?: boolean;
+}
+
+interface FormatSpecs {
+  aspectRatio: string;
+  width: number;
+  height: number;
+  dimensions: string;
+  duration?: string;
 }
 
 const GENERATION_COSTS = {
@@ -47,21 +55,26 @@ const GENERATOR_INFO = {
 export function GeneratorButtons({ approvedInstruction, selectedImage, onGenerate, isGenerating = false }: GeneratorButtonsProps) {
   const [showCostPreview, setShowCostPreview] = useState(false);
   const [selectedGenerator, setSelectedGenerator] = useState<GeneratorType | null>(null);
+  const [formatSpecs, setFormatSpecs] = useState<FormatSpecs | null>(null);
 
   const handleGeneratorClick = (type: GeneratorType) => {
     setSelectedGenerator(type);
     setShowCostPreview(true);
+    // Reset format specs when opening dialog
+    setFormatSpecs(null);
   };
 
   const handleConfirmGeneration = () => {
     if (selectedGenerator) {
-      onGenerate(selectedGenerator);
+      onGenerate(selectedGenerator, formatSpecs);
       setShowCostPreview(false);
       setSelectedGenerator(null);
+      setFormatSpecs(null);
     }
   };
 
   const isEnabled = approvedInstruction && selectedImage && !isGenerating;
+  const showFormatSelector = selectedGenerator && (selectedGenerator === 'image' || selectedGenerator === 'video');
 
   if (!approvedInstruction || !selectedImage) {
     return (
@@ -104,33 +117,36 @@ export function GeneratorButtons({ approvedInstruction, selectedImage, onGenerat
       </Card>
 
       <Dialog open={showCostPreview} onOpenChange={setShowCostPreview}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Cost Preview</DialogTitle>
+            <DialogTitle>Generation Settings</DialogTitle>
             <DialogDescription>
-              Review the generation details and cost before proceeding
+              Configure your {selectedGenerator} generation settings
             </DialogDescription>
           </DialogHeader>
           
-          {selectedGenerator && (
-            <div className="space-y-4">
+          <div className="space-y-6">
+            {selectedGenerator && (
               <div className="border rounded-lg p-4 space-y-2">
                 <h4 className="font-medium">{GENERATOR_INFO[selectedGenerator].title}</h4>
                 <p className="text-sm text-muted-foreground">{GENERATOR_INFO[selectedGenerator].description}</p>
                 <p className="text-xs">Provider: {GENERATOR_INFO[selectedGenerator].provider}</p>
+                <p className="text-lg font-bold">${GENERATION_COSTS[selectedGenerator].toFixed(2)}</p>
               </div>
-              
-              <div className="border rounded-lg p-4 space-y-2">
-                <h4 className="font-medium">Generation Cost</h4>
-                <p className="text-2xl font-bold">${GENERATION_COSTS[selectedGenerator].toFixed(2)}</p>
-              </div>
-              
-              <div className="border rounded-lg p-4 space-y-2">
-                <h4 className="font-medium">Your Instruction</h4>
-                <p className="text-sm">{approvedInstruction}</p>
-              </div>
+            )}
+
+            {showFormatSelector && (
+              <FormatSpecSelector
+                assetType={selectedGenerator as 'image' | 'video'}
+                onSpecChange={setFormatSpecs}
+              />
+            )}
+            
+            <div className="border rounded-lg p-4 space-y-2">
+              <h4 className="font-medium">Your Instruction</h4>
+              <p className="text-sm">{approvedInstruction}</p>
             </div>
-          )}
+          </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCostPreview(false)}>

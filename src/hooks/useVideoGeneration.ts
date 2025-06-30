@@ -9,7 +9,7 @@ interface GeneratedVideo {
   instruction: string;
   source_system: string;
   timestamp: Date;
-  message?: string; // For HeyGen Zapier workflow feedback
+  message?: string;
 }
 
 interface FormatSpecs {
@@ -20,7 +20,7 @@ interface FormatSpecs {
   width?: number;
   height?: number;
   dimensions?: string;
-  aspectRatio?: number;
+  aspectRatio?: string;
   duration?: string;
 }
 
@@ -56,7 +56,9 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
           formatSpecs: formatSpecs || {
             width: 1080,
             height: 1920,
-            dimensions: "1080x1920"
+            dimensions: "1080x1920",
+            aspectRatio: "9:16",
+            duration: "5 seconds"
           }
         }
       });
@@ -79,9 +81,13 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
       };
 
       // Show different success messages based on provider
+      const aspectRatio = formatSpecs?.aspectRatio || '9:16';
+      const duration = formatSpecs?.duration || '5 seconds';
+      const dimensions = formatSpecs?.dimensions || '1080x1920';
+      
       const successMessage = provider === 'runway' 
-        ? `Video created using RunwayML with format: ${formatSpecs?.format || 'video'} (${formatSpecs?.dimensions || '1080x1920'})`
-        : `Video generation request sent to HeyGen via Google Sheets + Zapier automation with format: ${formatSpecs?.format || 'video'}`;
+        ? `Video created using RunwayML with ${aspectRatio} aspect ratio (${dimensions}) for ${duration}`
+        : `Video generation request sent to HeyGen via Google Sheets + Zapier automation with ${aspectRatio} aspect ratio for ${duration}`;
 
       toast({
         title: "Video Generation Started",
