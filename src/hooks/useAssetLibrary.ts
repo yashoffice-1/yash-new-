@@ -1,7 +1,7 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { downloadAndStoreAsset } from '@/utils/assetStorage';
 
 export interface AssetLibraryItem {
   id: string;
@@ -36,9 +36,36 @@ export function useAssetLibrary() {
   }) => {
     setIsLoading(true);
     try {
+      let finalAssetUrl = asset.asset_url;
+      let storedFileName: string | undefined;
+
+      // Only download and store if it's not a content type and the URL is external
+      if (asset.asset_type !== 'content' && asset.asset_url && !asset.asset_url.includes('supabase')) {
+        toast({
+          title: "Processing Asset",
+          description: "Downloading and storing your asset...",
+        });
+
+        try {
+          const downloadedAsset = await downloadAndStoreAsset(
+            asset.asset_url,
+            asset.asset_type,
+            `${asset.title.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`
+          );
+          finalAssetUrl = downloadedAsset.url;
+          storedFileName = downloadedAsset.fileName;
+        } catch (downloadError) {
+          console.warn('Failed to download asset, using original URL:', downloadError);
+          // Continue with original URL if download fails
+        }
+      }
+
       const { data, error } = await supabase
         .from('asset_library')
-        .insert([asset])
+        .insert([{
+          ...asset,
+          asset_url: finalAssetUrl
+        }])
         .select()
         .single();
 
@@ -46,7 +73,9 @@ export function useAssetLibrary() {
 
       toast({
         title: "Asset Saved",
-        description: "Asset has been saved to your library successfully!",
+        description: storedFileName 
+          ? "Asset has been downloaded and saved to your library successfully!" 
+          : "Asset has been saved to your library successfully!",
       });
 
       return data;
