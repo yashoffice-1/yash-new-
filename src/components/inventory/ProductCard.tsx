@@ -2,7 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Wand2, DollarSign, Package, Video, Image, FileText, Megaphone } from "lucide-react";
+import { Edit, Trash2, Wand2, DollarSign, Package } from "lucide-react";
 
 interface InventoryItem {
   id: string;
@@ -24,16 +24,9 @@ interface ProductCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onUseForGeneration: (product: InventoryItem) => void;
-  onVideoTemplate?: (product: InventoryItem) => void;
 }
 
-export function ProductCard({ 
-  product, 
-  onEdit, 
-  onDelete, 
-  onUseForGeneration, 
-  onVideoTemplate 
-}: ProductCardProps) {
+export function ProductCard({ product, onEdit, onDelete, onUseForGeneration }: ProductCardProps) {
   const primaryImage = product.images?.[0];
   
   return (
@@ -93,80 +86,34 @@ export function ProductCard({
             )}
           </div>
 
-          {/* Generator Buttons */}
-          <div className="space-y-2 pt-2">
-            <div className="grid grid-cols-2 gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onUseForGeneration(product)}
-                className="text-xs"
-              >
-                <Image className="h-3 w-3 mr-1" />
-                Image
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onUseForGeneration(product)}
-                className="text-xs"
-              >
-                <Video className="h-3 w-3 mr-1" />
-                Video
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onUseForGeneration(product)}
-                className="text-xs"
-              >
-                <FileText className="h-3 w-3 mr-1" />
-                Content
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onUseForGeneration(product)}
-                className="text-xs"
-              >
-                <Megaphone className="h-3 w-3 mr-1" />
-                Ad
-              </Button>
-            </div>
-            
-            {/* Video Template Button */}
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-2">
             <Button
               size="sm"
-              onClick={() => onVideoTemplate?.(product)}
-              className="w-full text-xs bg-blue-600 hover:bg-blue-700"
+              onClick={() => onUseForGeneration(product)}
+              className="flex-1 text-xs"
             >
-              <Video className="h-3 w-3 mr-1" />
-              Video Template
+              <Wand2 className="h-3 w-3 mr-1" />
+              Generate Content
             </Button>
             
-            {/* Edit/Delete Actions */}
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onEdit}
-                className="flex-1 text-xs"
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onDelete}
-                className="flex-1 text-xs text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onEdit}
+              className="text-xs"
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onDelete}
+              className="text-xs text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
           </div>
         </div>
       </CardContent>

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { AddProductDialog } from "./AddProductDialog";
 import { ImportProductsDialog } from "./ImportProductsDialog";
 import { ProductCard } from "./ProductCard";
-import { VideoTemplateModal } from "../VideoTemplateModal";
 
 interface InventoryItem {
   id: string;
@@ -38,8 +38,6 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
-  const [showVideoTemplateModal, setShowVideoTemplateModal] = useState(false);
-  const [videoTemplateProduct, setVideoTemplateProduct] = useState<InventoryItem | null>(null);
 
   // Fetch inventory items
   const { data: inventory, isLoading, refetch } = useQuery({
@@ -140,17 +138,6 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
     });
   };
 
-  const handleVideoTemplate = (product: InventoryItem) => {
-    console.log('Opening video template for product:', product);
-    setVideoTemplateProduct(product);
-    setShowVideoTemplateModal(true);
-    
-    toast({
-      title: "Video Template",
-      description: `Opening video template generator for ${product.name}`,
-    });
-  };
-
   return (
     <div className="space-y-6">
       <Card>
@@ -224,7 +211,6 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                   onEdit={() => setSelectedProduct(product)}
                   onDelete={() => handleDeleteProduct(product.id)}
                   onUseForGeneration={handleUseForGeneration}
-                  onVideoTemplate={handleVideoTemplate}
                 />
               ))}
             </div>
@@ -265,15 +251,6 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
         onOpenChange={setShowImportDialog}
         onProductsImported={handleProductsImported}
       />
-
-      {/* Video Template Modal */}
-      {videoTemplateProduct && (
-        <VideoTemplateModal
-          open={showVideoTemplateModal}
-          onOpenChange={setShowVideoTemplateModal}
-          product={videoTemplateProduct}
-        />
-      )}
     </div>
   );
 }

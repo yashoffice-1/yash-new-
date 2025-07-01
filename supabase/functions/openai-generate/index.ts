@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -8,22 +9,34 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface OpenAIRequest {
+  type: 'clean-instruction' | 'marketing-content' | 'marketing-suggestions';
+  instruction?: string;
+  productInfo?: {
+    name: string;
+    description: string;
+    category?: string | null;
+    brand?: string | null;
+  };
+  context?: {
+    channel?: string;
+    assetType?: string;
+    format?: string;
+    specification?: string;
+  };
+  channel?: string;
+  assetType?: string;
+  format?: string;
+}
+
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { 
-      type, 
-      instruction, 
-      productInfo, 
-      context,
-      fieldName,
-      currentValue,
-      constraint,
-      formatSpecs 
-    } = await req.json();
+    const { type, instruction, productInfo, context, channel, assetType, format }: OpenAIRequest = await req.json();
 
     if (!openAIApiKey) {
       throw new Error('OpenAI API key not configured');
@@ -32,77 +45,92 @@ serve(async (req) => {
     let systemPrompt = '';
     let userPrompt = '';
 
-    switch (type) {
-      case 'improve-template-field':
-        systemPrompt = `You are an expert copywriter specializing in product marketing and template optimization. 
-        Your task is to improve template field content while strictly adhering to character limits and field purposes.
-        
-        CRITICAL RULES:
-        1. NEVER exceed the character limit specified
-        2. Keep the core meaning and key information
-        3. Make the content more compelling and marketing-focused
-        4. Use action words and emotional triggers when appropriate
-        5. Maintain factual accuracy about the product
-        6. Optimize for the specific field purpose`;
+    if (type === 'clean-instruction') {
+      systemPrompt = `You are an expert marketing content specialist. Your job is to take user instructions and optimize them for AI content generation. Make the instructions clear, specific, and marketing-focused while preserving the user's original intent.
 
-        userPrompt = `Improve this template field content:
+Guidelines:
+- Keep the core message but make it more specific
+- Add marketing angle and target audience consideration
+- Ensure it's actionable for content generation
+- Make it professional but engaging
+- Keep it concise (under 200 words)
+- Consider the channel, asset type, and format context provided`;
 
-Field: ${fieldName}
-Purpose: ${constraint?.description || 'General field'}
-Character Limit: ${constraint?.maxLength || 'Not specified'}
-Current Content: "${currentValue}"
+      const contextInfo = context ? `
+Context: Creating ${context.assetType} content for ${context.channel} in ${context.format} format (${context.specification})` : '';
 
-Product Context:
-- Name: ${productInfo?.name || 'N/A'}
-- Category: ${productInfo?.category || 'N/A'}
-- Brand: ${productInfo?.brand || 'N/A'}
-- Price: ${productInfo?.price ? `$${productInfo.price}` : 'N/A'}
-- Description: ${productInfo?.description || 'N/A'}
+      userPrompt = `Please optimize this instruction for marketing content generation: "${instruction}"
 
-Requirements:
-- Stay within ${constraint?.maxLength || 100} characters
-- Make it more compelling and marketing-focused
-- Keep all factual information accurate
-- Optimize for ${fieldName.replace('_', ' ')} field purpose
-- Return ONLY the improved content, no explanations`;
-        break;
+${productInfo ? `Product context: ${productInfo.name}${productInfo.brand ? ` by ${productInfo.brand}` : ''}${productInfo.category ? ` in ${productInfo.category}` : ''}${productInfo.description ? ` - ${productInfo.description}` : ''}` : ''}${contextInfo}
 
-      case 'marketing-suggestions':
-        systemPrompt = `You are a marketing expert who generates compelling, platform-specific content suggestions. 
-        Create engaging suggestions that are optimized for the specific channel and format.`;
-        
-        userPrompt = `Generate 3 marketing content suggestions for:
-        Product: ${productInfo?.name}
-        Channel: ${context?.channel || 'general'}
-        Format: ${context?.format || 'general'}
-        
-        Make suggestions compelling, platform-appropriate, and action-oriented.`;
-        break;
+Return only the optimized instruction, no explanation.`;
 
-      case 'clean-instruction':
-        systemPrompt = `You are a professional content editor. Clean up and improve the given instruction while maintaining its core intent and making it more effective for AI generation.`;
-        
-        userPrompt = `Clean and improve this instruction: "${instruction}"
-        
-        Context: ${JSON.stringify(context)}
-        
-        Make it clearer, more specific, and better structured for AI content generation.`;
-        break;
+    } else if (type === 'marketing-suggestions') {
+      systemPrompt = `You are a creative marketing strategist specializing in generating smart, actionable content ideas based on products, channels, and marketing trends. Generate 4-6 specific, creative instruction suggestions that would work well for the given context.
 
-      case 'marketing-content':
-        systemPrompt = `You are a professional marketing copywriter. Create compelling, engaging content optimized for the specified format and platform.`;
-        
-        userPrompt = `Create marketing content with these specifications:
-        Instruction: ${instruction}
-        Product: ${JSON.stringify(productInfo)}
-        Format Specs: ${JSON.stringify(formatSpecs)}
-        
-        Make it compelling, platform-appropriate, and conversion-focused.`;
-        break;
+Focus on:
+- Channel-specific best practices
+- Seasonal marketing opportunities  
+- Target audience engagement
+- Product positioning strategies
+- Current marketing trends
+- Conversion-focused approaches`;
 
-      default:
-        throw new Error(`Unknown generation type: ${type}`);
+      userPrompt = `Generate creative marketing instruction suggestions for:
+
+Product: ${productInfo?.name || 'Product'}
+${productInfo?.brand ? `Brand: ${productInfo.brand}` : ''}
+${productInfo?.category ? `Category: ${productInfo.category}` : ''}
+${productInfo?.description ? `Description: ${productInfo.description}` : ''}
+
+Channel: ${channel || 'social media'}
+Asset Type: ${assetType || 'content'}
+Format: ${format || 'post'}
+
+Return 4-6 specific, creative instruction suggestions (one per line). Each should be actionable and tailored to the channel and product. Focus on different angles like benefits, lifestyle, social proof, urgency, education, etc.`;
+
+    } else if (type === 'marketing-content') {
+      // Detect the channel/platform from the instruction
+      let platformContext = '';
+      const instructionLower = instruction?.toLowerCase() || '';
+      
+      if (instructionLower.includes('facebook') || instructionLower.includes('fb ad')) {
+        platformContext = 'Facebook advertising platform with engaging headline, benefit-focused copy, and strong CTA';
+      } else if (instructionLower.includes('instagram story')) {
+        platformContext = 'Instagram Story format with short, punchy text and relevant hashtags';
+      } else if (instructionLower.includes('sms')) {
+        platformContext = 'SMS marketing with concise message under 160 characters';
+      } else if (instructionLower.includes('email')) {
+        platformContext = 'Email marketing with subject line and structured body content';
+      } else {
+        platformContext = 'general marketing content with professional tone';
+      }
+
+      systemPrompt = `You are a professional marketing copywriter specializing in creating compelling content for different advertising channels and platforms. Create engaging marketing content that is properly formatted for the specified platform. Focus on benefits, emotional appeal, and clear calls to action.
+
+Platform Context: ${platformContext}
+
+Return clean, formatted text that can be used directly in marketing campaigns. Do NOT return JSON format.`;
+
+      userPrompt = `Create marketing content based on this instruction: "${instruction}"
+
+Product Details:
+- Name: ${productInfo?.name || 'Product'}
+${productInfo?.brand ? `- Brand: ${productInfo.brand}` : ''}
+${productInfo?.category ? `- Category: ${productInfo.category}` : ''}
+${productInfo?.description ? `- Description: ${productInfo.description}` : ''}
+
+Please create properly formatted marketing content with:
+
+1. HEADLINE: (compelling, attention-grabbing headline)
+2. BODY TEXT: (persuasive copy highlighting benefits and features)
+3. CALL TO ACTION: (clear, action-oriented CTA)
+4. HASHTAGS: (3-5 relevant hashtags if appropriate for the platform)
+
+Format your response as clean, readable text with clear sections. Use line breaks between sections for better readability.`;
     }
+
+    console.log(`Sending to OpenAI - Type: ${type}, System: ${systemPrompt.substring(0, 100)}...`);
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -116,8 +144,8 @@ Requirements:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 500
+        temperature: type === 'marketing-suggestions' ? 0.8 : 0.7,
+        max_tokens: type === 'marketing-suggestions' ? 600 : 500,
       }),
     });
 
@@ -127,15 +155,14 @@ Requirements:
     }
 
     const data = await response.json();
-    const result = data.choices[0]?.message?.content?.trim();
+    const result = data.choices[0].message.content;
 
-    if (!result) {
-      throw new Error('No content generated from OpenAI');
-    }
+    console.log(`OpenAI ${type} request completed successfully. Result length: ${result.length} characters`);
 
     return new Response(JSON.stringify({ 
       success: true, 
-      result 
+      result: result,
+      type: type 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
