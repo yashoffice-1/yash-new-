@@ -51,7 +51,7 @@ export function InventoryDisplay() {
             <p className="text-sm text-gray-600">Creating video template with selected product data</p>
           </div>
         </div>
-        <VideoTemplateUtility />
+        <VideoTemplateUtility selectedProduct={selectedProduct} />
       </div>
     );
   }

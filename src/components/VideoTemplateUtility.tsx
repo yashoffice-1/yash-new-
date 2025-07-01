@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,73 +8,203 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Clapperboard, Send } from "lucide-react";
 
-interface TemplateData {
-  productName: string;
-  productPrice: string;
-  productDiscount: string;
-  categoryName: string;
-  featureOne: string;
-  featureTwo: string;
-  featureThree: string;
-  websiteDescription: string;
-  productImage: string;
+interface InventoryItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  sku: string | null;
+  category: string | null;
+  brand: string | null;
+  images: string[];
+  metadata: any;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export function VideoTemplateUtility() {
+interface VideoTemplateUtilityProps {
+  selectedProduct: InventoryItem;
+}
+
+interface Template {
+  id: string;
+  name: string;
+  variables: string[];
+}
+
+export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityProps) {
   const { toast } = useToast();
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [templateVariables, setTemplateVariables] = useState<string[]>([]);
   
-  // Mock data - would be populated from selected product
-  const [templateData, setTemplateData] = useState<TemplateData>({
-    productName: "XTOOL AutoProPAD Core Key Programmer with MaxiIM KM100 Universal Key Generator Kit",
-    productPrice: "$1155",
-    productDiscount: "",
-    categoryName: "Programming Devices",
-    featureOne: "",
-    featureTwo: "",
-    featureThree: "",
-    websiteDescription: "XTOOL AutoProPAD Core Key Programmer Autel MaxiIM KM100 Key Generator Kit XTOOL - AutoProPAD Core Key Programmer AutoProPAD Core: Streamlined, Efficient, and Built for Speed For automotive security...",
-    productImage: ""
-  });
+  // Dynamic template data based on current template variables
+  const [extractedData, setExtractedData] = useState<Record<string, string>>({});
+  const [aiSuggestions, setAiSuggestions] = useState<Record<string, string>>({});
+  const [userImproved, setUserImproved] = useState<Record<string, string>>({});
 
-  const [aiSuggestions, setAiSuggestions] = useState<TemplateData>({
-    productName: "Professional Automotive Key Programming Solution",
-    productPrice: "$1,155",
-    productDiscount: "15% Off",
-    categoryName: "Automotive Tools",
-    featureOne: "Universal Compatibility",
-    featureTwo: "Advanced Security Features", 
-    featureThree: "User-Friendly Interface",
-    websiteDescription: "Complete automotive key programming solution combining XTOOL and Autel technologies for professional locksmiths and technicians.",
-    productImage: "https://example.com/product-image.jpg"
-  });
-
-  const [userImproved, setUserImproved] = useState<TemplateData>({
-    productName: "",
-    productPrice: "",
-    productDiscount: "",
-    categoryName: "",
-    featureOne: "",
-    featureTwo: "",
-    featureThree: "",
-    websiteDescription: "",
-    productImage: ""
-  });
-
-  const templates = [
-    { id: "hg_template_001", name: "HeyGen Template 1 - Product Showcase" },
-    { id: "hg_template_002", name: "HeyGen Template 2 - Feature Highlight" },
-    { id: "hg_template_003", name: "HeyGen Template 3 - Brand Story" }
+  const templates: Template[] = [
+    { 
+      id: "hg_template_001", 
+      name: "HeyGen Template 1 - Product Showcase",
+      variables: ["product_name", "product_price", "product_discount", "category_name", "feature_one", "feature_two", "feature_three", "website_description", "product_image"]
+    },
+    { 
+      id: "hg_template_002", 
+      name: "HeyGen Template 2 - Feature Highlight",
+      variables: ["product_name", "main_feature", "benefit_one", "benefit_two", "call_to_action", "brand_name", "product_image"]
+    },
+    { 
+      id: "hg_template_003", 
+      name: "HeyGen Template 3 - Brand Story",
+      variables: ["brand_name", "product_name", "brand_story", "unique_value", "customer_testimonial", "product_image", "website_url"]
+    }
   ];
+
+  // Extract data from selected product
+  const extractProductData = (variables: string[]): Record<string, string> => {
+    const data: Record<string, string> = {};
+    
+    variables.forEach(variable => {
+      switch (variable) {
+        case "product_name":
+          data[variable] = selectedProduct.name || "";
+          break;
+        case "product_price":
+          data[variable] = selectedProduct.price ? `$${selectedProduct.price}` : "";
+          break;
+        case "product_discount":
+          data[variable] = "";
+          break;
+        case "category_name":
+          data[variable] = selectedProduct.category || "";
+          break;
+        case "brand_name":
+          data[variable] = selectedProduct.brand || "";
+          break;
+        case "website_description":
+          data[variable] = selectedProduct.description || "";
+          break;
+        case "product_image":
+          data[variable] = selectedProduct.images?.[0] || "";
+          break;
+        case "feature_one":
+        case "feature_two":
+        case "feature_three":
+        case "main_feature":
+        case "benefit_one":
+        case "benefit_two":
+        case "call_to_action":
+        case "brand_story":
+        case "unique_value":
+        case "customer_testimonial":
+        case "website_url":
+          data[variable] = "";
+          break;
+        default:
+          data[variable] = "";
+      }
+    });
+    
+    return data;
+  };
+
+  // Generate AI suggestions based on extracted data
+  const generateAISuggestions = (variables: string[], extracted: Record<string, string>): Record<string, string> => {
+    const suggestions: Record<string, string> = {};
+    
+    variables.forEach(variable => {
+      switch (variable) {
+        case "product_name":
+          suggestions[variable] = extracted[variable] ? `Professional ${extracted[variable]}` : "";
+          break;
+        case "product_price":
+          suggestions[variable] = extracted[variable] || "$1,155";
+          break;
+        case "product_discount":
+          suggestions[variable] = "15% Off";
+          break;
+        case "category_name":
+          suggestions[variable] = extracted[variable] || "Premium Tools";
+          break;
+        case "brand_name":
+          suggestions[variable] = extracted[variable] || "Premium Brand";
+          break;
+        case "feature_one":
+          suggestions[variable] = "Universal Compatibility";
+          break;
+        case "feature_two":
+          suggestions[variable] = "Advanced Security Features";
+          break;
+        case "feature_three":
+          suggestions[variable] = "User-Friendly Interface";
+          break;
+        case "main_feature":
+          suggestions[variable] = "Industry-Leading Performance";
+          break;
+        case "benefit_one":
+          suggestions[variable] = "Saves Time and Money";
+          break;
+        case "benefit_two":
+          suggestions[variable] = "Professional Results";
+          break;
+        case "call_to_action":
+          suggestions[variable] = "Order Now - Limited Time Offer!";
+          break;
+        case "brand_story":
+          suggestions[variable] = "Trusted by professionals worldwide for over a decade";
+          break;
+        case "unique_value":
+          suggestions[variable] = "The only solution you'll ever need";
+          break;
+        case "customer_testimonial":
+          suggestions[variable] = "This product transformed our business operations";
+          break;
+        case "website_description":
+          suggestions[variable] = extracted[variable] ? 
+            `Complete ${extracted["category_name"] || "professional"} solution combining advanced technologies for professionals.` : 
+            "Professional solution for your needs";
+          break;
+        case "product_image":
+          suggestions[variable] = extracted[variable] || "https://example.com/product-image.jpg";
+          break;
+        case "website_url":
+          suggestions[variable] = "https://yourwebsite.com";
+          break;
+        default:
+          suggestions[variable] = "";
+      }
+    });
+    
+    return suggestions;
+  };
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId);
     const template = templates.find(t => t.id === templateId);
+    
     if (template) {
+      setTemplateVariables(template.variables);
+      
+      // Extract data from product
+      const extracted = extractProductData(template.variables);
+      setExtractedData(extracted);
+      
+      // Generate AI suggestions
+      const suggestions = generateAISuggestions(template.variables, extracted);
+      setAiSuggestions(suggestions);
+      
+      // Reset user improvements
+      const userReset: Record<string, string> = {};
+      template.variables.forEach(variable => {
+        userReset[variable] = "";
+      });
+      setUserImproved(userReset);
+      
       toast({
         title: "Template Selected",
-        description: `${template.name} has been selected and data pre-filled.`,
+        description: `${template.name} has been selected and data pre-filled from ${selectedProduct.name}.`,
       });
     }
   };
@@ -100,12 +230,13 @@ export function VideoTemplateUtility() {
         },
         body: JSON.stringify({
           templateId: selectedTemplate,
+          productId: selectedProduct.id,
           templateData: {
-            extracted: templateData,
+            extracted: extractedData,
             aiSuggested: aiSuggestions,
             userImproved: userImproved
           },
-          instruction: `Create video using template ${selectedTemplate} with product: ${userImproved.productName || aiSuggestions.productName || templateData.productName}`
+          instruction: `Create video using template ${selectedTemplate} with product: ${selectedProduct.name}`
         }),
       });
 
@@ -114,7 +245,7 @@ export function VideoTemplateUtility() {
       if (result.success) {
         toast({
           title: "Video Creation Started",
-          description: "Your video is being created via HeyGen. You'll be notified when it's ready.",
+          description: `Video creation started for ${selectedProduct.name} using ${templates.find(t => t.id === selectedTemplate)?.name}. You'll be notified when it's ready.`,
         });
       } else {
         throw new Error(result.error || 'Failed to create video');
@@ -131,11 +262,15 @@ export function VideoTemplateUtility() {
     }
   };
 
-  const updateUserImproved = (field: keyof TemplateData, value: string) => {
+  const updateUserImproved = (field: string, value: string) => {
     setUserImproved(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const formatVariableName = (variable: string): string => {
+    return variable.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   return (
@@ -147,7 +282,7 @@ export function VideoTemplateUtility() {
             <span>Video Template Utility</span>
           </CardTitle>
           <CardDescription>
-            Select a template and customize the content for your video generation
+            Select a template and customize the content for {selectedProduct.name}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -168,143 +303,73 @@ export function VideoTemplateUtility() {
             </Select>
           </div>
 
-          {/* Template Data Table */}
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-700 text-white">
-                  <TableHead className="text-white">product name</TableHead>
-                  <TableHead className="text-white">product price</TableHead>
-                  <TableHead className="text-white">product discount</TableHead>
-                  <TableHead className="text-white">category name</TableHead>
-                  <TableHead className="text-white">feature one</TableHead>
-                  <TableHead className="text-white">feature two</TableHead>
-                  <TableHead className="text-white">feature three</TableHead>
-                  <TableHead className="text-white">website description</TableHead>
-                  <TableHead className="text-white">product image</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* Raw Extracted Data */}
-                <TableRow className="bg-gray-50">
-                  <TableCell className="font-medium text-xs">{templateData.productName}</TableCell>
-                  <TableCell className="text-xs">{templateData.productPrice}</TableCell>
-                  <TableCell className="text-xs">{templateData.productDiscount}</TableCell>
-                  <TableCell className="text-xs">{templateData.categoryName}</TableCell>
-                  <TableCell className="text-xs">{templateData.featureOne}</TableCell>
-                  <TableCell className="text-xs">{templateData.featureTwo}</TableCell>
-                  <TableCell className="text-xs">{templateData.featureThree}</TableCell>
-                  <TableCell className="text-xs max-w-xs truncate">{templateData.websiteDescription}</TableCell>
-                  <TableCell className="text-xs">{templateData.productImage}</TableCell>
-                </TableRow>
+          {/* Template Data Table - Only show if template is selected */}
+          {selectedTemplate && templateVariables.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-700 text-white">
+                    {templateVariables.map((variable) => (
+                      <TableHead key={variable} className="text-white text-xs">
+                        {formatVariableName(variable)}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* Raw Extracted Data */}
+                  <TableRow className="bg-gray-50">
+                    {templateVariables.map((variable) => (
+                      <TableCell key={variable} className="font-medium text-xs max-w-xs truncate">
+                        {extractedData[variable] || "-"}
+                      </TableCell>
+                    ))}
+                  </TableRow>
 
-                {/* AI Suggestions */}
-                <TableRow className="bg-blue-50">
-                  <TableCell className="font-medium text-xs">{aiSuggestions.productName}</TableCell>
-                  <TableCell className="text-xs">{aiSuggestions.productPrice}</TableCell>
-                  <TableCell className="text-xs">{aiSuggestions.productDiscount}</TableCell>
-                  <TableCell className="text-xs">{aiSuggestions.categoryName}</TableCell>
-                  <TableCell className="text-xs">{aiSuggestions.featureOne}</TableCell>
-                  <TableCell className="text-xs">{aiSuggestions.featureTwo}</TableCell>
-                  <TableCell className="text-xs">{aiSuggestions.featureThree}</TableCell>
-                  <TableCell className="text-xs max-w-xs truncate">{aiSuggestions.websiteDescription}</TableCell>
-                  <TableCell className="text-xs">{aiSuggestions.productImage}</TableCell>
-                </TableRow>
+                  {/* AI Suggestions */}
+                  <TableRow className="bg-blue-50">
+                    {templateVariables.map((variable) => (
+                      <TableCell key={variable} className="text-xs max-w-xs truncate">
+                        {aiSuggestions[variable] || "-"}
+                      </TableCell>
+                    ))}
+                  </TableRow>
 
-                {/* User Improved Final */}
-                <TableRow>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.productName}
-                      onChange={(e) => updateUserImproved('productName', e.target.value)}
-                      placeholder="Enter final product name..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.productPrice}
-                      onChange={(e) => updateUserImproved('productPrice', e.target.value)}
-                      placeholder="Enter final price..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.productDiscount}
-                      onChange={(e) => updateUserImproved('productDiscount', e.target.value)}
-                      placeholder="Enter discount..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.categoryName}
-                      onChange={(e) => updateUserImproved('categoryName', e.target.value)}
-                      placeholder="Enter category..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.featureOne}
-                      onChange={(e) => updateUserImproved('featureOne', e.target.value)}
-                      placeholder="Feature 1..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.featureTwo}
-                      onChange={(e) => updateUserImproved('featureTwo', e.target.value)}
-                      placeholder="Feature 2..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.featureThree}
-                      onChange={(e) => updateUserImproved('featureThree', e.target.value)}
-                      placeholder="Feature 3..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.websiteDescription}
-                      onChange={(e) => updateUserImproved('websiteDescription', e.target.value)}
-                      placeholder="Enter description..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input 
-                      value={userImproved.productImage}
-                      onChange={(e) => updateUserImproved('productImage', e.target.value)}
-                      placeholder="Image URL..."
-                      className="text-xs h-8"
-                    />
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
+                  {/* User Improved Final */}
+                  <TableRow>
+                    {templateVariables.map((variable) => (
+                      <TableCell key={variable}>
+                        <Input 
+                          value={userImproved[variable] || ""}
+                          onChange={(e) => updateUserImproved(variable, e.target.value)}
+                          placeholder={`Enter ${formatVariableName(variable).toLowerCase()}...`}
+                          className="text-xs h-8"
+                        />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          )}
 
-          {/* Row Labels */}
-          <div className="text-sm text-gray-600 space-y-1">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-gray-50 border rounded"></div>
-              <span>Raw Extracted Data</span>
+          {/* Row Labels - Only show if template is selected */}
+          {selectedTemplate && (
+            <div className="text-sm text-gray-600 space-y-1">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-gray-50 border rounded"></div>
+                <span>Raw Extracted Data from {selectedProduct.name}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-blue-50 border rounded"></div>
+                <span>AI Suggestions</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-white border rounded"></div>
+                <span>User Improved Final</span>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-blue-50 border rounded"></div>
-              <span>AI Suggestions</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-white border rounded"></div>
-              <span>User Improved Final</span>
-            </div>
-          </div>
+          )}
 
           {/* Send to Create Video Button */}
           <div className="flex justify-center pt-4">
