@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,8 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Plus, Trash2 } from "lucide-react";
+import { Settings, Plus, Trash2, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TemplateVariableEditor } from "./TemplateVariableEditor";
 
 interface TemplateConfig {
   id: string;
@@ -17,9 +17,22 @@ interface TemplateConfig {
   description?: string;
 }
 
+interface ProductInfo {
+  name: string;
+  description?: string;
+  category?: string;
+  price?: number;
+  discount?: string;
+  brand?: string;
+  imageUrl?: string;
+}
+
 interface TemplateSelectorProps {
   onTemplateSelect: (template: TemplateConfig) => void;
   selectedTemplate?: TemplateConfig;
+  currentProduct?: ProductInfo;
+  onSendTemplate?: (templateData: Record<string, string>) => void;
+  isGenerating?: boolean;
 }
 
 const DEFAULT_TEMPLATES: TemplateConfig[] = [
@@ -43,9 +56,16 @@ const DEFAULT_TEMPLATES: TemplateConfig[] = [
   }
 ];
 
-export function TemplateSelector({ onTemplateSelect, selectedTemplate }: TemplateSelectorProps) {
+export function TemplateSelector({ 
+  onTemplateSelect, 
+  selectedTemplate, 
+  currentProduct,
+  onSendTemplate,
+  isGenerating = false 
+}: TemplateSelectorProps) {
   const [templates, setTemplates] = useState<TemplateConfig[]>(DEFAULT_TEMPLATES);
   const [isAddingTemplate, setIsAddingTemplate] = useState(false);
+  const [showVariableEditor, setShowVariableEditor] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     webhookUrl: '',
@@ -94,8 +114,61 @@ export function TemplateSelector({ onTemplateSelect, selectedTemplate }: Templat
     const template = templates.find(t => t.id === templateId);
     if (template) {
       onTemplateSelect(template);
+      setShowVariableEditor(false); // Reset editor when template changes
     }
   };
+
+  const handleEditTemplateVariables = () => {
+    if (!selectedTemplate) {
+      toast({
+        title: "No Template Selected",
+        description: "Please select a template first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!currentProduct) {
+      toast({
+        title: "No Product Data",
+        description: "Product information is required to edit template variables.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setShowVariableEditor(true);
+  };
+
+  const handleSendTemplateWrapper = async (templateData: Record<string, string>) => {
+    if (onSendTemplate) {
+      await onSendTemplate(templateData);
+      setShowVariableEditor(false); // Close editor after successful send
+    }
+  };
+
+  // Show Variable Editor if template is selected and user wants to edit
+  if (showVariableEditor && selectedTemplate && currentProduct) {
+    return (
+      <div className="space-y-4">
+        {/* Back button */}
+        <Button
+          variant="outline"
+          onClick={() => setShowVariableEditor(false)}
+          className="mb-4"
+        >
+          ← Back to Template Selection
+        </Button>
+
+        <TemplateVariableEditor
+          template={selectedTemplate}
+          product={currentProduct}
+          onSendTemplate={handleSendTemplateWrapper}
+          isGenerating={isGenerating}
+        />
+      </div>
+    );
+  }
 
   return (
     <Card className="mb-6">
@@ -160,6 +233,20 @@ export function TemplateSelector({ onTemplateSelect, selectedTemplate }: Templat
                 </div>
               </div>
             </div>
+
+            {/* Edit Template Variables Button */}
+            {currentProduct && (
+              <div className="mt-4 pt-3 border-t">
+                <Button
+                  onClick={handleEditTemplateVariables}
+                  className="w-full"
+                  disabled={isGenerating}
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Edit Template Variables & Send
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
