@@ -40,32 +40,45 @@ export function MainContent() {
           <p className="text-gray-600">Transform your product feeds into ready-to-use assets</p>
         </div>
 
-        <Tabs defaultValue="inventory" className="space-y-6">
+        <Tabs defaultValue="products" className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="inventory" className="flex items-center space-x-2">
+            <TabsTrigger value="products" className="flex items-center space-x-2">
               <Package className="h-4 w-4" />
-              <span>Inventory</span>
+              <span>Products</span>
             </TabsTrigger>
             <TabsTrigger value="video" className="flex items-center space-x-2">
               <Video className="h-4 w-4" />
-              <span>Video Templates</span>
+              <span>Video</span>
             </TabsTrigger>
             <TabsTrigger value="image" className="flex items-center space-x-2">
               <Image className="h-4 w-4" />
-              <span>Image Gen</span>
+              <span>Image</span>
             </TabsTrigger>
             <TabsTrigger value="content" className="flex items-center space-x-2">
               <FileText className="h-4 w-4" />
-              <span>Content Gen</span>
+              <span>Content</span>
             </TabsTrigger>
             <TabsTrigger value="ads" className="flex items-center space-x-2">
               <Megaphone className="h-4 w-4" />
-              <span>Ad Gen</span>
+              <span>Ads</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="inventory" className="space-y-6">
-            <InventoryManager onProductSelect={handleProductSelect} />
+          <TabsContent value="products" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Product Selection */}
+              <div className="space-y-6">
+                <FakeProduct />
+                <InventoryManager onProductSelect={handleProductSelect} />
+              </div>
+
+              {/* Generation Interface */}
+              <div className="space-y-6">
+                <InstructionModule />
+                <GeneratorButtons />
+                <AssetDisplay />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="video" className="space-y-6">
@@ -73,60 +86,120 @@ export function MainContent() {
           </TabsContent>
 
           <TabsContent value="image" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Image className="h-5 w-5" />
-                  <span>Image Generation</span>
-                </CardTitle>
-                <CardDescription>
-                  Generate product images using AI
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-gray-500 py-8">
-                  Image generation features coming soon...
-                </p>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Product Selection */}
+              <div className="space-y-6">
+                <FakeProduct />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Selected Product</CardTitle>
+                    <CardDescription>
+                      Choose a product for image generation
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedProduct ? (
+                      <div className="space-y-2">
+                        <h3 className="font-medium">{selectedProduct.name}</h3>
+                        <p className="text-sm text-gray-600">{selectedProduct.description}</p>
+                        {selectedProduct.price && (
+                          <p className="text-sm font-medium">${selectedProduct.price}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Select a product from the inventory to generate images
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Generation Interface */}
+              <div className="space-y-6">
+                <InstructionModule />
+                <GeneratorButtons />
+                <AssetDisplay />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="content" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <FileText className="h-5 w-5" />
-                  <span>Content Generation</span>
-                </CardTitle>
-                <CardDescription>
-                  Generate marketing content for your products
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-gray-500 py-8">
-                  Content generation features coming soon...
-                </p>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Product Selection */}
+              <div className="space-y-6">
+                <FakeProduct />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Selected Product</CardTitle>
+                    <CardDescription>
+                      Choose a product for content generation
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedProduct ? (
+                      <div className="space-y-2">
+                        <h3 className="font-medium">{selectedProduct.name}</h3>
+                        <p className="text-sm text-gray-600">{selectedProduct.description}</p>
+                        {selectedProduct.price && (
+                          <p className="text-sm font-medium">${selectedProduct.price}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Select a product from the inventory to generate content
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Generation Interface */}
+              <div className="space-y-6">
+                <InstructionModule />
+                <GeneratorButtons />
+                <AssetDisplay />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="ads" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Megaphone className="h-5 w-5" />
-                  <span>Ad Generation</span>
-                </CardTitle>
-                <CardDescription>
-                  Create advertising content for various platforms
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-gray-500 py-8">
-                  Ad generation features coming soon...
-                </p>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Product Selection */}
+              <div className="space-y-6">
+                <FakeProduct />
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Selected Product</CardTitle>
+                    <CardDescription>
+                      Choose a product for ad generation
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedProduct ? (
+                      <div className="space-y-2">
+                        <h3 className="font-medium">{selectedProduct.name}</h3>
+                        <p className="text-sm text-gray-600">{selectedProduct.description}</p>
+                        {selectedProduct.price && (
+                          <p className="text-sm font-medium">${selectedProduct.price}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Select a product from the inventory to generate ads
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Generation Interface */}
+              <div className="space-y-6">
+                <InstructionModule />
+                <GeneratorButtons />
+                <AssetDisplay />
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
