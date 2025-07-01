@@ -4,13 +4,14 @@ import { AdminDashboard } from "./admin/AdminDashboard";
 import { UserDashboard } from "./UserDashboard";
 import { AssetLibrary } from "./AssetLibrary";
 import { InventoryDisplay } from "./inventory/InventoryDisplay";
+import { VideoTemplatesTab } from "./VideoTemplatesTab";
 import { useState } from "react";
 import { Button } from "./ui/button";
-import { Library, Package } from "lucide-react";
+import { Library, Package, Video } from "lucide-react";
 
 export function MainContent() {
   const { isAdmin } = useView();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'library'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'library' | 'templates'>('inventory');
 
   if (isAdmin) {
     return <AdminDashboard />;
@@ -37,11 +38,21 @@ export function MainContent() {
           <Library className="h-4 w-4" />
           <span>Asset Library</span>
         </Button>
+
+        <Button 
+          variant={activeTab === 'templates' ? 'default' : 'ghost'} 
+          onClick={() => setActiveTab('templates')}
+          className="rounded-b-none flex items-center space-x-2"
+        >
+          <Video className="h-4 w-4" />
+          <span>Video Templates</span>
+        </Button>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'inventory' && <InventoryDisplay />}
       {activeTab === 'library' && <AssetLibrary />}
+      {activeTab === 'templates' && <VideoTemplatesTab />}
     </div>
   );
 }
