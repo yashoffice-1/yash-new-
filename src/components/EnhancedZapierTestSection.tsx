@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Zap, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Zap, CheckCircle, AlertCircle, Copy, Eye } from "lucide-react";
 import { TemplateSelector } from "./TemplateSelector";
 import { processProductForSpreadsheet, validateProcessedData } from "@/utils/productFieldProcessor";
 
@@ -36,6 +36,7 @@ export function EnhancedZapierTestSection() {
   const [isTestingZapier, setIsTestingZapier] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateConfig>();
   const [lastTestResult, setLastTestResult] = useState<any>(null);
+  const [showPayloadPreview, setShowPayloadPreview] = useState(false);
   const { toast } = useToast();
 
   // Fetch a real product from inventory for testing
@@ -57,6 +58,46 @@ export function EnhancedZapierTestSection() {
       return data as InventoryItem;
     },
   });
+
+  const copyPayloadToClipboard = async () => {
+    if (!testProduct || !selectedTemplate) return;
+    
+    const productForTest = {
+      name: testProduct.name,
+      description: testProduct.description || testProduct.name,
+      category: testProduct.category || "General",
+      price: testProduct.price || 0,
+      discount: "10%",
+      imageUrl: testProduct.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop"
+    };
+
+    const processedData = processProductForSpreadsheet(productForTest);
+    
+    const webhookPayload = {
+      timestamp: new Date().toISOString(),
+      instruction: `Create a professional product video showcasing ${testProduct.name} with smooth transitions and modern aesthetics`,
+      status: "pending",
+      source: "feedgenerator_app",
+      request_id: crypto.randomUUID(),
+      template_id: selectedTemplate.id,
+      template_name: selectedTemplate.name,
+      product_name: processedData.product_name,
+      product_price: processedData.product_price,
+      product_discount: processedData.product_discount,
+      category_name: processedData.category_name,
+      feature_one: processedData.feature_one,
+      feature_two: processedData.feature_two,
+      feature_three: processedData.feature_three,
+      website_description: processedData.website_description,
+      product_image: processedData.product_image
+    };
+
+    await navigator.clipboard.writeText(JSON.stringify(webhookPayload, null, 2));
+    toast({
+      title: "Payload Copied",
+      description: "The webhook payload has been copied to your clipboard for testing in Zapier.",
+    });
+  };
 
   const testZapierWebhook = async () => {
     if (!selectedTemplate) {
@@ -80,6 +121,7 @@ export function EnhancedZapierTestSection() {
     setIsTestingZapier(true);
     
     try {
+      console.log('=== ZAPIER WEBHOOK TEST DEBUG ===');
       console.log('Testing Zapier webhook with template:', selectedTemplate);
       console.log('Using product from inventory:', testProduct);
       
@@ -99,9 +141,34 @@ export function EnhancedZapierTestSection() {
       // Validate the processed data
       const validation = validateProcessedData(processedData);
       
-      console.log('Real product data:', productForTest);
+      console.log('=== DATA BEING SENT TO ZAPIER ===');
+      console.log('Raw product data:', productForTest);
       console.log('Processed product data:', processedData);
       console.log('Field validation:', validation);
+      console.log('Webhook URL:', selectedTemplate.webhookUrl);
+
+      // Create the exact payload that will be sent
+      const expectedPayload = {
+        timestamp: new Date().toISOString(),
+        instruction: `Create a professional product video showcasing ${testProduct.name} with smooth transitions and modern aesthetics`,
+        status: "pending",
+        source: "feedgenerator_app",
+        request_id: crypto.randomUUID(),
+        template_id: selectedTemplate.id,
+        template_name: selectedTemplate.name,
+        product_name: processedData.product_name,
+        product_price: processedData.product_price,
+        product_discount: processedData.product_discount,
+        category_name: processedData.category_name,
+        feature_one: processedData.feature_one,
+        feature_two: processedData.feature_two,
+        feature_three: processedData.feature_three,
+        website_description: processedData.website_description,
+        product_image: processedData.product_image
+      };
+
+      console.log('=== EXPECTED WEBHOOK PAYLOAD ===');
+      console.log(JSON.stringify(expectedPayload, null, 2));
 
       const { data, error } = await supabase.functions.invoke('heygen-generate', {
         body: {
@@ -112,7 +179,9 @@ export function EnhancedZapierTestSection() {
         }
       });
 
-      console.log('Zapier test response:', data);
+      console.log('=== SUPABASE RESPONSE ===');
+      console.log('Response data:', data);
+      console.log('Response error:', error);
 
       if (error) {
         throw new Error(error.message);
@@ -121,28 +190,29 @@ export function EnhancedZapierTestSection() {
       if (data.success) {
         setLastTestResult(data);
         
+        console.log('=== SUCCESS - DATA SENT TO ZAPIER ===');
+        console.log('Webhook data that was sent:', data.webhook_data);
+        
         toast({
-          title: "Zapier Test Successful",
-          description: `Real product data sent using "${selectedTemplate.name}" template. Request ID: ${data.request_id}`,
+          title: "✅ Zapier Test Successful",
+          description: `Real product data sent using "${selectedTemplate.name}" template. Check your Zap history for the webhook trigger.`,
         });
 
-        // Show validation results
-        if (data.field_validation) {
-          const validationResults = Object.entries(data.field_validation)
-            .map(([field, isValid]) => `${field}: ${isValid ? '✅' : '❌'}`)
-            .join('\n');
-          
-          console.log('Field validation results:', validationResults);
-        }
+        // Additional success information
+        toast({
+          title: "🔍 Debug Info Available",
+          description: "Check browser console for detailed payload information to help configure your Zap.",
+        });
 
       } else {
         throw new Error(data.error || 'Failed to test Zapier webhook');
       }
 
     } catch (error) {
-      console.error('Error testing Zapier webhook:', error);
+      console.error('=== ZAPIER TEST ERROR ===');
+      console.error('Error details:', error);
       toast({
-        title: "Zapier Test Failed",
+        title: "❌ Zapier Test Failed",
         description: error.message || "Failed to test Zapier webhook integration.",
         variant: "destructive",
       });
@@ -189,6 +259,30 @@ export function EnhancedZapierTestSection() {
             </div>
           )}
 
+          {/* Payload Preview and Copy Button */}
+          {testProduct && selectedTemplate && (
+            <div className="flex space-x-2">
+              <Button
+                onClick={() => setShowPayloadPreview(!showPayloadPreview)}
+                variant="outline"
+                size="sm"
+                className="flex items-center space-x-1"
+              >
+                <Eye className="h-4 w-4" />
+                <span>{showPayloadPreview ? 'Hide' : 'Preview'} Payload</span>
+              </Button>
+              <Button
+                onClick={copyPayloadToClipboard}
+                variant="outline"
+                size="sm"
+                className="flex items-center space-x-1"
+              >
+                <Copy className="h-4 w-4" />
+                <span>Copy Payload</span>
+              </Button>
+            </div>
+          )}
+
           <Button
             onClick={testZapierWebhook}
             disabled={isTestingZapier || !selectedTemplate || isLoadingProduct}
@@ -200,16 +294,43 @@ export function EnhancedZapierTestSection() {
             {isLoadingProduct 
               ? 'Loading Product...' 
               : selectedTemplate 
-                ? `Test with Real Product Data (${selectedTemplate.name})` 
+                ? `🚀 Send Real Data to Zapier (${selectedTemplate.name})` 
                 : 'Select Template First'
             }
           </Button>
+
+          {/* Payload Preview */}
+          {showPayloadPreview && testProduct && selectedTemplate && (
+            <div className="p-4 bg-gray-900 text-gray-100 rounded-lg text-xs overflow-x-auto">
+              <h5 className="text-yellow-400 font-medium mb-2">Webhook Payload Preview:</h5>
+              <pre className="whitespace-pre-wrap">
+{JSON.stringify({
+  timestamp: "2025-07-01T12:00:00.000Z",
+  instruction: `Create a professional product video showcasing ${testProduct.name} with smooth transitions and modern aesthetics`,
+  status: "pending",
+  source: "feedgenerator_app",
+  request_id: "example-uuid",
+  template_id: selectedTemplate.id,
+  template_name: selectedTemplate.name,
+  product_name: testProduct.name.length > 81 ? testProduct.name.substring(0, 78) + '...' : testProduct.name,
+  product_price: `$${testProduct.price}`,
+  product_discount: "10%",
+  category_name: testProduct.category || "General",
+  feature_one: "AI-extracted feature from description...",
+  feature_two: "AI-extracted feature from description...",
+  feature_three: "AI-extracted feature from description...",
+  website_description: testProduct.name.length > 22 ? testProduct.name.substring(0, 19) + '...' : testProduct.name,
+  product_image: testProduct.images?.[0] || "default-image-url"
+}, null, 2)}
+              </pre>
+            </div>
+          )}
           
           {lastTestResult && (
             <div className="p-4 bg-white rounded-lg border space-y-4">
               <div className="flex items-center space-x-2">
                 <CheckCircle className="h-5 w-5 text-green-500" />
-                <h4 className="font-medium">Last Test Results</h4>
+                <h4 className="font-medium">✅ Last Test Results - Data Sent Successfully</h4>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -234,28 +355,32 @@ export function EnhancedZapierTestSection() {
                 </div>
                 
                 <div>
-                  <h5 className="font-medium text-sm mb-2">Processed Data Sample:</h5>
+                  <h5 className="font-medium text-sm mb-2">Actual Data Sent:</h5>
                   {lastTestResult.processed_data && (
                     <div className="space-y-1 text-xs">
-                      <div><strong>Product Name:</strong> {lastTestResult.processed_data.product_name} ({lastTestResult.processed_data.product_name.length}/81)</div>
-                      <div><strong>Category:</strong> {lastTestResult.processed_data.category_name} ({lastTestResult.processed_data.category_name.length}/150)</div>
-                      <div><strong>Feature 1:</strong> {lastTestResult.processed_data.feature_one} ({lastTestResult.processed_data.feature_one.length}/80)</div>
-                      <div><strong>Description:</strong> {lastTestResult.processed_data.website_description} ({lastTestResult.processed_data.website_description.length}/22)</div>
+                      <div><strong>product_name:</strong> "{lastTestResult.processed_data.product_name}"</div>
+                      <div><strong>product_price:</strong> "{lastTestResult.processed_data.product_price}"</div>
+                      <div><strong>category_name:</strong> "{lastTestResult.processed_data.category_name}"</div>
+                      <div><strong>product_discount:</strong> "{lastTestResult.processed_data.product_discount}"</div>
                     </div>
                   )}
                 </div>
               </div>
               
-              <div>
-                <h5 className="font-medium text-sm mb-2">Template Used:</h5>
-                <p className="text-xs">{lastTestResult.template_used}</p>
-                <p className="text-xs text-muted-foreground">Request ID: {lastTestResult.request_id}</p>
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <h5 className="font-medium text-sm mb-1 text-yellow-800">📋 Next Steps for Your Zap:</h5>
+                <ol className="text-xs text-yellow-700 space-y-1 list-decimal list-inside">
+                  <li>Check your Zap's history to confirm the webhook was received</li>
+                  <li>Map the webhook fields to your Google Sheet columns</li>
+                  <li>Use the field names shown above in your Zap configuration</li>
+                  <li>Test your Zap to ensure data flows to the Google Sheet correctly</li>
+                </ol>
               </div>
             </div>
           )}
           
           <div className="p-4 bg-white rounded-lg border">
-            <h4 className="font-medium mb-2">Google Sheets Column Mapping:</h4>
+            <h4 className="font-medium mb-2">🎯 Google Sheets Column Mapping:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div>
                 <div><strong>product_name:</strong> Max 81 characters</div>
@@ -272,7 +397,7 @@ export function EnhancedZapierTestSection() {
               </div>
             </div>
             <p className="text-xs text-gray-600 mt-2">
-              All fields are processed and validated before sending to match your Google Sheets columns exactly.
+              ✅ All fields are processed and validated before sending to match your Google Sheets columns exactly.
             </p>
           </div>
         </CardContent>
