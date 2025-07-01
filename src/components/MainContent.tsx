@@ -25,11 +25,60 @@ interface InventoryItem {
   updated_at: string;
 }
 
+interface GeneratedAsset {
+  id: string;
+  type: 'image' | 'video' | 'content' | 'combo';
+  url: string;
+  instruction: string;
+  timestamp: Date;
+  source_system?: string;
+  content?: string;
+  status?: string;
+  runway_task_id?: string;
+  message?: string;
+}
+
 export function MainContent() {
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [approvedInstruction, setApprovedInstruction] = useState<string | null>(null);
+  const [generatedAssets, setGeneratedAssets] = useState<GeneratedAsset[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const handleProductSelect = (product: InventoryItem) => {
     setSelectedProduct(product);
+  };
+
+  const handleImageSelect = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+  };
+
+  const handleInstructionApproved = (instruction: string) => {
+    setApprovedInstruction(instruction);
+  };
+
+  const handleGenerate = async (type: 'image' | 'video' | 'content' | 'combo', formatSpecs?: any) => {
+    if (!approvedInstruction || !selectedImage) return;
+    
+    setIsGenerating(true);
+    
+    // Create a mock asset for now - in real implementation this would call the actual APIs
+    const newAsset: GeneratedAsset = {
+      id: `asset-${Date.now()}`,
+      type,
+      url: type === 'content' ? '' : selectedImage, // Mock URL for non-content types
+      instruction: approvedInstruction,
+      timestamp: new Date(),
+      content: type === 'content' ? `Generated ${type} content based on: ${approvedInstruction}` : undefined,
+      message: `${type.charAt(0).toUpperCase() + type.slice(1)} generation initiated`
+    };
+    
+    setGeneratedAssets(prev => [newAsset, ...prev]);
+    
+    // Simulate API call delay
+    setTimeout(() => {
+      setIsGenerating(false);
+    }, 2000);
   };
 
   return (
@@ -68,15 +117,29 @@ export function MainContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Product Selection */}
               <div className="space-y-6">
-                <FakeProduct />
+                <FakeProduct 
+                  onImageSelect={handleImageSelect}
+                  selectedImage={selectedImage}
+                />
                 <InventoryManager onProductSelect={handleProductSelect} />
               </div>
 
               {/* Generation Interface */}
               <div className="space-y-6">
-                <InstructionModule />
-                <GeneratorButtons />
-                <AssetDisplay />
+                <InstructionModule 
+                  onInstructionApproved={handleInstructionApproved}
+                  selectedImage={selectedImage}
+                />
+                <GeneratorButtons 
+                  approvedInstruction={approvedInstruction}
+                  selectedImage={selectedImage}
+                  onGenerate={handleGenerate}
+                  isGenerating={isGenerating}
+                />
+                <AssetDisplay 
+                  assets={generatedAssets}
+                  isGenerating={isGenerating}
+                />
               </div>
             </div>
           </TabsContent>
@@ -89,7 +152,10 @@ export function MainContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Product Selection */}
               <div className="space-y-6">
-                <FakeProduct />
+                <FakeProduct 
+                  onImageSelect={handleImageSelect}
+                  selectedImage={selectedImage}
+                />
                 <Card>
                   <CardHeader>
                     <CardTitle>Selected Product</CardTitle>
@@ -117,9 +183,20 @@ export function MainContent() {
 
               {/* Generation Interface */}
               <div className="space-y-6">
-                <InstructionModule />
-                <GeneratorButtons />
-                <AssetDisplay />
+                <InstructionModule 
+                  onInstructionApproved={handleInstructionApproved}
+                  selectedImage={selectedImage}
+                />
+                <GeneratorButtons 
+                  approvedInstruction={approvedInstruction}
+                  selectedImage={selectedImage}
+                  onGenerate={handleGenerate}
+                  isGenerating={isGenerating}
+                />
+                <AssetDisplay 
+                  assets={generatedAssets}
+                  isGenerating={isGenerating}
+                />
               </div>
             </div>
           </TabsContent>
@@ -128,7 +205,10 @@ export function MainContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Product Selection */}
               <div className="space-y-6">
-                <FakeProduct />
+                <FakeProduct 
+                  onImageSelect={handleImageSelect}
+                  selectedImage={selectedImage}
+                />
                 <Card>
                   <CardHeader>
                     <CardTitle>Selected Product</CardTitle>
@@ -156,9 +236,20 @@ export function MainContent() {
 
               {/* Generation Interface */}
               <div className="space-y-6">
-                <InstructionModule />
-                <GeneratorButtons />
-                <AssetDisplay />
+                <InstructionModule 
+                  onInstructionApproved={handleInstructionApproved}
+                  selectedImage={selectedImage}
+                />
+                <GeneratorButtons 
+                  approvedInstruction={approvedInstruction}
+                  selectedImage={selectedImage}
+                  onGenerate={handleGenerate}
+                  isGenerating={isGenerating}
+                />
+                <AssetDisplay 
+                  assets={generatedAssets}
+                  isGenerating={isGenerating}
+                />
               </div>
             </div>
           </TabsContent>
@@ -167,7 +258,10 @@ export function MainContent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Product Selection */}
               <div className="space-y-6">
-                <FakeProduct />
+                <FakeProduct 
+                  onImageSelect={handleImageSelect}
+                  selectedImage={selectedImage}
+                />
                 <Card>
                   <CardHeader>
                     <CardTitle>Selected Product</CardTitle>
@@ -195,9 +289,20 @@ export function MainContent() {
 
               {/* Generation Interface */}
               <div className="space-y-6">
-                <InstructionModule />
-                <GeneratorButtons />
-                <AssetDisplay />
+                <InstructionModule 
+                  onInstructionApproved={handleInstructionApproved}
+                  selectedImage={selectedImage}
+                />
+                <GeneratorButtons 
+                  approvedInstruction={approvedInstruction}
+                  selectedImage={selectedImage}
+                  onGenerate={handleGenerate}
+                  isGenerating={isGenerating}
+                />
+                <AssetDisplay 
+                  assets={generatedAssets}
+                  isGenerating={isGenerating}
+                />
               </div>
             </div>
           </TabsContent>
