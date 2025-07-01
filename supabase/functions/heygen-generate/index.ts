@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.1';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const googleSheetsWebhook = Deno.env.get('HEYGEN_GOOGLE_SHEETS_WEBHOOK');
+const zapierWebhookUrl = 'https://hooks.zapier.com/hooks/catch/23139889/ube0vsx/';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,8 +29,8 @@ serve(async (req) => {
   try {
     const { instruction, imageUrl, productInfo }: HeyGenRequest = await req.json();
 
-    if (!googleSheetsWebhook) {
-      throw new Error('Google Sheets webhook URL not configured. Please add HEYGEN_GOOGLE_SHEETS_WEBHOOK to Supabase secrets.');
+    if (!zapierWebhookUrl) {
+      throw new Error('Zapier webhook URL not configured.');
     }
 
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -41,31 +41,32 @@ serve(async (req) => {
 
     console.log('Starting HeyGen video generation via Google Sheets + Zapier');
 
-    // Prepare data for Google Sheets
-    const sheetData = {
+    // Prepare data for Google Sheets via Zapier
+    const webhookData = {
       timestamp: new Date().toISOString(),
       instruction: instruction,
       product_name: productInfo?.name || "Premium Wireless Headphones",
       product_description: productInfo?.description || "High-quality audio experience with noise cancellation",
       image_url: imageUrl || "",
       status: "pending",
-      source: "feedgenerator_app"
+      source: "feedgenerator_app",
+      request_id: crypto.randomUUID()
     };
 
-    console.log('Sending data to Google Sheets:', sheetData);
+    console.log('Sending data to Zapier webhook:', webhookData);
 
-    // Post to Google Sheets via webhook/Zapier
-    const response = await fetch(googleSheetsWebhook, {
+    // Post to Zapier webhook
+    const response = await fetch(zapierWebhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(sheetData),
+      body: JSON.stringify(webhookData),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to post to Google Sheets: ${response.status} - ${errorText}`);
+      throw new Error(`Failed to trigger Zapier webhook: ${response.status} - ${errorText}`);
     }
 
     // Generate a placeholder video URL for immediate feedback
@@ -91,15 +92,16 @@ serve(async (req) => {
       throw new Error(`Database error: ${dbError.message}`);
     }
 
-    console.log('HeyGen video generation request sent to Google Sheets successfully');
+    console.log('HeyGen video generation request sent to Zapier successfully');
 
     return new Response(JSON.stringify({ 
       success: true, 
       asset_url: placeholderVideoUrl,
       asset_id: asset.id,
       type: 'video',
-      message: 'Video generation request sent to Google Sheets. HeyGen will process via Zapier automation.',
-      sheets_data: sheetData
+      message: 'Video generation request sent to Zapier. HeyGen will process the request automatically.',
+      webhook_data: webhookData,
+      request_id: webhookData.request_id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
