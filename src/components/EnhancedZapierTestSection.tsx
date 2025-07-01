@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -16,11 +17,46 @@ interface TemplateConfig {
   description?: string;
 }
 
+interface InventoryItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  sku: string | null;
+  category: string | null;
+  brand: string | null;
+  images: string[];
+  metadata: any;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export function EnhancedZapierTestSection() {
   const [isTestingZapier, setIsTestingZapier] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateConfig>();
   const [lastTestResult, setLastTestResult] = useState<any>(null);
   const { toast } = useToast();
+
+  // Fetch a real product from inventory for testing
+  const { data: testProduct, isLoading: isLoadingProduct } = useQuery({
+    queryKey: ['test-product'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('inventory')
+        .select('*')
+        .eq('status', 'active')
+        .limit(1)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching test product:', error);
+        throw error;
+      }
+      
+      return data as InventoryItem;
+    },
+  });
 
   const testZapierWebhook = async () => {
     if (!selectedTemplate) {
@@ -32,37 +68,46 @@ export function EnhancedZapierTestSection() {
       return;
     }
 
+    if (!testProduct) {
+      toast({
+        title: "No Test Product Available",
+        description: "No products found in inventory to use for testing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsTestingZapier(true);
     
     try {
       console.log('Testing Zapier webhook with template:', selectedTemplate);
+      console.log('Using product from inventory:', testProduct);
       
-      // Create test product data
-      const testProduct = {
-        name: "Premium Wireless Headphones - TEST",
-        description: "Experience superior sound quality with our premium wireless headphones. Features advanced noise cancellation technology, comfortable over-ear design, and up to 30 hours of battery life. Perfect for music lovers and professionals who demand the best audio experience.",
-        category: "Electronics & Audio",
-        price: 199,
-        discount: "15%"
+      // Create test product data from real inventory item
+      const productForTest = {
+        name: testProduct.name,
+        description: testProduct.description || testProduct.name,
+        category: testProduct.category || "General",
+        price: testProduct.price || 0,
+        discount: "10%", // Default discount for test
+        imageUrl: testProduct.images?.[0] || "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop"
       };
 
       // Process the product data with constraints
-      const processedData = processProductForSpreadsheet({
-        ...testProduct,
-        imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop"
-      });
+      const processedData = processProductForSpreadsheet(productForTest);
 
       // Validate the processed data
       const validation = validateProcessedData(processedData);
       
+      console.log('Real product data:', productForTest);
       console.log('Processed product data:', processedData);
       console.log('Field validation:', validation);
 
       const { data, error } = await supabase.functions.invoke('heygen-generate', {
         body: {
-          instruction: "Create a professional product video showcasing wireless headphones with smooth transitions and modern aesthetics",
-          imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop",
-          productInfo: testProduct,
+          instruction: `Create a professional product video showcasing ${testProduct.name} with smooth transitions and modern aesthetics`,
+          imageUrl: productForTest.imageUrl,
+          productInfo: productForTest,
           templateConfig: selectedTemplate
         }
       });
@@ -78,7 +123,7 @@ export function EnhancedZapierTestSection() {
         
         toast({
           title: "Zapier Test Successful",
-          description: `Test data sent using "${selectedTemplate.name}" template. Request ID: ${data.request_id}`,
+          description: `Real product data sent using "${selectedTemplate.name}" template. Request ID: ${data.request_id}`,
         });
 
         // Show validation results
@@ -120,19 +165,44 @@ export function EnhancedZapierTestSection() {
             <span>Enhanced Zapier Integration Test</span>
           </CardTitle>
           <CardDescription>
-            Test your Zapier webhook with processed product data that matches Google Sheets column constraints
+            Test your Zapier webhook with real product data from your inventory that matches Google Sheets column constraints
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Show which product will be used for testing */}
+          {testProduct && (
+            <div className="p-3 bg-white rounded-lg border">
+              <h4 className="font-medium text-sm mb-2">Test Product from Inventory:</h4>
+              <div className="flex items-center space-x-3">
+                {testProduct.images?.[0] && (
+                  <img 
+                    src={testProduct.images[0]} 
+                    alt={testProduct.name}
+                    className="w-12 h-12 object-cover rounded"
+                  />
+                )}
+                <div>
+                  <p className="font-medium text-sm">{testProduct.name}</p>
+                  <p className="text-xs text-gray-600">{testProduct.category} • ${testProduct.price}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <Button
             onClick={testZapierWebhook}
-            disabled={isTestingZapier || !selectedTemplate}
+            disabled={isTestingZapier || !selectedTemplate || isLoadingProduct}
             className="w-full bg-blue-600 hover:bg-blue-700"
           >
             {isTestingZapier && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            {selectedTemplate ? `Test with ${selectedTemplate.name}` : 'Select Template First'}
+            {isLoadingProduct 
+              ? 'Loading Product...' 
+              : selectedTemplate 
+                ? `Test with Real Product Data (${selectedTemplate.name})` 
+                : 'Select Template First'
+            }
           </Button>
           
           {lastTestResult && (
@@ -185,21 +255,24 @@ export function EnhancedZapierTestSection() {
           )}
           
           <div className="p-4 bg-white rounded-lg border">
-            <h4 className="font-medium mb-2">Field Constraints Applied:</h4>
+            <h4 className="font-medium mb-2">Google Sheets Column Mapping:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div>
-                <div><strong>Product Name:</strong> Max 81 characters</div>
-                <div><strong>Category Name:</strong> Max 150 characters</div>
-                <div><strong>Website Description:</strong> Max 22 characters</div>
+                <div><strong>product_name:</strong> Max 81 characters</div>
+                <div><strong>category_name:</strong> Max 150 characters</div>
+                <div><strong>website_description:</strong> Max 22 characters</div>
+                <div><strong>product_price:</strong> Formatted as currency</div>
               </div>
               <div>
-                <div><strong>Feature One:</strong> Max 80 characters (AI extracted)</div>
-                <div><strong>Feature Two:</strong> Max 80 characters (AI extracted)</div>
-                <div><strong>Feature Three:</strong> Max 80 characters (AI extracted)</div>
+                <div><strong>feature_one:</strong> Max 80 characters (AI extracted)</div>
+                <div><strong>feature_two:</strong> Max 80 characters (AI extracted)</div>
+                <div><strong>feature_three:</strong> Max 80 characters (AI extracted)</div>
+                <div><strong>product_discount:</strong> Percentage format</div>
+                <div><strong>product_image:</strong> Image URL</div>
               </div>
             </div>
             <p className="text-xs text-gray-600 mt-2">
-              All fields are processed and validated before sending to maintain video generation constraints.
+              All fields are processed and validated before sending to match your Google Sheets columns exactly.
             </p>
           </div>
         </CardContent>
