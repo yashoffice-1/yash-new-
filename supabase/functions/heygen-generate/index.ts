@@ -166,7 +166,7 @@ serve(async (req) => {
 
     console.log('Field validation results:', validation);
 
-    // Create webhook payload based on template variables
+    // Create webhook payload - FIXED: Send actual values, not variable names
     const webhookData: any = {
       timestamp: new Date().toISOString(),
       instruction: instruction,
@@ -174,15 +174,18 @@ serve(async (req) => {
       source: "feedgenerator_app",
       request_id: crypto.randomUUID(),
       template_id: templateConfig?.id || 'default',
-      template_name: templateName
+      template_name: templateName,
+      // Send the actual processed values directly
+      product_name: productData.product_name,
+      product_price: productData.product_price,
+      product_discount: productData.product_discount,
+      category_name: productData.category_name,
+      feature_one: productData.feature_one,
+      feature_two: productData.feature_two,
+      feature_three: productData.feature_three,
+      website_description: productData.website_description,
+      product_image: productData.product_image
     };
-
-    // Only include variables that are specified in the template
-    templateVariables.forEach(variable => {
-      if (productData.hasOwnProperty(variable)) {
-        webhookData[variable] = productData[variable as keyof ProcessedProductData];
-      }
-    });
 
     console.log('Sending data to Zapier webhook:', webhookData);
     console.log('Webhook URL:', webhookUrl);
