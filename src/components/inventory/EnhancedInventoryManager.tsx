@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Package, Image, Video, FileText, Megaphone, CheckSquare, X } from "lucide-react";
+import { Search, Package, Image, Video, FileText, Megaphone, CheckSquare, X, Clapperboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { UnifiedAssetGenerator } from "./UnifiedAssetGenerator";
@@ -25,7 +25,11 @@ interface InventoryItem {
   updated_at: string;
 }
 
-export function EnhancedInventoryManager() {
+interface EnhancedInventoryManagerProps {
+  onVideoTemplateClick?: (product: InventoryItem) => void;
+}
+
+export function EnhancedInventoryManager({ onVideoTemplateClick }: EnhancedInventoryManagerProps) {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -124,6 +128,26 @@ export function EnhancedInventoryManager() {
     setShowGenerator(true);
   };
 
+  const handleVideoTemplateClick = (productId?: string) => {
+    if (productId) {
+      const product = filteredInventory.find(p => p.id === productId);
+      if (product && onVideoTemplateClick) {
+        onVideoTemplateClick(product);
+      }
+    } else if (selectedProducts.length > 0) {
+      const product = filteredInventory.find(p => p.id === selectedProducts[0]);
+      if (product && onVideoTemplateClick) {
+        onVideoTemplateClick(product);
+      }
+    } else {
+      toast({
+        title: "No Product Selected",
+        description: "Please select a product to use video templates.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const renderProductRow = (product: InventoryItem) => {
     const isSelected = selectedProducts.includes(product.id);
     const primaryImage = product.images?.[0];
@@ -210,6 +234,16 @@ export function EnhancedInventoryManager() {
             >
               <Video className="h-4 w-4" />
               <span className="hidden sm:inline">Video</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleVideoTemplateClick(product.id)}
+              className="flex items-center space-x-1"
+            >
+              <Clapperboard className="h-4 w-4" />
+              <span className="hidden sm:inline">Video Template</span>
             </Button>
           </div>
           
@@ -325,6 +359,15 @@ export function EnhancedInventoryManager() {
                   <Video className="h-4 w-4" />
                   <span>Generate Videos</span>
                 </Button>
+
+                <Button
+                  onClick={() => handleVideoTemplateClick()}
+                  className="flex items-center space-x-1"
+                  variant="secondary"
+                >
+                  <Clapperboard className="h-4 w-4" />
+                  <span>Video Template</span>
+                </Button>
                 
                 <Button
                   onClick={() => handleGenerationClick('content')}
@@ -360,7 +403,7 @@ export function EnhancedInventoryManager() {
                       <div className="h-3 bg-gray-200 rounded w-1/4"></div>
                     </div>
                     <div className="flex space-x-2">
-                      {[...Array(4)].map((_, j) => (
+                      {[...Array(5)].map((_, j) => (
                         <div key={j} className="w-16 h-8 bg-gray-200 rounded"></div>
                       ))}
                     </div>
