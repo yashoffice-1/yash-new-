@@ -25,7 +25,7 @@ interface InventoryItem {
 
 interface GeneratedAsset {
   id: string;
-  type: 'image' | 'video' | 'content' | 'formats';
+  type: 'image' | 'video' | 'content' | 'formats' | 'ad';
   url?: string;
   content?: string;
   instruction: string;
@@ -40,7 +40,7 @@ interface GenerationModalProps {
   onClose: () => void;
   onConfirm: (instruction: string) => void;
   product: InventoryItem;
-  generationType: 'image' | 'video' | 'content' | 'formats';
+  generationType: 'image' | 'video' | 'content' | 'formats' | 'ad';
   title: string;
 }
 
@@ -71,6 +71,12 @@ const SUGGESTION_PROMPTS = {
     "Generate content optimized for various social media channels",
     "Create a complete marketing package with different sizes",
     "Design responsive content for web and mobile"
+  ],
+  ad: [
+    "Create a high-impact digital ad banner",
+    "Design a promotional ad for social media",
+    "Generate a marketing ad with clear call-to-action",
+    "Create an animated ad for online campaigns"
   ]
 };
 
@@ -85,7 +91,7 @@ function InstructionForm({
   setInstruction: React.Dispatch<React.SetStateAction<string>>;
   isImprovingInstruction: boolean;
   handleImproveInstruction: () => Promise<void>;
-  currentGenerationType: 'image' | 'video' | 'content' | 'formats';
+  currentGenerationType: 'image' | 'video' | 'content' | 'formats' | 'ad';
 }) {
   return (
     <div className="space-y-3">
@@ -135,7 +141,7 @@ function SuggestionButtons({
   currentGenerationType,
   handleSuggestionClick,
 }: {
-  currentGenerationType: 'image' | 'video' | 'content' | 'formats';
+  currentGenerationType: 'image' | 'video' | 'content' | 'formats' | 'ad';
   handleSuggestionClick: (suggestion: string) => void;
 }) {
   return (
@@ -263,6 +269,17 @@ function ResultsDisplay({
                       '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Video failed to load</span></div>';
                   }}
                 />
+              ) : generatedAsset.type === 'ad' && generatedAsset.url ? (
+                <img
+                  src={generatedAsset.url}
+                  alt="Generated ad content"
+                  className="w-full h-auto object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.innerHTML = 
+                      '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Ad image failed to load</span></div>';
+                  }}
+                />
               ) : (
                 <div className="w-full h-48 flex items-center justify-center bg-gray-100">
                   <Loader2 className="h-8 w-8 animate-spin" />
@@ -353,9 +370,9 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   const [showResults, setShowResults] = useState(false);
   const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
   const [previousAsset, setPreviousAsset] = useState<GeneratedAsset | null>(null);
-  const [currentGenerationType, setCurrentGenerationType] = useState<'image' | 'video' | 'content' | 'formats'>(generationType);
+  const [currentGenerationType, setCurrentGenerationType] = useState<'image' | 'video' | 'content' | 'formats' | 'ad'>(generationType);
 
-  const getDefaultInstruction = (type: 'image' | 'video' | 'content' | 'formats') => {
+  const getDefaultInstruction = (type: 'image' | 'video' | 'content' | 'formats' | 'ad') => {
     const brandText = product.brand ? `for ${product.brand}` : '';
     const categoryText = product.category ? `in the ${product.category} category` : '';
     
@@ -368,6 +385,8 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         return `Write compelling marketing copy for ${product.name} ${brandText} ${categoryText}. Create engaging text suitable for social media advertising and promotional campaigns. Include headline, body text, and call-to-action.`;
       case 'formats':
         return `Generate multiple format variations ${brandText} ${categoryText}. Create different sizes and layouts for ${product.name} across various platforms.`;
+      case 'ad':
+        return `Create a high-impact digital ad ${brandText} ${categoryText} for ${product.name}. Focus on clear messaging and strong call-to-action.`;
       default:
         return `Generate content for ${product.name}`;
     }
@@ -526,7 +545,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           description: "Your marketing content has been created successfully!",
         });
       } else {
-        // For other generation types (image, video, formats), use RunwayML
+        // For other generation types (image, video, formats, ad), use RunwayML
         let requestBody: any = {
           type: currentGenerationType,
           instruction: instruction,
@@ -615,7 +634,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
 
     try {
       if (generatedAsset.url) {
-        // For image/video assets with URLs
+        // For image/video/ad assets with URLs
         const response = await fetch(generatedAsset.url);
         if (!response.ok) {
           throw new Error('Failed to fetch asset');
@@ -628,7 +647,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         let extension = '';
         const contentType = blob.type;
         
-        if (generatedAsset.type === 'image') {
+        if (generatedAsset.type === 'image' || generatedAsset.type === 'ad') {
           if (contentType.includes('png')) extension = '.png';
           else if (contentType.includes('jpeg') || contentType.includes('jpg')) extension = '.jpg';
           else if (contentType.includes('webp')) extension = '.webp';
@@ -702,7 +721,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           title: campaignTitle,
           description: campaignDescription,
           tags: [product.category, product.brand, 'campaign', previousAsset.type, 'content'].filter(Boolean),
-          asset_type: previousAsset.type, // Use the visual asset type as primary
+          asset_type: previousAsset.type === 'formats' ? 'image' : previousAsset.type, // Use the visual asset type as primary, but handle formats
           asset_url: previousAsset.url || '',
           content: `VISUAL ASSET: ${previousAsset.url || 'N/A'}\n\nMARKETING CONTENT:\n${generatedAsset.content}`,
           instruction: `Combined Campaign - Visual: ${previousAsset.instruction} | Content: ${generatedAsset.instruction}`,
@@ -716,11 +735,19 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         });
       } else {
         // Save individual asset as before
+        // Determine the correct asset type for library storage
+        let libraryAssetType: 'image' | 'video' | 'content' | 'formats' | 'ad' = generatedAsset.type;
+        
+        // Map formats to image for library storage, unless we want to keep it as formats
+        if (generatedAsset.type === 'formats') {
+          libraryAssetType = 'image';
+        }
+        
         await saveToLibrary({
           title: `${product.name} - ${generatedAsset.type}`,
           description: generatedAsset.instruction,
           tags: [product.category, product.brand, generatedAsset.type].filter(Boolean),
-          asset_type: generatedAsset.type === 'formats' ? 'image' : generatedAsset.type,
+          asset_type: libraryAssetType,
           asset_url: generatedAsset.url || '',
           content: generatedAsset.content,
           instruction: generatedAsset.instruction,
@@ -782,6 +809,8 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         return 'Generate Content';
       case 'formats':
         return 'Generate Formats';
+      case 'ad':
+        return 'Generate Ad';
       default:
         return 'Generate';
     }
@@ -798,6 +827,8 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         return 'Generate Marketing Content';
       case 'formats':
         return 'Generate Formats';
+      case 'ad':
+        return 'Generate Ad';
       default:
         return 'Generate Image'; // Changed default from 'Generate Content' to 'Generate Image'
     }
@@ -860,6 +891,12 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                     src={previousAsset.url}
                     controls
                     className="w-full h-auto max-h-80"
+                  />
+                ) : previousAsset.type === 'ad' && previousAsset.url ? (
+                  <img
+                    src={previousAsset.url}
+                    alt="Generated ad content"
+                    className="w-full h-auto object-contain max-h-80"
                   />
                 ) : (
                   <div className="w-full h-48 flex items-center justify-center bg-gray-100">

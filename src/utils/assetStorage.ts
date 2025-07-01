@@ -8,7 +8,7 @@ export interface DownloadedAsset {
 
 export async function downloadAndStoreAsset(
   externalUrl: string, 
-  assetType: 'image' | 'video' | 'content' | 'formats',
+  assetType: 'image' | 'video' | 'content' | 'formats' | 'ad',
   fileName?: string
 ): Promise<DownloadedAsset> {
   try {
@@ -21,7 +21,8 @@ export async function downloadAndStoreAsset(
 
     // Generate a unique filename if not provided
     const timestamp = Date.now();
-    const extension = assetType === 'image' ? 'png' : 'mp4';
+    // Map 'ad' to image extension since ads are typically images
+    const extension = (assetType === 'image' || assetType === 'ad') ? 'png' : 'mp4';
     const generatedFileName = fileName || `${assetType}-${timestamp}.${extension}`;
 
     console.log('Generated filename:', generatedFileName);

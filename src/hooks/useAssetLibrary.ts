@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +9,7 @@ export interface AssetLibraryItem {
   title: string;
   description?: string;
   tags?: string[];
-  asset_type: 'image' | 'video' | 'content' | 'formats';
+  asset_type: 'image' | 'video' | 'content' | 'formats' | 'ad';
   asset_url: string;
   content?: string;
   instruction: string;
@@ -27,7 +28,7 @@ export function useAssetLibrary() {
     title: string;
     description?: string;
     tags?: string[];
-    asset_type: 'image' | 'video' | 'content' | 'formats';
+    asset_type: 'image' | 'video' | 'content' | 'formats' | 'ad';
     asset_url: string;
     content?: string;
     instruction: string;
@@ -49,7 +50,7 @@ export function useAssetLibrary() {
         try {
           const downloadedAsset = await downloadAndStoreAsset(
             asset.asset_url,
-            asset.asset_type,
+            asset.asset_type === 'ad' ? 'image' : asset.asset_type, // Map 'ad' to 'image' for storage
             `${asset.title.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`
           );
           finalAssetUrl = downloadedAsset.url;
