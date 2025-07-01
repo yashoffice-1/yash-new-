@@ -5,7 +5,7 @@ import { UserDashboard } from "./UserDashboard";
 import { AssetLibrary } from "./AssetLibrary";
 import { InventoryDisplay } from "./inventory/InventoryDisplay";
 import { VideoTemplatesTab } from "./VideoTemplatesTab";
-import { ZapierTestSection } from "./ZapierTestSection";
+import { EnhancedZapierTestSection } from "./EnhancedZapierTestSection";
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { Library, Package, Video } from "lucide-react";
@@ -20,8 +20,8 @@ export function MainContent() {
 
   return (
     <div className="space-y-6">
-      {/* Zapier Test Section - Always visible at top */}
-      <ZapierTestSection />
+      {/* Enhanced Zapier Test Section - Always visible at top */}
+      <EnhancedZapierTestSection />
 
       {/* Tab Navigation for User Mode */}
       <div className="flex space-x-4 border-b">
