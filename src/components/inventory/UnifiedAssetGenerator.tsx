@@ -196,11 +196,210 @@ const SPECIFICATIONS = {
   'Shopping Ad Pinterest': 'Product feed based'
 };
 
-export function UnifiedAssetGenerator({ 
-  isOpen, 
-  onClose, 
-  selectedProducts, 
-  initialAssetType 
+function ProductConfig({
+  product,
+  configKey,
+  config,
+  typeOptions,
+  loadingInstructions,
+  isImproving,
+  isGenerating,
+  formatSpecs,
+  updateConfig,
+  handleImproveInstruction,
+  handleFormatSpecChange,
+  handleGenerate,
+  renderGeneratedAsset,
+}: {
+  product: InventoryItem;
+  configKey: string;
+  config: AssetGenerationConfig;
+  typeOptions: string[];
+  loadingInstructions: boolean;
+  isImproving: Record<string, boolean>;
+  isGenerating: boolean;
+  formatSpecs: Record<string, any>;
+  updateConfig: (productId: string, field: keyof AssetGenerationConfig, value: string) => void;
+  handleImproveInstruction: (productId: string) => void;
+  handleFormatSpecChange: (productId: string, specs: any) => void;
+  handleGenerate: (productId: string) => void;
+  renderGeneratedAsset: (productId: string) => JSX.Element | null;
+}) {
+  return (
+    <div key={configKey} className="space-y-4 p-4 border rounded-lg">
+      {/* Product Header */}
+      <div className="flex items-center space-x-3 pb-3 border-b">
+        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+          {product.images?.[0] ? (
+            <img
+              src={product.images[0]}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML =
+                  '<div class="w-full h-full flex items-center justify-center bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v4a1 1 0 001 1h3m10-5v4a1 1 0 01-1 1h-3m-6 4h6m-6 0v4a1 1 0 001 1h3m6-5v4a1 1 0 01-1 1h-3" /></svg></div>';
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+              <Package className="h-4 w-4 text-gray-400" />
+            </div>
+          )}
+        </div>
+        <div>
+          <h4 className="font-medium">{product.name}</h4>
+          {product.brand && (
+            <Badge variant="outline" className="text-xs">
+              {product.brand}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Configuration Fields */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>📡 Channel</Label>
+          <Select
+            value={config.channel}
+            onValueChange={(value) => updateConfig(configKey, 'channel', value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select channel" />
+            </SelectTrigger>
+            <SelectContent>
+              {CHANNELS.map(channel => (
+                <SelectItem key={channel.value} value={channel.value}>
+                  {channel.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>🧩 Type</Label>
+          <Select
+            value={config.asset_type}
+            onValueChange={(value) => updateConfig(configKey, 'asset_type', value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              {ASSET_TYPES.map(type => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>🎛️ Format</Label>
+          <Select
+            value={config.type}
+            onValueChange={(value) => updateConfig(configKey, 'type', value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select format" />
+            </SelectTrigger>
+            <SelectContent>
+              {typeOptions.map(option => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>⚙️ Specification</Label>
+          <div className="px-3 py-2 border rounded-md bg-gray-50 text-sm text-gray-600">
+            {config.specification || 'Auto-generated'}
+          </div>
+        </div>
+      </div>
+
+      {/* Format Specification Selector - Only show for image/video/ad assets */}
+      {(config.asset_type === 'image' || config.asset_type === 'video' || config.asset_type === 'ad') && (
+        <div className="space-y-2">
+          <Label>🎯 Format Specifications</Label>
+          <FormatSpecSelector
+            assetType={config.asset_type === 'ad' ? 'image' : config.asset_type as 'image' | 'video'}
+            onSpecChange={(specs) => handleFormatSpecChange(configKey, specs)}
+            initialSpecs={formatSpecs[configKey]}
+          />
+        </div>
+      )}
+
+      {/* Instruction Box */}
+      <div className="space-y-2">
+        <Label>📝 Instruction</Label>
+        {loadingInstructions ? (
+          <div className="flex items-center space-x-2 text-sm text-gray-500 p-3 border rounded-md">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Generating smart instruction...</span>
+          </div>
+        ) : (
+          <Textarea
+            value={config.description}
+            onChange={(e) => updateConfig(configKey, 'description', e.target.value)}
+            placeholder="Enter your generation instructions..."
+            className="min-h-[100px]"
+          />
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleImproveInstruction(configKey)}
+          disabled={isImproving[configKey] || !config.description?.trim() || loadingInstructions}
+          className="flex items-center space-x-1"
+        >
+          {isImproving[configKey] ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Improving...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-3 w-3" />
+              <span>Improve with AI</span>
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Generate Button */}
+      <Button
+        onClick={() => handleGenerate(configKey)}
+        disabled={isGenerating || !config.description?.trim() || loadingInstructions}
+        className="w-full"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Generating...
+          </>
+        ) : (
+          `Generate ${config.asset_type || 'Asset'}`
+        )}
+      </Button>
+
+      {/* Generated Asset Display */}
+      {renderGeneratedAsset(configKey)}
+    </div>
+  );
+}
+
+export function UnifiedAssetGenerator({
+  isOpen,
+  onClose,
+  selectedProducts,
+  initialAssetType
 }: UnifiedAssetGeneratorProps) {
   const { toast } = useToast();
   const [applyToAll, setApplyToAll] = useState(true);
@@ -216,24 +415,24 @@ export function UnifiedAssetGenerator({
   // Enhanced instruction generation with advertising context
   const generateInitialInstruction = async (product: InventoryItem, config: AssetGenerationConfig) => {
     setLoadingInstructions(true);
-    
+
     try {
       const specification = SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
-      
+
       // Enhanced context for advertising-focused content
-      const advertisingContext = config.asset_type === 'ad' || 
+      const advertisingContext = config.asset_type === 'ad' ||
         config.type.toLowerCase().includes('ad') ||
         config.channel === 'google-ads' ||
         config.type.includes('Story') ||
         config.type.includes('Reel')
         ? {
-            requiresCallToAction: true,
-            includeEmojis: true,
-            useSalesLanguage: true,
-            includeUrgency: config.channel !== 'linkedin',
-            format: config.type,
-            platform: config.channel
-          }
+          requiresCallToAction: true,
+          includeEmojis: true,
+          useSalesLanguage: true,
+          includeUrgency: config.channel !== 'linkedin',
+          format: config.type,
+          platform: config.channel
+        }
         : null;
 
       const { data, error } = await supabase.functions.invoke('openai-generate', {
@@ -252,7 +451,7 @@ export function UnifiedAssetGenerator({
           specification: specification,
           advertisingContext: advertisingContext,
           context: {
-            requirements: advertisingContext 
+            requirements: advertisingContext
               ? `Create advertising content optimized for ${config.channel} ${config.type} format. 
                  MUST include: compelling call-to-action, relevant emojis, urgency/scarcity elements, 
                  and sales-focused language. Format specifications: ${specification}. 
@@ -269,18 +468,18 @@ export function UnifiedAssetGenerator({
       }
 
       const suggestions = data.result.split('\n').filter(Boolean);
-      const initialInstruction = suggestions[0]?.replace(/^[\d\-\*\.\s]+/, '').trim() || 
-        (advertisingContext 
+      const initialInstruction = suggestions[0]?.replace(/^[\d\-\*\.\s]+/, '').trim() ||
+        (advertisingContext
           ? `Create compelling ${config.asset_type} ad for ${product.name} with strong CTA, emojis, and urgency for ${config.channel} ${config.type} (${specification})`
           : `Create compelling ${config.asset_type} content for ${product.name} optimized for ${config.channel} ${config.type} format (${specification})`);
-      
+
       return initialInstruction;
 
     } catch (error) {
       console.error('Error generating initial instruction:', error);
       const specification = SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
       const isAd = config.asset_type === 'ad' || config.type.toLowerCase().includes('ad');
-      return isAd 
+      return isAd
         ? `Create compelling ${config.asset_type} ad for ${product.name} with strong CTA, emojis, and urgency for ${config.channel} ${config.type} (${specification})`
         : `Create compelling ${config.asset_type} content for ${product.name} optimized for ${config.channel} ${config.type} format (${specification})`;
     } finally {
@@ -298,7 +497,7 @@ export function UnifiedAssetGenerator({
           specification: '',
           description: ''
         };
-        
+
         if (isMultiProduct && applyToAll) {
           const instruction = await generateInitialInstruction(selectedProducts[0], initialConfig);
           initialConfig.description = instruction;
@@ -334,7 +533,7 @@ export function UnifiedAssetGenerator({
     setConfigs(prev => {
       const newConfigs = { ...prev };
       const config = newConfigs[productId] || {} as AssetGenerationConfig;
-      
+
       if (field === 'channel' || field === 'asset_type') {
         const newType = getDefaultType(
           field === 'channel' ? value : config.channel,
@@ -342,7 +541,7 @@ export function UnifiedAssetGenerator({
         );
         config.type = newType;
         config.specification = SPECIFICATIONS[newType as keyof typeof SPECIFICATIONS] || '';
-        
+
         // Regenerate instruction when channel or asset type changes
         const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
         const updatedConfig = { ...config, [field]: value as any };
@@ -354,7 +553,7 @@ export function UnifiedAssetGenerator({
         });
       } else if (field === 'type') {
         config.specification = SPECIFICATIONS[value as keyof typeof SPECIFICATIONS] || '';
-        
+
         // Regenerate instruction when type changes to consider new specifications
         const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
         const updatedConfig = { ...config, [field]: value as any };
@@ -365,17 +564,17 @@ export function UnifiedAssetGenerator({
           }));
         });
       }
-      
+
       config[field] = value as any;
       newConfigs[productId] = config;
-      
+
       return newConfigs;
     });
   };
 
   const generateTaggedInstruction = (config: AssetGenerationConfig, product: InventoryItem): string => {
     const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
-    const isAdvertising = config.asset_type === 'ad' || 
+    const isAdvertising = config.asset_type === 'ad' ||
       config.type.toLowerCase().includes('ad') ||
       config.channel === 'google-ads' ||
       config.type.includes('Story') ||
@@ -390,7 +589,7 @@ export function UnifiedAssetGenerator({
       `#format_requirements: Optimize for ${config.channel} ${config.type} with specifications: ${specification}`,
       isAdvertising ? `#advertising_context: Include CTA, emojis, urgency, sales language` : ''
     ].filter(Boolean).join('\n');
-    
+
     return `${tags}\n\n${config.description}`;
   };
 
@@ -458,7 +657,7 @@ export function UnifiedAssetGenerator({
 
   const handleGenerate = async (productId: string) => {
     setIsGenerating(true);
-    
+
     try {
       const config = configs[productId];
       const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
@@ -467,7 +666,7 @@ export function UnifiedAssetGenerator({
       const currentFormatSpecs = formatSpecs[productId];
 
       let result: GeneratedAsset;
-      
+
       if (config.asset_type === 'content') {
         const { data, error } = await supabase.functions.invoke('openai-generate', {
           body: {
@@ -509,7 +708,7 @@ export function UnifiedAssetGenerator({
 
         // First generate the visual asset
         let width, height, duration, aspectRatio;
-        
+
         if (currentFormatSpecs) {
           width = currentFormatSpecs.width;
           height = currentFormatSpecs.height;
@@ -519,10 +718,10 @@ export function UnifiedAssetGenerator({
           const dimensionMatch = specification.match(/(\d+)x(\d+)/);
           width = dimensionMatch ? parseInt(dimensionMatch[1]) : 1024;
           height = dimensionMatch ? parseInt(dimensionMatch[2]) : 1024;
-          
+
           const durationMatch = specification.match(/(\d+)(?:s|sec|seconds?)/i);
           duration = durationMatch ? `${durationMatch[1]} seconds` : '5 seconds';
-          
+
           aspectRatio = width && height ? `${width}:${height}` : '1:1';
         }
 
@@ -603,7 +802,7 @@ export function UnifiedAssetGenerator({
       } else {
         // Regular image/video generation with enhanced format specs
         let width, height, duration, aspectRatio;
-        
+
         if (currentFormatSpecs) {
           width = currentFormatSpecs.width;
           height = currentFormatSpecs.height;
@@ -613,17 +812,17 @@ export function UnifiedAssetGenerator({
           const dimensionMatch = specification.match(/(\d+)x(\d+)/);
           width = dimensionMatch ? parseInt(dimensionMatch[1]) : 1024;
           height = dimensionMatch ? parseInt(dimensionMatch[2]) : 1024;
-          
+
           const durationMatch = specification.match(/(\d+)(?:s|sec|seconds?)/i);
           duration = durationMatch ? `${durationMatch[1]} seconds` : '5 seconds';
-          
+
           aspectRatio = width && height ? `${width}:${height}` : '1:1';
         }
-        
+
         console.log(`Generating ${config.asset_type} with specifications:`, {
           width, height, duration, aspectRatio, specification
         });
-        
+
         const requestBody: any = {
           type: config.asset_type,
           instruction: fullInstruction,
@@ -672,18 +871,18 @@ export function UnifiedAssetGenerator({
       }
 
       setGeneratedAssets(prev => ({ ...prev, [productId]: result }));
-      
-      const formatInfo = currentFormatSpecs ? 
+
+      const formatInfo = currentFormatSpecs ?
         `${currentFormatSpecs.aspectRatio} (${currentFormatSpecs.dimensions})${config.asset_type === 'video' || config.asset_type === 'ad' ? `, ${currentFormatSpecs.duration}` : ''}` :
         specification;
-      
+
       toast({
         title: "Generation Successful",
-        description: config.asset_type === 'ad' 
+        description: config.asset_type === 'ad'
           ? `Your ad package (visual + copy) has been generated with format: ${formatInfo}`
           : `Your ${config.asset_type} has been generated with format: ${formatInfo}`,
       });
-      
+
     } catch (error) {
       console.error('Generation error:', error);
       toast({
@@ -703,7 +902,7 @@ export function UnifiedAssetGenerator({
       delete newAssets[productId];
       return newAssets;
     });
-    
+
     toast({
       title: "Ready to Regenerate",
       description: "You can now modify your instruction and generate again.",
@@ -718,7 +917,7 @@ export function UnifiedAssetGenerator({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast({
         title: "Download Started",
         description: `Downloading your ${asset.type}...`,
@@ -729,12 +928,12 @@ export function UnifiedAssetGenerator({
   const renderAssetActions = (productId: string, asset: GeneratedAsset) => {
     const config = configs[productId];
     const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
-    
+
     // Generate prefilled data for Save to Library
     const generateSaveData = () => {
       const channelLabel = CHANNELS.find(c => c.value === config?.channel)?.label || config?.channel;
       const specification = config?.specification || SPECIFICATIONS[config?.type as keyof typeof SPECIFICATIONS] || '';
-      
+
       return {
         title: `${product.name} - ${channelLabel} ${config?.type || 'Asset'}`,
         description: [
@@ -859,9 +1058,9 @@ export function UnifiedAssetGenerator({
         ) : asset.url ? (
           <div className="space-y-2 mb-3">
             {asset.type === 'image' || asset.type === 'ad' ? (
-              <img 
-                src={asset.url} 
-                alt="Generated asset" 
+              <img
+                src={asset.url}
+                alt="Generated asset"
                 className="max-w-full h-auto rounded border max-h-64 object-contain"
                 onError={(e) => {
                   console.error('Image failed to load:', asset.url);
@@ -869,8 +1068,8 @@ export function UnifiedAssetGenerator({
                 }}
               />
             ) : asset.type === 'video' ? (
-              <video 
-                controls 
+              <video
+                controls
                 className="max-w-full h-auto rounded border max-h-64"
                 onError={(e) => {
                   console.error('Video failed to load:', asset.url);
@@ -880,7 +1079,7 @@ export function UnifiedAssetGenerator({
                 Your browser does not support the video tag.
               </video>
             ) : null}
-            
+
             {/* Display ad copy if available */}
             {asset.adCopy && (
               <div className="mt-3">
@@ -899,180 +1098,6 @@ export function UnifiedAssetGenerator({
 
         {/* Action Buttons */}
         {renderAssetActions(productId, asset)}
-      </div>
-    );
-  };
-
-  const renderProductConfig = (product: InventoryItem, configKey: string) => {
-    const config = configs[configKey] || {} as AssetGenerationConfig;
-    const typeOptions = getTypeOptions(config.channel, config.asset_type);
-
-    return (
-      <div key={configKey} className="space-y-4 p-4 border rounded-lg">
-        {/* Product Header */}
-        <div className="flex items-center space-x-3 pb-3 border-b">
-          <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-            {product.images?.[0] ? (
-              <img
-                src={product.images[0]}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  e.currentTarget.parentElement!.innerHTML = 
-                    '<div class="w-full h-full flex items-center justify-center bg-gray-200"><Package class="h-4 w-4 text-gray-400" /></div>';
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                <Package className="h-4 w-4 text-gray-400" />
-              </div>
-            )}
-          </div>
-          <div>
-            <h4 className="font-medium">{product.name}</h4>
-            {product.brand && (
-              <Badge variant="outline" className="text-xs">
-                {product.brand}
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* Configuration Fields */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>📡 Channel</Label>
-            <Select
-              value={config.channel}
-              onValueChange={(value) => updateConfig(configKey, 'channel', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select channel" />
-              </SelectTrigger>
-              <SelectContent>
-                {CHANNELS.map(channel => (
-                  <SelectItem key={channel.value} value={channel.value}>
-                    {channel.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>🧩 Type</Label>
-            <Select
-              value={config.asset_type}
-              onValueChange={(value) => updateConfig(configKey, 'asset_type', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {ASSET_TYPES.map(type => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>🎛️ Format</Label>
-            <Select
-              value={config.type}
-              onValueChange={(value) => updateConfig(configKey, 'type', value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select format" />
-              </SelectTrigger>
-              <SelectContent>
-                {typeOptions.map(option => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>⚙️ Specification</Label>
-            <div className="px-3 py-2 border rounded-md bg-gray-50 text-sm text-gray-600">
-              {config.specification || 'Auto-generated'}
-            </div>
-          </div>
-        </div>
-
-        {/* Format Specification Selector - Only show for image/video/ad assets */}
-        {(config.asset_type === 'image' || config.asset_type === 'video' || config.asset_type === 'ad') && (
-          <div className="space-y-2">
-            <Label>🎯 Format Specifications</Label>
-            <FormatSpecSelector
-              assetType={config.asset_type === 'ad' ? 'image' : config.asset_type as 'image' | 'video'}
-              onSpecChange={(specs) => handleFormatSpecChange(configKey, specs)}
-              initialSpecs={formatSpecs[configKey]}
-            />
-          </div>
-        )}
-
-        {/* Instruction Box */}
-        <div className="space-y-2">
-          <Label>📝 Instruction</Label>
-          {loadingInstructions ? (
-            <div className="flex items-center space-x-2 text-sm text-gray-500 p-3 border rounded-md">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>Generating smart instruction...</span>
-            </div>
-          ) : (
-            <Textarea
-              value={config.description}
-              onChange={(e) => updateConfig(configKey, 'description', e.target.value)}
-              placeholder="Enter your generation instructions..."
-              className="min-h-[100px]"
-            />
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleImproveInstruction(configKey)}
-            disabled={isImproving[configKey] || !config.description?.trim() || loadingInstructions}
-            className="flex items-center space-x-1"
-          >
-            {isImproving[configKey] ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Improving...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-3 w-3" />
-                <span>Improve with AI</span>
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Generate Button */}
-        <Button
-          onClick={() => handleGenerate(configKey)}
-          disabled={isGenerating || !config.description?.trim() || loadingInstructions}
-          className="w-full"
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            `Generate ${config.asset_type || 'Asset'}`
-          )}
-        </Button>
-
-        {/* Generated Asset Display */}
-        {renderGeneratedAsset(configKey)}
       </div>
     );
   };
@@ -1107,16 +1132,56 @@ export function UnifiedAssetGenerator({
               <h3 className="text-lg font-medium mb-4">
                 Configuration for All Products ({selectedProducts.length} items)
               </h3>
-              {renderProductConfig(selectedProducts[0], 'all')}
+              {(() => {
+                const product = selectedProducts[0];
+                const config = configs['all'] || {} as AssetGenerationConfig;
+                const typeOptions = getTypeOptions(config.channel, config.asset_type);
+                return (
+                  <ProductConfig
+                    product={product}
+                    configKey="all"
+                    config={config}
+                    typeOptions={typeOptions}
+                    loadingInstructions={loadingInstructions}
+                    isImproving={isImproving}
+                    isGenerating={isGenerating}
+                    formatSpecs={formatSpecs}
+                    updateConfig={updateConfig}
+                    handleImproveInstruction={handleImproveInstruction}
+                    handleFormatSpecChange={handleFormatSpecChange}
+                    handleGenerate={handleGenerate}
+                    renderGeneratedAsset={renderGeneratedAsset}
+                  />
+                );
+              })()}
             </div>
           ) : (
             <div>
               <h3 className="text-lg font-medium mb-4">
                 {isMultiProduct ? 'Individual Product Configurations' : 'Product Configuration'}
               </h3>
-              {selectedProducts.map(product => 
-                renderProductConfig(product, product.id)
-              )}
+              {selectedProducts.map(product => {
+                const config = configs[product.id] || {} as AssetGenerationConfig;
+                const typeOptions = getTypeOptions(config.channel, config.asset_type);
+                return (
+                  <ProductConfig
+                    key={product.id}
+                    product={product}
+                    configKey={product.id}
+                    config={config}
+                    typeOptions={typeOptions}
+                    loadingInstructions={loadingInstructions}
+                    isImproving={isImproving}
+                    isGenerating={isGenerating}
+                    formatSpecs={formatSpecs}
+                    updateConfig={updateConfig}
+                    handleImproveInstruction={handleImproveInstruction}
+                    handleFormatSpecChange={handleFormatSpecChange}
+                    handleGenerate={handleGenerate}
+                    renderGeneratedAsset={renderGeneratedAsset}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
