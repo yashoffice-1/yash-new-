@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -225,6 +226,13 @@ function ProductConfig({
   handleGenerate: (productId: string) => void;
   renderGeneratedAsset: (productId: string) => JSX.Element | null;
 }) {
+  // Determine the format spec selector type based on asset type
+  const getFormatSpecType = (assetType: string): 'image' | 'video' => {
+    if (assetType === 'video') return 'video';
+    // For 'ad', 'image', and 'content', default to 'image'
+    return 'image';
+  };
+
   return (
     <div key={configKey} className="space-y-4 p-4 border rounded-lg">
       {/* Product Header */}
@@ -329,7 +337,7 @@ function ProductConfig({
         <div className="space-y-2">
           <Label>🎯 Format Specifications</Label>
           <FormatSpecSelector
-            assetType={config.asset_type === 'ad' ? 'image' : config.asset_type as 'image' | 'video'}
+            assetType={getFormatSpecType(config.asset_type)}
             onSpecChange={(specs) => handleFormatSpecChange(configKey, specs)}
             initialSpecs={formatSpecs[configKey]}
           />
