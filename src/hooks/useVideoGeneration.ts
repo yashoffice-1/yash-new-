@@ -22,6 +22,9 @@ interface FormatSpecs {
   dimensions?: string;
   aspectRatio?: string;
   duration?: string;
+  requiresCallToAction?: boolean;
+  includeEmojis?: boolean;
+  useSalesLanguage?: boolean;
 }
 
 interface UseVideoGenerationProps {
@@ -43,25 +46,58 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
     try {
       console.log('Starting video generation with format specs:', formatSpecs);
       
+      // Parse duration from format specs or specification
+      let videoDuration = '5'; // default
+      if (formatSpecs?.duration) {
+        // Extract numeric value from duration string
+        const durationMatch = formatSpecs.duration.match(/(\d+)/);
+        videoDuration = durationMatch ? durationMatch[1] : '5';
+      } else if (formatSpecs?.specification) {
+        // Try to extract duration from specification
+        const specDurationMatch = formatSpecs.specification.match(/(\d+)(?:s|sec|seconds?)/i);
+        videoDuration = specDurationMatch ? specDurationMatch[1] : '5';
+      }
+
+      // Ensure duration is within acceptable limits (typically 5-30 seconds for most platforms)
+      const duration = Math.min(Math.max(parseInt(videoDuration), 5), 30);
+
+      // Enhanced instruction for advertising videos
+      let enhancedInstruction = instruction;
+      if (formatSpecs?.requiresCallToAction || formatSpecs?.format?.toLowerCase().includes('ad')) {
+        enhancedInstruction += `\n\nThis is advertising video content. Ensure visual elements support:
+        - Clear product showcasing
+        - Text overlays with strong call-to-action
+        - Visual urgency elements if appropriate
+        - Brand visibility throughout the video
+        - Engaging visual storytelling for ${formatSpecs?.channel || 'social media'}`;
+      }
+
       const functionName = provider === 'runway' ? 'runwayml-generate' : 'heygen-generate';
       const requestBody = {
         type: 'video',
-        instruction: instruction,
+        instruction: enhancedInstruction,
         imageUrl: imageUrl,
         productInfo: {
           name: "Premium Wireless Headphones",
           description: "High-quality audio experience with noise cancellation"
         },
-        formatSpecs: formatSpecs || {
-          width: 1080,
-          height: 1920,
-          dimensions: "1080x1920",
-          aspectRatio: "9:16",
-          duration: "5s"
+        formatSpecs: {
+          width: formatSpecs?.width || 1080,
+          height: formatSpecs?.height || 1920,
+          dimensions: formatSpecs?.dimensions || "1080x1920",
+          aspectRatio: formatSpecs?.aspectRatio || "9:16",
+          duration: `${duration}s`,
+          channel: formatSpecs?.channel,
+          format: formatSpecs?.format,
+          specification: formatSpecs?.specification,
+          videoLength: duration,
+          framerate: 24,
+          quality: 'high',
+          ...formatSpecs
         }
       };
 
-      console.log('Sending video generation request with format specs:', requestBody);
+      console.log('Sending video generation request with enhanced format specs:', requestBody);
 
       const { data, error } = await supabase.functions.invoke(functionName, {
         body: requestBody
@@ -84,15 +120,16 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
         message: data.message
       };
 
-      // Show different success messages based on provider
+      // Show enhanced success messages with format details
       const aspectRatio = formatSpecs?.aspectRatio || '9:16';
-      const duration = formatSpecs?.duration || '5s';
+      const durationText = `${duration}s`;
       const dimensions = formatSpecs?.dimensions || '1080x1920';
       const specification = formatSpecs?.specification || 'default';
+      const isAd = formatSpecs?.requiresCallToAction || formatSpecs?.format?.toLowerCase().includes('ad');
       
       const successMessage = provider === 'runway' 
-        ? `Video created using RunwayML with ${aspectRatio} aspect ratio (${dimensions}) for ${duration} with format: ${specification}`
-        : `Video generation request sent to HeyGen via Google Sheets + Zapier automation with ${aspectRatio} aspect ratio for ${duration} with format: ${specification}`;
+        ? `${isAd ? 'Ad video' : 'Video'} created using RunwayML with ${aspectRatio} aspect ratio (${dimensions}) for ${durationText} with format: ${specification}`
+        : `${isAd ? 'Ad video' : 'Video'} generation request sent to HeyGen via Google Sheets + Zapier automation with ${aspectRatio} aspect ratio for ${durationText} with format: ${specification}`;
 
       toast({
         title: "Video Generation Started",

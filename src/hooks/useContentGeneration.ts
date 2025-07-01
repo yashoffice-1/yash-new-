@@ -15,6 +15,9 @@ interface FormatSpecs {
   specification?: string;
   maxChars?: number;
   requirements?: string;
+  requiresCallToAction?: boolean;
+  includeEmojis?: boolean;
+  useSalesLanguage?: boolean;
 }
 
 interface UseContentGenerationProps {
@@ -24,6 +27,7 @@ interface UseContentGenerationProps {
     description?: string | null;
     category?: string | null;
     brand?: string | null;
+    price?: number | null;
   };
 }
 
@@ -45,15 +49,33 @@ export function useContentGeneration({ onSuccess, productInfo }: UseContentGener
         description: "High-quality audio experience with noise cancellation"
       };
 
+      // Enhanced instruction for advertising content
+      let enhancedInstruction = instruction;
+      if (formatSpecs?.requiresCallToAction) {
+        enhancedInstruction += `\n\nIMPORTANT: This is advertising content. MUST include:
+        - Strong, compelling call-to-action (e.g., "Shop Now", "Get Yours Today", "Limited Time Offer")
+        - Relevant emojis to increase engagement
+        - Urgency or scarcity elements where appropriate
+        - Sales-focused language that drives conversions
+        - Price information if available: ${productInfo?.price ? `$${productInfo.price}` : 'mention competitive pricing'}`;
+      }
+
       const { data, error } = await supabase.functions.invoke('openai-generate', {
         body: {
           type: 'marketing-content',
-          instruction: instruction,
+          instruction: enhancedInstruction,
           productInfo: productInfo || defaultProductInfo,
           formatSpecs: formatSpecs || {
             format: 'general',
             specification: 'Standard marketing content'
-          }
+          },
+          advertisingContext: formatSpecs?.requiresCallToAction ? {
+            requiresCallToAction: true,
+            includeEmojis: formatSpecs.includeEmojis,
+            useSalesLanguage: formatSpecs.useSalesLanguage,
+            channel: formatSpecs.channel,
+            format: formatSpecs.format
+          } : null
         }
       });
 
@@ -70,9 +92,13 @@ export function useContentGeneration({ onSuccess, productInfo }: UseContentGener
         timestamp: new Date()
       };
 
+      const contentType = formatSpecs?.requiresCallToAction ? 'advertising content' : 'content';
+      const formatInfo = formatSpecs?.format || 'marketing content';
+      const ctaNote = formatSpecs?.requiresCallToAction ? ' with call-to-action and sales elements' : '';
+
       toast({
         title: "Content Generated",
-        description: `Your ${formatSpecs?.format || 'marketing content'} has been created with format requirements: ${formatSpecs?.specification || 'standard'}`,
+        description: `Your ${formatInfo} has been created${ctaNote}`,
       });
 
       onSuccess?.(content);
