@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Dialog,
@@ -20,47 +21,77 @@ import { AdGenerator } from "./AdGenerator";
 import { useToast } from "@/hooks/use-toast";
 import { VideoTemplatesTab } from "./VideoTemplatesTab";
 
+interface InventoryItem {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  sku: string | null;
+  category: string | null;
+  brand: string | null;
+  images: string[];
+  metadata: any;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface UnifiedAssetGeneratorProps {
-  selectedProduct: any;
+  isOpen: boolean;
   onClose: () => void;
+  selectedProducts: InventoryItem[];
+  initialAssetType: 'image' | 'video' | 'content' | 'ad';
 }
 
 type GeneratorType = 'image' | 'video' | 'content' | 'ad';
 
-export function UnifiedAssetGenerator({ selectedProduct, onClose }: UnifiedAssetGeneratorProps) {
-  const [activeTab, setActiveTab] = useState("image");
+export function UnifiedAssetGenerator({ 
+  isOpen, 
+  onClose, 
+  selectedProducts, 
+  initialAssetType 
+}: UnifiedAssetGeneratorProps) {
+  const [activeTab, setActiveTab] = useState(initialAssetType);
   const [instruction, setInstruction] = useState("");
   const { toast } = useToast();
 
+  // Use the first selected product for templates tab, or create a mock product if none selected
+  const selectedProduct = selectedProducts.length > 0 ? selectedProducts[0] : {
+    id: 'mock',
+    name: 'No Product Selected',
+    description: null,
+    price: null,
+    sku: null,
+    category: null,
+    brand: null,
+    images: [],
+    metadata: {},
+    status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
   const handleGenerate = async (type: GeneratorType) => {
-    if (!instruction.trim() || !selectedProduct) {
+    if (!instruction.trim() || selectedProducts.length === 0) {
       toast({
         title: "Missing Information",
-        description: "Please provide an instruction and select a product before generating.",
+        description: "Please provide an instruction and select products before generating.",
         variant: "destructive",
       });
       return;
     }
 
-    const productInfo = {
-      name: selectedProduct.name,
-      description: selectedProduct.description,
-      category: selectedProduct.category,
-      brand: selectedProduct.brand,
-      price: selectedProduct.price,
-    };
-
     toast({
       title: "Asset Generation Started",
-      description: `Generating ${type} for ${selectedProduct.name} with instruction: ${instruction}`,
+      description: `Generating ${type} for ${selectedProducts.length} product(s) with instruction: ${instruction}`,
     });
 
     // TODO: Implement actual asset generation logic here
-    console.log(`Generating ${type} for ${selectedProduct.name} with instruction: ${instruction}`);
+    console.log(`Generating ${type} for ${selectedProducts.length} products with instruction: ${instruction}`);
   };
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -68,7 +99,7 @@ export function UnifiedAssetGenerator({ selectedProduct, onClose }: UnifiedAsset
             <span>Unified Asset Generator</span>
           </DialogTitle>
           <DialogDescription>
-            Generate images, videos, content, and ads for {selectedProduct?.name}
+            Generate images, videos, content, and ads for {selectedProducts.length} selected product(s)
           </DialogDescription>
         </DialogHeader>
 
@@ -83,7 +114,7 @@ export function UnifiedAssetGenerator({ selectedProduct, onClose }: UnifiedAsset
 
           <TabsContent value="image" className="flex-1 overflow-y-auto p-4">
             <ImageGenerator
-              selectedProduct={selectedProduct}
+              selectedProducts={selectedProducts}
               instruction={instruction}
               setInstruction={setInstruction}
               onGenerate={handleGenerate}
@@ -92,7 +123,7 @@ export function UnifiedAssetGenerator({ selectedProduct, onClose }: UnifiedAsset
 
           <TabsContent value="video" className="flex-1 overflow-y-auto p-4">
             <VideoGenerator
-              selectedProduct={selectedProduct}
+              selectedProducts={selectedProducts}
               instruction={instruction}
               setInstruction={setInstruction}
               onGenerate={handleGenerate}
@@ -101,7 +132,7 @@ export function UnifiedAssetGenerator({ selectedProduct, onClose }: UnifiedAsset
 
           <TabsContent value="content" className="flex-1 overflow-y-auto p-4">
             <ContentGenerator
-              selectedProduct={selectedProduct}
+              selectedProducts={selectedProducts}
               instruction={instruction}
               setInstruction={setInstruction}
               onGenerate={handleGenerate}
@@ -110,7 +141,7 @@ export function UnifiedAssetGenerator({ selectedProduct, onClose }: UnifiedAsset
 
           <TabsContent value="ad" className="flex-1 overflow-y-auto p-4">
             <AdGenerator
-              selectedProduct={selectedProduct}
+              selectedProducts={selectedProducts}
               instruction={instruction}
               setInstruction={setInstruction}
               onGenerate={handleGenerate}

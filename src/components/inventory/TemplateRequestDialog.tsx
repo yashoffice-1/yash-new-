@@ -112,7 +112,7 @@ export function TemplateRequestDialog({ open, onOpenChange, selectedProduct }: T
     setOnboardingData(prev => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] as object),
         [field]: value
       }
     }));
@@ -120,7 +120,8 @@ export function TemplateRequestDialog({ open, onOpenChange, selectedProduct }: T
 
   const toggleArrayValue = (section: keyof OnboardingData, field: string, value: string) => {
     setOnboardingData(prev => {
-      const currentArray = (prev[section] as any)[field] || [];
+      const currentSection = prev[section] as any;
+      const currentArray = currentSection[field] || [];
       const newArray = currentArray.includes(value)
         ? currentArray.filter((item: string) => item !== value)
         : [...currentArray, value];
@@ -128,7 +129,7 @@ export function TemplateRequestDialog({ open, onOpenChange, selectedProduct }: T
       return {
         ...prev,
         [section]: {
-          ...prev[section],
+          ...currentSection,
           [field]: newArray
         }
       };
