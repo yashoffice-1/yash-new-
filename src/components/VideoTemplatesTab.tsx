@@ -66,10 +66,12 @@ export function VideoTemplatesTab() {
   };
 
   const handleScheduleMeeting = () => {
-    toast({
-      title: "Meeting Scheduled",
-      description: "Our creative team will contact you within 24 hours to schedule your onboarding session.",
-    });
+    // Open the Google Calendar in a new window
+    window.open(
+      'https://calendar.google.com/calendar/embed?src=c_b88aa561ec9cf8c4af90b9d75dbc8c7c747e52294707acfdf3ed7e0319558b4f%40group.calendar.google.com&ctz=America%2FNew_York',
+      '_blank',
+      'width=800,height=600,scrollbars=yes,resizable=yes'
+    );
   };
 
   const handleOnboardingComplete = (data: any) => {
