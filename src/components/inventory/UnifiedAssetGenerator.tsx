@@ -90,6 +90,15 @@ export function UnifiedAssetGenerator({
     console.log(`Generating ${type} for ${selectedProducts.length} products with instruction: ${instruction}`);
   };
 
+  const handleTabChange = (value: string) => {
+    // Type guard to ensure the value is one of our expected types
+    if (value === 'image' || value === 'video' || value === 'content' || value === 'ad' || value === 'templates') {
+      if (value !== 'templates') {
+        setActiveTab(value as GeneratorType);
+      }
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -103,7 +112,7 @@ export function UnifiedAssetGenerator({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1 flex flex-col min-h-0">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="image">Images</TabsTrigger>
             <TabsTrigger value="video">Videos</TabsTrigger>
