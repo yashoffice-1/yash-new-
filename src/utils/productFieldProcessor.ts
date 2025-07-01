@@ -29,45 +29,114 @@ const FIELD_CONSTRAINTS: ProductFieldConstraints = {
   websiteDescription: { maxLength: 22 }
 };
 
-// Truncate text to fit constraints
+// Truncate text to fit constraints (fallback only)
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength - 3) + '...';
 }
 
-// Extract features from description using AI-like logic (simplified)
-function extractFeaturesFromDescription(description: string): string[] {
-  const sentences = description.split(/[.!?]+/).filter(s => s.trim().length > 0);
+// Generate concise, meaningful features from description
+function extractFeaturesFromDescription(description: string, productName: string, category: string): string[] {
   const features: string[] = [];
   
-  // Look for key feature indicators
-  const featureKeywords = ['feature', 'includes', 'with', 'offers', 'provides', 'equipped', 'designed'];
+  // Category-specific feature templates
+  const categoryFeatures: Record<string, string[]> = {
+    'electronics': [
+      'Advanced technology integration',
+      'Energy-efficient performance',
+      'User-friendly interface'
+    ],
+    'headphones': [
+      'Superior sound quality',
+      'Comfortable fit design',
+      'Long-lasting battery'
+    ],
+    'automotive': [
+      'Durable construction',
+      'Performance optimized',
+      'Safety certified'
+    ],
+    'clothing': [
+      'Premium fabric quality',
+      'Comfortable fit',
+      'Stylish design'
+    ],
+    'home': [
+      'Space-saving design',
+      'Easy installation',
+      'Durable materials'
+    ],
+    'kitchen': [
+      'Food-safe materials',
+      'Easy to clean',
+      'Versatile functionality'
+    ]
+  };
+
+  // Extract key terms from description
+  const words = description.toLowerCase().split(/\s+/);
+  const keyTerms = {
+    quality: words.some(w => ['quality', 'premium', 'high-end', 'superior'].includes(w)),
+    wireless: words.some(w => ['wireless', 'bluetooth', 'cordless'].includes(w)),
+    portable: words.some(w => ['portable', 'compact', 'lightweight'].includes(w)),
+    durable: words.some(w => ['durable', 'sturdy', 'robust', 'strong'].includes(w)),
+    smart: words.some(w => ['smart', 'intelligent', 'ai', 'automated'].includes(w)),
+    comfortable: words.some(w => ['comfortable', 'ergonomic', 'soft'].includes(w)),
+    fast: words.some(w => ['fast', 'quick', 'rapid', 'speed'].includes(w)),
+    efficient: words.some(w => ['efficient', 'optimized', 'effective'].includes(w)),
+    stylish: words.some(w => ['stylish', 'elegant', 'beautiful', 'design'].includes(w)),
+    versatile: words.some(w => ['versatile', 'multi', 'various', 'flexible'].includes(w))
+  };
+
+  // Generate intelligent features based on product characteristics
+  const intelligentFeatures: string[] = [];
   
-  for (const sentence of sentences) {
-    const trimmed = sentence.trim();
-    if (trimmed.length > 10 && features.length < 3) {
-      // Check if sentence contains feature keywords or describes functionality
-      const hasKeyword = featureKeywords.some(keyword => 
-        trimmed.toLowerCase().includes(keyword)
-      );
-      
-      if (hasKeyword || trimmed.length < 100) {
-        features.push(truncateText(trimmed, 80));
-      }
+  if (keyTerms.quality) intelligentFeatures.push('Premium quality construction');
+  if (keyTerms.wireless) intelligentFeatures.push('Advanced wireless connectivity');
+  if (keyTerms.portable) intelligentFeatures.push('Compact and portable design');
+  if (keyTerms.durable) intelligentFeatures.push('Built for long-lasting durability');
+  if (keyTerms.smart) intelligentFeatures.push('Smart technology integration');
+  if (keyTerms.comfortable) intelligentFeatures.push('Ergonomic comfort design');
+  if (keyTerms.fast) intelligentFeatures.push('High-speed performance');
+  if (keyTerms.efficient) intelligentFeatures.push('Energy-efficient operation');
+  if (keyTerms.stylish) intelligentFeatures.push('Sleek and modern styling');
+  if (keyTerms.versatile) intelligentFeatures.push('Multi-purpose functionality');
+
+  // Use intelligent features first
+  features.push(...intelligentFeatures.slice(0, 3));
+
+  // Fill remaining slots with category-specific features
+  const categoryKey = category.toLowerCase();
+  let categorySpecificFeatures: string[] = [];
+  
+  for (const [key, featureList] of Object.entries(categoryFeatures)) {
+    if (categoryKey.includes(key)) {
+      categorySpecificFeatures = featureList;
+      break;
     }
   }
   
-  // Fill remaining slots with generic features if needed
-  while (features.length < 3) {
-    const genericFeatures = [
-      'High-quality construction',
-      'User-friendly design',
-      'Premium materials'
-    ];
-    features.push(genericFeatures[features.length] || 'Quality assured');
+  // Default to electronics if no specific category match
+  if (categorySpecificFeatures.length === 0) {
+    categorySpecificFeatures = categoryFeatures.electronics;
   }
-  
-  return features;
+
+  // Fill remaining slots
+  while (features.length < 3) {
+    const remainingIndex = features.length;
+    if (remainingIndex < categorySpecificFeatures.length) {
+      features.push(categorySpecificFeatures[remainingIndex]);
+    } else {
+      features.push('Quality assured product');
+    }
+  }
+
+  // Ensure all features are within 80 characters (they should be by design)
+  return features.slice(0, 3).map(feature => {
+    if (feature.length <= 80) return feature;
+    // This should rarely happen with our curated features, but safety check
+    return feature.substring(0, 77) + '...';
+  });
 }
 
 export function processProductForSpreadsheet(productInfo: {
@@ -79,7 +148,10 @@ export function processProductForSpreadsheet(productInfo: {
   imageUrl?: string;
 }): ProcessedProductData {
   const description = productInfo.description || productInfo.name;
-  const features = extractFeaturesFromDescription(description);
+  const category = productInfo.category || 'Electronics';
+  
+  // Generate intelligent features that naturally fit within constraints
+  const features = extractFeaturesFromDescription(description, productInfo.name, category);
   
   // Calculate discount if not provided
   let discount = productInfo.discount || '0%';
@@ -93,10 +165,10 @@ export function processProductForSpreadsheet(productInfo: {
     product_name: truncateText(productInfo.name, FIELD_CONSTRAINTS.productName.maxLength),
     product_price: productInfo.price ? `$${productInfo.price}` : '$99.99',
     product_discount: discount,
-    category_name: truncateText(productInfo.category || 'Electronics', FIELD_CONSTRAINTS.categoryName.maxLength),
-    feature_one: truncateText(features[0] || 'Premium quality', FIELD_CONSTRAINTS.featureOne.maxLength),
-    feature_two: truncateText(features[1] || 'Advanced technology', FIELD_CONSTRAINTS.featureTwo.maxLength),
-    feature_three: truncateText(features[2] || 'User-friendly design', FIELD_CONSTRAINTS.featureThree.maxLength),
+    category_name: truncateText(category, FIELD_CONSTRAINTS.categoryName.maxLength),
+    feature_one: features[0],
+    feature_two: features[1], 
+    feature_three: features[2],
     website_description: truncateText(description, FIELD_CONSTRAINTS.websiteDescription.maxLength),
     product_image: productInfo.imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop'
   };
