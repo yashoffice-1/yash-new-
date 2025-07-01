@@ -966,6 +966,18 @@ export function UnifiedAssetGenerator({
       };
     };
 
+    // Map asset type for SaveAssetDialog - convert 'ad' to appropriate type
+    const getSaveAssetType = (assetType: string): 'image' | 'video' | 'content' => {
+      if (assetType === 'ad') {
+        // For ads, determine if it's image or video based on the format
+        const isVideo = config?.type?.toLowerCase().includes('video') || 
+                       config?.type?.toLowerCase().includes('reel') ||
+                       config?.type?.toLowerCase().includes('story video');
+        return isVideo ? 'video' : 'image';
+      }
+      return assetType as 'image' | 'video' | 'content';
+    };
+
     return (
       <div className="flex flex-wrap gap-2 mt-4 p-3 bg-gray-50 rounded-lg border-t">
         {/* Save to Library */}
@@ -973,7 +985,7 @@ export function UnifiedAssetGenerator({
           <SaveAssetDialog
             asset={{
               id: asset.id || `${asset.type}-${Date.now()}`,
-              type: asset.type as 'image' | 'video' | 'content' | 'ad',
+              type: getSaveAssetType(asset.type),
               url: asset.url,
               instruction: asset.instruction,
               content: asset.content || asset.adCopy,
