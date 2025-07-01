@@ -5,12 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Upload, Package, Edit, Trash2 } from "lucide-react";
+import { Search, Plus, Upload, Package, Edit, Trash2, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddProductDialog } from "./AddProductDialog";
 import { ImportProductsDialog } from "./ImportProductsDialog";
 import { ProductCard } from "./ProductCard";
+import { VideoTemplatesTab } from "../VideoTemplatesTab";
 
 interface InventoryItem {
   id: string;
@@ -38,6 +39,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+  const [showVideoTemplates, setShowVideoTemplates] = useState(false);
 
   // Fetch inventory items
   const { data: inventory, isLoading, refetch } = useQuery({
@@ -130,13 +132,48 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
   const handleUseForGeneration = (product: InventoryItem) => {
     console.log('Using product for generation:', product);
+    setSelectedProduct(product);
+    setShowVideoTemplates(true);
     onProductSelect?.(product);
     
     toast({
       title: "Product Selected",
-      description: `${product.name} has been selected for content generation.`,
+      description: `${product.name} has been selected for video template generation.`,
     });
   };
+
+  // Show Video Templates view if a product is selected
+  if (showVideoTemplates && selectedProduct) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowVideoTemplates(false);
+              setSelectedProduct(null);
+            }}
+          >
+            ← Back to Inventory
+          </Button>
+          <h2 className="text-xl font-semibold">Video Template Configuration</h2>
+        </div>
+        
+        <VideoTemplatesTab 
+          selectedProduct={{
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            description: selectedProduct.description || undefined,
+            category: selectedProduct.category || undefined,
+            price: selectedProduct.price || undefined,
+            brand: selectedProduct.brand || undefined,
+            images: selectedProduct.images || [],
+            imageUrl: selectedProduct.images?.[0] || undefined
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -205,13 +242,22 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
           ) : inventory && inventory.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {inventory.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onEdit={() => setSelectedProduct(product)}
-                  onDelete={() => handleDeleteProduct(product.id)}
-                  onUseForGeneration={handleUseForGeneration}
-                />
+                <div key={product.id} className="relative">
+                  <ProductCard
+                    product={product}
+                    onEdit={() => setSelectedProduct(product)}
+                    onDelete={() => handleDeleteProduct(product.id)}
+                    onUseForGeneration={handleUseForGeneration}
+                  />
+                  <Button
+                    onClick={() => handleUseForGeneration(product)}
+                    className="absolute top-2 right-2 p-2 h-8 w-8"
+                    size="sm"
+                    title="Configure Video Templates"
+                  >
+                    <Video className="h-4 w-4" />
+                  </Button>
+                </div>
               ))}
             </div>
           ) : (
