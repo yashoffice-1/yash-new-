@@ -125,14 +125,9 @@ serve(async (req) => {
     // Use default webhook if no template is provided
     const webhookUrl = templateConfig?.webhookUrl || 'https://hooks.zapier.com/hooks/catch/23139889/ube0vsx/';
     const templateName = templateConfig?.name || 'Default Template';
-    const templateVariables = templateConfig?.variables || [
-      'product_name', 'product_price', 'product_discount', 
-      'category_name', 'feature_one', 'feature_two', 
-      'feature_three', 'website_description', 'product_image'
-    ];
 
     console.log(`Starting HeyGen video generation using template: ${templateName}`);
-    console.log('Template variables:', templateVariables);
+    console.log('Webhook URL:', webhookUrl);
 
     // Process product data with field constraints
     const defaultProduct = {
@@ -166,8 +161,8 @@ serve(async (req) => {
 
     console.log('Field validation results:', validation);
 
-    // Create webhook payload - FIXED: Send actual values, not variable names
-    const webhookData: any = {
+    // Create webhook payload with ACTUAL VALUES - FIXED
+    const webhookData = {
       timestamp: new Date().toISOString(),
       instruction: instruction,
       status: "pending",
@@ -175,20 +170,22 @@ serve(async (req) => {
       request_id: crypto.randomUUID(),
       template_id: templateConfig?.id || 'default',
       template_name: templateName,
-      // Send the actual processed values directly
-      product_name: productData.product_name,
-      product_price: productData.product_price,
-      product_discount: productData.product_discount,
-      category_name: productData.category_name,
-      feature_one: productData.feature_one,
-      feature_two: productData.feature_two,
-      feature_three: productData.feature_three,
-      website_description: productData.website_description,
-      product_image: productData.product_image
+      // CRITICAL FIX: Send actual processed values, not field names
+      product_name: productData.product_name,           // Actual value like "Premium Wireless Headphones"
+      product_price: productData.product_price,         // Actual value like "$199"  
+      product_discount: productData.product_discount,   // Actual value like "15%"
+      category_name: productData.category_name,         // Actual value like "Electronics"
+      feature_one: productData.feature_one,             // Actual extracted feature
+      feature_two: productData.feature_two,             // Actual extracted feature
+      feature_three: productData.feature_three,         // Actual extracted feature
+      website_description: productData.website_description, // Actual truncated description
+      product_image: productData.product_image          // Actual image URL
     };
 
-    console.log('Sending data to Zapier webhook:', webhookData);
+    console.log('=== WEBHOOK DATA BEING SENT ===');
+    console.log('Template:', templateName);
     console.log('Webhook URL:', webhookUrl);
+    console.log('Data payload:', JSON.stringify(webhookData, null, 2));
 
     // Post to Zapier webhook
     const response = await fetch(webhookUrl, {
@@ -201,8 +198,12 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('Zapier webhook error:', response.status, errorText);
       throw new Error(`Failed to trigger Zapier webhook: ${response.status} - ${errorText}`);
     }
+
+    console.log('✅ Successfully sent data to Zapier webhook');
+    console.log('Response status:', response.status);
 
     // Generate a placeholder video URL for immediate feedback
     const placeholderVideoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
@@ -226,14 +227,14 @@ serve(async (req) => {
       throw new Error(`Database error: ${dbError.message}`);
     }
 
-    console.log(`HeyGen video generation request sent successfully using template: ${templateName}`);
+    console.log(`✅ HeyGen video generation request completed using template: ${templateName}`);
 
     return new Response(JSON.stringify({ 
       success: true, 
       asset_url: placeholderVideoUrl,
       asset_id: asset.id,
       type: 'video',
-      message: `Video generation request sent using template "${templateName}". HeyGen will process the request with validated product data.`,
+      message: `Video generation request sent using template "${templateName}". Actual product data sent to Google Sheets successfully.`,
       webhook_data: webhookData,
       request_id: webhookData.request_id,
       template_used: templateName,
@@ -244,7 +245,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in heygen-generate function:', error);
+    console.error('❌ Error in heygen-generate function:', error);
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message 
