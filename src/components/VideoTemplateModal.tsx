@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -88,7 +87,6 @@ export function VideoTemplateModal({ open, onOpenChange, product }: VideoTemplat
         description: product.description || undefined,
         category: product.category || undefined,
         price: product.price || undefined,
-        brand: product.brand || undefined,
         imageUrl: product.images?.[0] || undefined,
       });
       
