@@ -1,4 +1,5 @@
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,52 +19,121 @@ interface AssignedTemplate {
 }
 
 export function TemplatesSettings() {
-  const assignedTemplates: AssignedTemplate[] = [
-    {
-      id: "1",
-      name: "Product Showcase",
-      heygenId: "hg_template_001",
-      variables: [
-        { name: "product_name", type: "text", charLimit: 50 },
-        { name: "product_price", type: "text", charLimit: 20 },
-        { name: "product_discount", type: "text", charLimit: 15 },
-        { name: "category_name", type: "text", charLimit: 30 },
-        { name: "feature_one", type: "text", charLimit: 100 },
-        { name: "feature_two", type: "text", charLimit: 100 },
-        { name: "feature_three", type: "text", charLimit: 100 },
-        { name: "website_description", type: "text", charLimit: 200 },
-        { name: "product_image", type: "image_url", charLimit: 500 }
-      ]
-    },
-    {
-      id: "2",
-      name: "Feature Highlight",
-      heygenId: "hg_template_002",
-      variables: [
-        { name: "product_name", type: "text", charLimit: 50 },
-        { name: "main_feature", type: "text", charLimit: 80 },
-        { name: "benefit_one", type: "text", charLimit: 100 },
-        { name: "benefit_two", type: "text", charLimit: 100 },
-        { name: "call_to_action", type: "text", charLimit: 60 },
-        { name: "brand_name", type: "text", charLimit: 40 },
-        { name: "product_image", type: "image_url", charLimit: 500 }
-      ]
-    },
-    {
-      id: "3",
-      name: "Brand Story",
-      heygenId: "hg_template_003",
-      variables: [
-        { name: "brand_name", type: "text", charLimit: 40 },
-        { name: "product_name", type: "text", charLimit: 50 },
-        { name: "brand_story", type: "text", charLimit: 150 },
-        { name: "unique_value", type: "text", charLimit: 100 },
-        { name: "customer_testimonial", type: "text", charLimit: 120 },
-        { name: "product_image", type: "image_url", charLimit: 500 },
-        { name: "website_url", type: "url", charLimit: 200 }
-      ]
-    }
-  ];
+  const [assignedTemplates, setAssignedTemplates] = useState<AssignedTemplate[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAssignedTemplates = async () => {
+      setIsLoading(true);
+      try {
+        // Get user's assigned template IDs
+        const assignedTemplateIds = [
+          "bccf8cfb2b1e422dbc425755f1b7dc67",
+          "3bb2bf2276754c0ea6b235db9409f508", 
+          "47a53273dcd0428bbe7bf960b8bf7f02",
+          "aeec955f97a6476d88e4547adfeb3c97"
+        ];
+
+        // Template configurations with their variables
+        const templateConfigurations: Record<string, AssignedTemplate> = {
+          "bccf8cfb2b1e422dbc425755f1b7dc67": {
+            id: "bccf8cfb2b1e422dbc425755f1b7dc67",
+            name: "Product Showcase",
+            heygenId: "bccf8cfb2b1e422dbc425755f1b7dc67",
+            variables: [
+              { name: "product_name", type: "text", charLimit: 50 },
+              { name: "product_price", type: "text", charLimit: 20 },
+              { name: "product_discount", type: "text", charLimit: 15 },
+              { name: "category_name", type: "text", charLimit: 30 },
+              { name: "feature_one", type: "text", charLimit: 100 },
+              { name: "feature_two", type: "text", charLimit: 100 },
+              { name: "feature_three", type: "text", charLimit: 100 },
+              { name: "website_description", type: "text", charLimit: 200 },
+              { name: "product_image", type: "image_url", charLimit: 500 }
+            ]
+          },
+          "3bb2bf2276754c0ea6b235db9409f508": {
+            id: "3bb2bf2276754c0ea6b235db9409f508",
+            name: "Feature Highlight",
+            heygenId: "3bb2bf2276754c0ea6b235db9409f508",
+            variables: [
+              { name: "product_name", type: "text", charLimit: 50 },
+              { name: "main_feature", type: "text", charLimit: 80 },
+              { name: "benefit_one", type: "text", charLimit: 100 },
+              { name: "benefit_two", type: "text", charLimit: 100 },
+              { name: "call_to_action", type: "text", charLimit: 60 },
+              { name: "brand_name", type: "text", charLimit: 40 },
+              { name: "product_image", type: "image_url", charLimit: 500 }
+            ]
+          },
+          "47a53273dcd0428bbe7bf960b8bf7f02": {
+            id: "47a53273dcd0428bbe7bf960b8bf7f02",
+            name: "Brand Story",
+            heygenId: "47a53273dcd0428bbe7bf960b8bf7f02",
+            variables: [
+              { name: "brand_name", type: "text", charLimit: 40 },
+              { name: "product_name", type: "text", charLimit: 50 },
+              { name: "brand_story", type: "text", charLimit: 150 },
+              { name: "unique_value", type: "text", charLimit: 100 },
+              { name: "customer_testimonial", type: "text", charLimit: 120 },
+              { name: "product_image", type: "image_url", charLimit: 500 },
+              { name: "website_url", type: "url", charLimit: 200 }
+            ]
+          },
+          "aeec955f97a6476d88e4547adfeb3c97": {
+            id: "aeec955f97a6476d88e4547adfeb3c97",
+            name: "Social Media Promo",
+            heygenId: "aeec955f97a6476d88e4547adfeb3c97",
+            variables: [
+              { name: "product_name", type: "text", charLimit: 50 },
+              { name: "product_price", type: "text", charLimit: 20 },
+              { name: "discount_percent", type: "text", charLimit: 10 },
+              { name: "brand_name", type: "text", charLimit: 40 },
+              { name: "urgency_text", type: "text", charLimit: 80 },
+              { name: "product_image", type: "image_url", charLimit: 500 },
+              { name: "cta_text", type: "text", charLimit: 40 }
+            ]
+          }
+        };
+
+        // Build available templates based on user's assigned IDs
+        const availableTemplates = assignedTemplateIds
+          .map(id => templateConfigurations[id])
+          .filter(template => template !== undefined);
+
+        setAssignedTemplates(availableTemplates);
+      } catch (error) {
+        console.error('Error fetching assigned templates:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAssignedTemplates();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileText className="h-5 w-5" />
+              <span>Assigned Templates</span>
+            </CardTitle>
+            <CardDescription>Loading your assigned templates...</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-20 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

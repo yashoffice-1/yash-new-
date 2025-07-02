@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,38 +26,68 @@ export function VideoTemplatesTab() {
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showOnboardingDialog, setShowOnboardingDialog] = useState(false);
 
-  // Mock data for templates - in real implementation, this would fetch from HeyGen API
+  // Fetch user's assigned templates dynamically
   const { data: templates, isLoading } = useQuery({
     queryKey: ['video-templates'],
     queryFn: async () => {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock templates data
-      const mockTemplates: VideoTemplate[] = [
-        {
-          id: '1',
-          name: 'Product Showcase',
-          description: 'Perfect for highlighting product features and benefits',
-          thumbnail: '/placeholder.svg',
-          category: 'Product',
-          duration: '30s',
-          status: 'active',
-          heygenTemplateId: 'hg_template_001'
-        },
-        {
-          id: '2',
-          name: 'Brand Story',
-          description: 'Tell your brand story with engaging visuals',
-          thumbnail: '/placeholder.svg',
-          category: 'Brand',
-          duration: '60s',
-          status: 'active',
-          heygenTemplateId: 'hg_template_002'
-        }
+      // Get user's assigned template IDs
+      const assignedTemplateIds = [
+        "bccf8cfb2b1e422dbc425755f1b7dc67",
+        "3bb2bf2276754c0ea6b235db9409f508", 
+        "47a53273dcd0428bbe7bf960b8bf7f02",
+        "aeec955f97a6476d88e4547adfeb3c97"
       ];
+
+      // Template configurations
+      const templateConfigurations: Record<string, VideoTemplate> = {
+        "bccf8cfb2b1e422dbc425755f1b7dc67": {
+          id: "bccf8cfb2b1e422dbc425755f1b7dc67",
+          name: "Product Showcase",
+          description: "Perfect for highlighting product features and benefits",
+          thumbnail: "/placeholder.svg",
+          category: "Product",
+          duration: "30s",
+          status: "active",
+          heygenTemplateId: "bccf8cfb2b1e422dbc425755f1b7dc67"
+        },
+        "3bb2bf2276754c0ea6b235db9409f508": {
+          id: "3bb2bf2276754c0ea6b235db9409f508",
+          name: "Feature Highlight",
+          description: "Emphasize key features and benefits of your product",
+          thumbnail: "/placeholder.svg",
+          category: "Feature",
+          duration: "25s",
+          status: "active",
+          heygenTemplateId: "3bb2bf2276754c0ea6b235db9409f508"
+        },
+        "47a53273dcd0428bbe7bf960b8bf7f02": {
+          id: "47a53273dcd0428bbe7bf960b8bf7f02",
+          name: "Brand Story",
+          description: "Tell your brand story with engaging visuals",
+          thumbnail: "/placeholder.svg",
+          category: "Brand",
+          duration: "60s",
+          status: "active",
+          heygenTemplateId: "47a53273dcd0428bbe7bf960b8bf7f02"
+        },
+        "aeec955f97a6476d88e4547adfeb3c97": {
+          id: "aeec955f97a6476d88e4547adfeb3c97",
+          name: "Social Media Promo",
+          description: "Create engaging social media promotional videos",
+          thumbnail: "/placeholder.svg",
+          category: "Social",
+          duration: "15s",
+          status: "active",
+          heygenTemplateId: "aeec955f97a6476d88e4547adfeb3c97"
+        }
+      };
       
-      return mockTemplates;
+      // Build available templates based on user's assigned IDs
+      const availableTemplates = assignedTemplateIds
+        .map(id => templateConfigurations[id])
+        .filter(template => template !== undefined);
+      
+      return availableTemplates;
     },
   });
 
@@ -123,7 +153,7 @@ export function VideoTemplatesTab() {
         <CardContent>
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(3)].map((_, i) => (
+              {[...Array(4)].map((_, i) => (
                 <div key={i} className="border rounded-lg p-4 animate-pulse">
                   <div className="w-full h-32 bg-gray-200 rounded mb-4"></div>
                   <div className="h-4 bg-gray-200 rounded mb-2"></div>

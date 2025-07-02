@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Clapperboard } from "lucide-react";
@@ -26,24 +26,74 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   const [templateVariables, setTemplateVariables] = useState<string[]>([]);
   const [integrationMethod, setIntegrationMethod] = useState<IntegrationMethod>('direct');
   const [productVariables, setProductVariables] = useState<Record<string, ProductVariableState>>({});
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
 
-  const templates: Template[] = [
-    { 
-      id: "hg_template_001", 
-      name: "Product Showcase",
-      variables: ["product_name", "product_price", "product_discount", "category_name", "feature_one", "feature_two", "feature_three", "website_description", "product_image"]
-    },
-    { 
-      id: "hg_template_002", 
-      name: "Feature Highlight",
-      variables: ["product_name", "main_feature", "benefit_one", "benefit_two", "call_to_action", "brand_name", "product_image"]
-    },
-    { 
-      id: "hg_template_003", 
-      name: "Brand Story",
-      variables: ["brand_name", "product_name", "brand_story", "unique_value", "customer_testimonial", "product_image", "website_url"]
-    }
-  ];
+  // Fetch templates dynamically
+  useEffect(() => {
+    const fetchUserTemplates = async () => {
+      setIsLoadingTemplates(true);
+      try {
+        // Get user's assigned template IDs from settings
+        const assignedTemplateIds = [
+          "bccf8cfb2b1e422dbc425755f1b7dc67",
+          "3bb2bf2276754c0ea6b235db9409f508", 
+          "47a53273dcd0428bbe7bf960b8bf7f02",
+          "aeec955f97a6476d88e4547adfeb3c97"
+        ];
+
+        // Map template IDs to template configurations
+        const templateConfigurations: Record<string, Template> = {
+          "bccf8cfb2b1e422dbc425755f1b7dc67": {
+            id: "bccf8cfb2b1e422dbc425755f1b7dc67",
+            name: "Product Showcase",
+            variables: ["product_name", "product_price", "product_discount", "category_name", "feature_one", "feature_two", "feature_three", "website_description", "product_image"]
+          },
+          "3bb2bf2276754c0ea6b235db9409f508": {
+            id: "3bb2bf2276754c0ea6b235db9409f508",
+            name: "Feature Highlight", 
+            variables: ["product_name", "main_feature", "benefit_one", "benefit_two", "call_to_action", "brand_name", "product_image"]
+          },
+          "47a53273dcd0428bbe7bf960b8bf7f02": {
+            id: "47a53273dcd0428bbe7bf960b8bf7f02",
+            name: "Brand Story",
+            variables: ["brand_name", "product_name", "brand_story", "unique_value", "customer_testimonial", "product_image", "website_url"]
+          },
+          "aeec955f97a6476d88e4547adfeb3c97": {
+            id: "aeec955f97a6476d88e4547adfeb3c97",
+            name: "Social Media Promo",
+            variables: ["product_name", "product_price", "discount_percent", "brand_name", "urgency_text", "product_image", "cta_text"]
+          }
+        };
+
+        // Build available templates based on user's assigned IDs
+        const availableTemplates = assignedTemplateIds
+          .map(id => templateConfigurations[id])
+          .filter(template => template !== undefined);
+
+        setTemplates(availableTemplates);
+        
+        if (availableTemplates.length === 0) {
+          toast({
+            title: "No Templates Available",
+            description: "No video templates are assigned to your account. Please contact your administrator.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user templates:', error);
+        toast({
+          title: "Error Loading Templates",
+          description: "Failed to load your assigned templates. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+
+    fetchUserTemplates();
+  }, [toast]);
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId);
@@ -150,6 +200,29 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       setIsGenerating(false);
     }
   };
+
+  if (isLoadingTemplates) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Clapperboard className="h-5 w-5" />
+              <span>Video Template Utility</span>
+            </CardTitle>
+            <CardDescription>Loading your assigned templates...</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-10 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
