@@ -71,14 +71,16 @@ export const formatVariableName = (variable: string): string => {
 
 export const initializeProductVariables = (
   variables: string[], 
-  selectedProduct: InventoryItem
+  selectedProduct: InventoryItem,
+  aiSuggestions?: Record<string, string>
 ): Record<string, ProductVariableState> => {
   const productVariables: Record<string, ProductVariableState> = {};
   variables.forEach(variable => {
     const extractedValue = extractProductData(variable, selectedProduct);
+    const aiSuggested = aiSuggestions?.[variable] || generateAISuggestion(variable, extractedValue);
     productVariables[variable] = {
       extracted: extractedValue,
-      aiSuggested: generateAISuggestion(variable, extractedValue),
+      aiSuggested: aiSuggested,
       userImproved: "",
       checked: false
     };

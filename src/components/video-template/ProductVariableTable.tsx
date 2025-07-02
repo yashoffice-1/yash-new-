@@ -43,9 +43,8 @@ export function ProductVariableTable({
             <TableRow className="bg-slate-700">
               <TableHead className="text-white">✅</TableHead>
               <TableHead className="text-white">Variable Name</TableHead>
-              <TableHead className="text-white">Feed Value</TableHead>
-              <TableHead className="text-white">AI Suggested</TableHead>
-              <TableHead className="text-white">Your Final Value</TableHead>
+              <TableHead className="text-white">Column A (Feed Value)</TableHead>
+              <TableHead className="text-white">Column B (OpenAI Suggested - Editable)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -67,14 +66,11 @@ export function ProductVariableTable({
                   <TableCell className="text-sm text-gray-600">
                     {varData?.extracted || "-"}
                   </TableCell>
-                  <TableCell className="text-sm text-blue-600">
-                    {varData?.aiSuggested || "-"}
-                  </TableCell>
                   <TableCell>
                     <Input
-                      value={varData?.userImproved || ""}
-                      onChange={(e) => onUpdateProductVariable(variable, 'userImproved', e.target.value)}
-                      placeholder={varData?.aiSuggested || "Enter value..."}
+                      value={varData?.aiSuggested || ""}
+                      onChange={(e) => onUpdateProductVariable(variable, 'aiSuggested', e.target.value)}
+                      placeholder="Enter value..."
                       className="min-w-[200px]"
                     />
                   </TableCell>

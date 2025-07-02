@@ -91,9 +91,10 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       if (templateDetail) {
         console.log('Setting template variables:', templateDetail.variables);
         setTemplateVariables(templateDetail.variables);
-        const newProductVariables = initializeProductVariables(templateDetail.variables, selectedProduct);
-        console.log('Initialized product variables:', newProductVariables);
-        setProductVariables(newProductVariables);
+        
+        // Generate AI suggestions for the variables
+        await generateVariableSuggestions(templateDetail.variables);
+        
         
         toast({
           title: "Template Selected",
@@ -112,9 +113,10 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       if (template) {
         console.log('Setting fallback template variables:', template.variables);
         setTemplateVariables(template.variables);
-        const newProductVariables = initializeProductVariables(template.variables, selectedProduct);
-        console.log('Initialized fallback product variables:', newProductVariables);
-        setProductVariables(newProductVariables);
+        
+        // Generate AI suggestions for fallback variables too
+        await generateVariableSuggestions(template.variables);
+        
         
         toast({
           title: "Template Selected",
@@ -129,6 +131,49 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
           variant: "destructive"
         });
       }
+    }
+  };
+
+  const generateVariableSuggestions = async (variables: string[]) => {
+    try {
+      console.log('Generating AI suggestions for variables:', variables);
+      
+      const response = await fetch('/functions/v1/openai-variable-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product: selectedProduct,
+          templateVariables: variables
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.suggestions) {
+        console.log('AI suggestions received:', data.suggestions);
+        
+        // Initialize product variables with AI suggestions
+        const newProductVariables = initializeProductVariables(variables, selectedProduct, data.suggestions);
+        console.log('Initialized product variables with AI suggestions:', newProductVariables);
+        setProductVariables(newProductVariables);
+      } else {
+        throw new Error('No suggestions returned from AI');
+      }
+    } catch (error) {
+      console.error('Error generating AI suggestions:', error);
+      
+      // Fallback to basic initialization
+      const newProductVariables = initializeProductVariables(variables, selectedProduct);
+      console.log('Using fallback initialization:', newProductVariables);
+      setProductVariables(newProductVariables);
+      
+      toast({
+        title: "AI Suggestions Unavailable",
+        description: "Using basic suggestions. You can edit them manually.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -177,7 +222,8 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       const finalData: Record<string, string> = {};
       templateVariables.forEach(variable => {
         const varData = productVariables[variable];
-        finalData[variable] = varData.userImproved || varData.aiSuggested || varData.extracted || "";
+        // Use aiSuggested (which is now editable) as the final value
+        finalData[variable] = varData.aiSuggested || varData.extracted || "";
       });
 
       const endpoint = integrationMethod === 'direct' ? '/api/heygen-direct' : '/api/heygen-generate';
