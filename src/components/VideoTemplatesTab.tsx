@@ -133,15 +133,7 @@ export function VideoTemplatesTab() {
     );
   }
 
-  // Show template video creator if a template is selected
-  if (selectedTemplateForCreation) {
-    return (
-      <TemplateVideoCreator 
-        template={selectedTemplateForCreation}
-        onBack={handleBackToTemplates}
-      />
-    );
-  }
+  // If no product selected and no specific template selected, show the main template grid
 
   return (
     <div className="space-y-6">
