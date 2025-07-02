@@ -78,15 +78,21 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   }, [toast]);
 
   const handleTemplateSelect = async (templateId: string) => {
+    console.log('Template selected:', templateId);
     setSelectedTemplate(templateId);
     
     try {
+      console.log('Fetching template detail for:', templateId);
       // Get detailed template information including variable types
       const templateDetail = await templateManager.getTemplateDetail(templateId);
       
+      console.log('Template detail response:', templateDetail);
+      
       if (templateDetail) {
+        console.log('Setting template variables:', templateDetail.variables);
         setTemplateVariables(templateDetail.variables);
         const newProductVariables = initializeProductVariables(templateDetail.variables, selectedProduct);
+        console.log('Initialized product variables:', newProductVariables);
         setProductVariables(newProductVariables);
         
         toast({
@@ -94,6 +100,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
           description: `${templateDetail.name} loaded for ${selectedProduct.name}`,
         });
       } else {
+        console.error('Template detail is null');
         throw new Error('Template detail not found');
       }
     } catch (error) {
@@ -101,14 +108,25 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       
       // Fallback to basic template info
       const template = templates.find(t => t.id === templateId);
+      console.log('Using fallback template:', template);
       if (template) {
+        console.log('Setting fallback template variables:', template.variables);
         setTemplateVariables(template.variables);
         const newProductVariables = initializeProductVariables(template.variables, selectedProduct);
+        console.log('Initialized fallback product variables:', newProductVariables);
         setProductVariables(newProductVariables);
         
         toast({
           title: "Template Selected",
           description: `${template.name} loaded for ${selectedProduct.name} (using fallback configuration)`,
+          variant: "destructive"
+        });
+      } else {
+        console.error('No fallback template found');
+        toast({
+          title: "Error",
+          description: "Could not load template variables. Please try another template.",
+          variant: "destructive"
         });
       }
     }
