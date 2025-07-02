@@ -45,22 +45,44 @@ serve(async (req) => {
 
     console.log('Raw HeyGen API response data:', JSON.stringify(data, null, 2));
 
+    // Extract template info - try multiple possible response structures
+    let templateInfo = data;
+    if (data.data) {
+      templateInfo = data.data;
+    }
+
+    console.log('Template info after extraction:', JSON.stringify(templateInfo, null, 2));
+
+    // Extract name from multiple possible locations
+    const templateName = templateInfo.name || 
+                        templateInfo.template_name || 
+                        templateInfo.title ||
+                        (templateInfo.template && templateInfo.template.name) ||
+                        `Template ${templateId.slice(-8)}`;
+
+    // Extract thumbnail from multiple possible locations  
+    const templateThumbnail = templateInfo.thumbnail || 
+                             templateInfo.preview_url || 
+                             templateInfo.cover_image ||
+                             templateInfo.preview ||
+                             templateInfo.thumbnail_url ||
+                             (templateInfo.template && templateInfo.template.thumbnail) ||
+                             `https://img.heygen.com/template/${templateId}/thumbnail.jpg`;
+
+    console.log('Extracted template name:', templateName);
+    console.log('Extracted template thumbnail:', templateThumbnail);
+
     // Extract variables from the HeyGen API response
     let extractedVariables: string[] = [];
     
     // Try multiple possible locations for variables in the response
-    if (data.variables && Array.isArray(data.variables)) {
-      extractedVariables = data.variables.map((v: any) => {
+    if (templateInfo.variables && Array.isArray(templateInfo.variables)) {
+      extractedVariables = templateInfo.variables.map((v: any) => {
         if (typeof v === 'string') return v;
         return v.name || v.key || v.variable_name || v.id;
       }).filter(Boolean);
-    } else if (data.template && data.template.variables) {
-      extractedVariables = data.template.variables.map((v: any) => {
-        if (typeof v === 'string') return v;
-        return v.name || v.key || v.variable_name || v.id;
-      }).filter(Boolean);
-    } else if (data.data && data.data.variables) {
-      extractedVariables = data.data.variables.map((v: any) => {
+    } else if (templateInfo.template && templateInfo.template.variables) {
+      extractedVariables = templateInfo.template.variables.map((v: any) => {
         if (typeof v === 'string') return v;
         return v.name || v.key || v.variable_name || v.id;
       }).filter(Boolean);
@@ -70,12 +92,12 @@ serve(async (req) => {
 
     // Transform the response to extract variables with metadata
     const templateDetail = {
-      id: data.template_id || data.id || templateId,
-      name: data.name || data.template_name || `Template ${templateId.slice(-8)}`,
-      description: data.description || 'HeyGen video template',
-      thumbnail: data.thumbnail || data.preview_url || data.cover_image,
-      category: data.category || 'Custom',
-      duration: data.duration || '30s',
+      id: templateInfo.template_id || templateInfo.id || templateId,
+      name: templateName,
+      description: templateInfo.description || 'HeyGen video template',
+      thumbnail: templateThumbnail,
+      category: templateInfo.category || 'Custom',
+      duration: templateInfo.duration || '30s',
       variables: extractedVariables,
       // Extract variable names and types for easier processing
       variableNames: extractedVariables,

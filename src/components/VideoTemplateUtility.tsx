@@ -97,6 +97,9 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       try {
         console.log('Fetching templates for video utility using template manager');
         
+        // Clear cache to ensure fresh data from HeyGen
+        templateManager.clearCache();
+        
         const templateDetails = await templateManager.getClientTemplates('default');
         
         // Transform to the Template format expected by this component
@@ -108,6 +111,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         }));
 
         setTemplates(transformedTemplates);
+        console.log('Templates loaded with details:', transformedTemplates);
         
         if (transformedTemplates.length === 0) {
           toast({
