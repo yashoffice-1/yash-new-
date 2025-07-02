@@ -48,6 +48,10 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
               src={template.thumbnail}
               alt={template.name}
               className="w-full h-32 object-cover bg-gray-100"
+              onError={(e) => {
+                // Fallback to a placeholder if thumbnail fails to load
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop';
+              }}
             />
             <div className="absolute top-2 left-2">
               <Badge variant="secondary" className="text-xs">
@@ -68,7 +72,9 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
           </div>
           
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">{template.name}</CardTitle>
+            <CardTitle className="text-lg">
+              {template.name.includes('Template') ? template.name : `Template: ${template.name}`}
+            </CardTitle>
             <CardDescription className="text-sm">
               {template.description}
             </CardDescription>
@@ -78,7 +84,7 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-sm text-gray-500">
                 <Tag className="h-3 w-3" />
-                <span>ID: {template.heygenTemplateId || 'N/A'}</span>
+                <span>ID: {template.heygenTemplateId || template.id.slice(-8)}</span>
               </div>
               
               <Button

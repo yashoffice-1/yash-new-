@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { useView } from "@/contexts/ViewContext";
 import { TemplateGrid } from "./templates/TemplateGrid";
 import { TemplateRequestDialog } from "./templates/TemplateRequestDialog";
 import { OnboardingDialog } from "./templates/OnboardingDialog";
@@ -10,7 +11,10 @@ import { TemplateHeader } from "./templates/TemplateHeader";
 import { TemplateLoadingState } from "./templates/TemplateLoadingState";
 import { EmptyTemplatesState } from "./templates/EmptyTemplatesState";
 import { TemplateVideoCreator } from "./templates/TemplateVideoCreator";
+import { VideoTemplateUtility } from "./VideoTemplateUtility";
 import { templateManager } from "@/api/template-manager";
+import { Button } from "./ui/button";
+import { ArrowLeft } from "lucide-react";
 
 interface VideoTemplate {
   id: string;
@@ -25,6 +29,7 @@ interface VideoTemplate {
 
 export function VideoTemplatesTab() {
   const { toast } = useToast();
+  const { selectedProduct, setSelectedProduct } = useView();
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showOnboardingDialog, setShowOnboardingDialog] = useState(false);
   const [selectedTemplateForCreation, setSelectedTemplateForCreation] = useState<VideoTemplate | null>(null);
@@ -92,6 +97,10 @@ export function VideoTemplatesTab() {
     setSelectedTemplateForCreation(null);
   };
 
+  const handleBackFromVideoUtility = () => {
+    setSelectedProduct(null);
+  };
+
   // Show error state if template fetching fails completely
   if (error) {
     toast({
@@ -99,6 +108,29 @@ export function VideoTemplatesTab() {
       description: "Unable to load templates. Please try refreshing the page.",
       variant: "destructive",
     });
+  }
+
+  // Show video template utility if a product is selected (from inventory)
+  if (selectedProduct) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline"
+            onClick={handleBackFromVideoUtility}
+            className="flex items-center space-x-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Templates</span>
+          </Button>
+          <div>
+            <h2 className="text-lg font-semibold">Video Template for: {selectedProduct.name}</h2>
+            <p className="text-sm text-gray-600">Creating video template with selected product data</p>
+          </div>
+        </div>
+        <VideoTemplateUtility selectedProduct={selectedProduct} />
+      </div>
+    );
   }
 
   // Show template video creator if a template is selected

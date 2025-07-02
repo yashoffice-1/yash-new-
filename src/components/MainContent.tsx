@@ -11,8 +11,7 @@ import { Button } from "./ui/button";
 import { Library, Package, Video, User } from "lucide-react";
 
 export function MainContent() {
-  const { isAdmin } = useView();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'library' | 'templates' | 'user'>('inventory');
+  const { isAdmin, activeTab, setActiveTab } = useView();
 
   if (isAdmin) {
     return <AdminDashboard />;

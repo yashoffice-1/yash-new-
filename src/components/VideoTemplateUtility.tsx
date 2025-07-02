@@ -138,6 +138,13 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     try {
       console.log('Generating AI suggestions for variables:', variables);
       
+      // If no variables, skip AI suggestions and initialize empty
+      if (variables.length === 0) {
+        console.log('No variables to generate suggestions for, initializing empty');
+        setProductVariables({});
+        return;
+      }
+      
       const response = await fetch('/functions/v1/openai-variable-suggestions', {
         method: 'POST',
         headers: {
@@ -148,6 +155,10 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
           templateVariables: variables
         }),
       });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
 
       const data = await response.json();
       
@@ -169,11 +180,13 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       console.log('Using fallback initialization:', newProductVariables);
       setProductVariables(newProductVariables);
       
-      toast({
-        title: "AI Suggestions Unavailable",
-        description: "Using basic suggestions. You can edit them manually.",
-        variant: "destructive"
-      });
+      if (variables.length > 0) {
+        toast({
+          title: "AI Suggestions Unavailable",
+          description: "Using basic suggestions. You can edit them manually.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -218,6 +231,12 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
 
     setIsGenerating(true);
     
+    // Show initial "getting ready" message
+    toast({
+      title: "Video Processing Started",
+      description: "Your video is being prepared. This may take a few minutes...",
+    });
+    
     try {
       const finalData: Record<string, string> = {};
       templateVariables.forEach(variable => {
@@ -249,18 +268,25 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       
       if (result.success) {
         const method = integrationMethod === 'direct' ? 'HeyGen Direct API' : 'Google Sheets + Zapier';
+        const templateName = templates.find(t => t.id === selectedTemplate)?.name || 'Selected Template';
+        
         toast({
-          title: "Video Creation Started",
-          description: `Video creation started for ${selectedProduct.name} using ${templates.find(t => t.id === selectedTemplate)?.name} via ${method}.`,
+          title: "Video Generation Successful! 🎉",
+          description: `Your video for "${selectedProduct.name}" using "${templateName}" has been successfully submitted via ${method}. You'll receive your video shortly!`,
         });
+        
+        // Reset the form after successful submission
+        setSelectedTemplate("");
+        setTemplateVariables([]);
+        setProductVariables({});
       } else {
         throw new Error(result.error || 'Failed to create video');
       }
     } catch (error) {
       console.error('Error creating video:', error);
       toast({
-        title: "Error",
-        description: "Failed to send video creation request. Please try again.",
+        title: "Video Generation Failed",
+        description: "Failed to send video creation request. Please check your settings and try again.",
         variant: "destructive",
       });
     } finally {
