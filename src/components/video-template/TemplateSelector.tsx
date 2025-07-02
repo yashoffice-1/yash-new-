@@ -20,7 +20,7 @@ export function TemplateSelector({ templates, selectedTemplate, onTemplateSelect
         <SelectContent>
           {templates.map((template) => (
             <SelectItem key={template.id} value={template.id}>
-              {template.name}
+              {template.name} {template.variables.length > 0 ? `(${template.variables.length} variables)` : '(No variables)'}
             </SelectItem>
           ))}
         </SelectContent>

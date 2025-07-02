@@ -34,49 +34,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
 
-  // Fetch templates using the new template manager
-  useEffect(() => {
-    const fetchUserTemplates = async () => {
-      setIsLoadingTemplates(true);
-      try {
-        console.log('Fetching templates for video utility using template manager');
-        
-        const templateDetails = await templateManager.getClientTemplates('default');
-        
-        // Transform to the Template format expected by this component
-        const transformedTemplates: Template[] = templateDetails.map(template => ({
-          id: template.id,
-          name: template.name,
-          variables: template.variables
-        }));
-
-        setTemplates(transformedTemplates);
-        
-        if (transformedTemplates.length === 0) {
-          toast({
-            title: "No Templates Available",
-            description: "No video templates are assigned to your account. Please contact your administrator.",
-            variant: "destructive",
-          });
-        } else {
-          console.log('Successfully loaded templates:', transformedTemplates);
-        }
-      } catch (error) {
-        console.error('Error fetching user templates:', error);
-        
-        toast({
-          title: "Template Loading Error",
-          description: "Unable to load templates. Using fallback configuration.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoadingTemplates(false);
-      }
-    };
-
-    fetchUserTemplates();
-  }, [toast]);
-
+  // Define template selection handler first
   const handleTemplateSelect = async (templateId: string) => {
     console.log('Template selected:', templateId);
     setSelectedTemplate(templateId);
@@ -133,6 +91,57 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       }
     }
   };
+
+  // Fetch templates using the new template manager
+  useEffect(() => {
+    const fetchUserTemplates = async () => {
+      setIsLoadingTemplates(true);
+      try {
+        console.log('Fetching templates for video utility using template manager');
+        
+        const templateDetails = await templateManager.getClientTemplates('default');
+        
+        // Transform to the Template format expected by this component
+        const transformedTemplates: Template[] = templateDetails.map(template => ({
+          id: template.id,
+          name: template.name,
+          variables: template.variables
+        }));
+
+        setTemplates(transformedTemplates);
+        
+        if (transformedTemplates.length === 0) {
+          toast({
+            title: "No Templates Available",
+            description: "No video templates are assigned to your account. Please contact your administrator.",
+            variant: "destructive",
+          });
+        } else {
+          console.log('Successfully loaded templates:', transformedTemplates);
+          
+          // Auto-select the first template with variables
+          const templateWithVariables = transformedTemplates.find(t => t.variables.length > 0);
+          if (templateWithVariables) {
+            console.log('Auto-selecting template with variables:', templateWithVariables.id);
+            handleTemplateSelect(templateWithVariables.id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user templates:', error);
+        
+        toast({
+          title: "Template Loading Error",
+          description: "Unable to load templates. Using fallback configuration.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+
+    fetchUserTemplates();
+  }, [toast]);
+
 
   const generateVariableSuggestions = async (variables: string[]) => {
     try {
@@ -341,12 +350,20 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
             onTemplateSelect={handleTemplateSelect}
           />
 
-          <ProductVariableTable
-            selectedProduct={selectedProduct}
-            templateVariables={templateVariables}
-            productVariables={productVariables}
-            onUpdateProductVariable={updateProductVariable}
-          />
+          {templateVariables.length === 0 && selectedTemplate ? (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-yellow-800 text-sm">
+                This template doesn't require any variables. You can proceed directly to create the video, or select a different template that allows customization.
+              </p>
+            </div>
+          ) : (
+            <ProductVariableTable
+              selectedProduct={selectedProduct}
+              templateVariables={templateVariables}
+              productVariables={productVariables}
+              onUpdateProductVariable={updateProductVariable}
+            />
+          )}
 
           <VideoCreationControls
             selectedTemplate={selectedTemplate}
