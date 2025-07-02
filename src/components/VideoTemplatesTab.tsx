@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,13 +37,13 @@ export function VideoTemplatesTab() {
         "aeec955f97a6476d88e4547adfeb3c97"
       ];
 
-      // Template configurations
+      // Template configurations with proper thumbnails
       const templateConfigurations: Record<string, VideoTemplate> = {
         "bccf8cfb2b1e422dbc425755f1b7dc67": {
           id: "bccf8cfb2b1e422dbc425755f1b7dc67",
           name: "Product Showcase",
-          description: "Perfect for highlighting product features and benefits",
-          thumbnail: "/placeholder.svg",
+          description: "Perfect for highlighting product features and benefits with professional presentation",
+          thumbnail: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop",
           category: "Product",
           duration: "30s",
           status: "active",
@@ -53,8 +52,8 @@ export function VideoTemplatesTab() {
         "3bb2bf2276754c0ea6b235db9409f508": {
           id: "3bb2bf2276754c0ea6b235db9409f508",
           name: "Feature Highlight",
-          description: "Emphasize key features and benefits of your product",
-          thumbnail: "/placeholder.svg",
+          description: "Emphasize key features and benefits of your product with dynamic visuals",
+          thumbnail: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=400&h=200&fit=crop",
           category: "Feature",
           duration: "25s",
           status: "active",
@@ -63,8 +62,8 @@ export function VideoTemplatesTab() {
         "47a53273dcd0428bbe7bf960b8bf7f02": {
           id: "47a53273dcd0428bbe7bf960b8bf7f02",
           name: "Brand Story",
-          description: "Tell your brand story with engaging visuals",
-          thumbnail: "/placeholder.svg",
+          description: "Tell your brand story with engaging visuals and compelling narrative",
+          thumbnail: "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?w=400&h=200&fit=crop",
           category: "Brand",
           duration: "60s",
           status: "active",
@@ -73,8 +72,8 @@ export function VideoTemplatesTab() {
         "aeec955f97a6476d88e4547adfeb3c97": {
           id: "aeec955f97a6476d88e4547adfeb3c97",
           name: "Social Media Promo",
-          description: "Create engaging social media promotional videos",
-          thumbnail: "/placeholder.svg",
+          description: "Create engaging social media promotional videos that drive engagement",
+          thumbnail: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=400&h=200&fit=crop",
           category: "Social",
           duration: "15s",
           status: "active",
