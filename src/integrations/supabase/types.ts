@@ -89,6 +89,65 @@ export type Database = {
           },
         ]
       }
+      client_configs: {
+        Row: {
+          client_id: string
+          client_name: string
+          created_at: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          client_name: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          client_name?: string
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      client_template_assignments: {
+        Row: {
+          assigned_at: string | null
+          client_config_id: string | null
+          id: string
+          is_active: boolean | null
+          template_id: string
+          template_name: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          client_config_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          template_id: string
+          template_name?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          client_config_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          template_id?: string
+          template_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_template_assignments_client_config_id_fkey"
+            columns: ["client_config_id"]
+            isOneToOne: false
+            referencedRelation: "client_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_assets: {
         Row: {
           approved: boolean | null
@@ -173,6 +232,30 @@ export type Database = {
           sku?: string | null
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      template_fallback_variables: {
+        Row: {
+          created_at: string | null
+          id: string
+          template_id: string
+          variable_name: string
+          variable_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          template_id: string
+          variable_name: string
+          variable_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          template_id?: string
+          variable_name?: string
+          variable_order?: number | null
         }
         Relationships: []
       }
