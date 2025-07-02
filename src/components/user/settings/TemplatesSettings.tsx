@@ -1,16 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Lock, FileText } from "lucide-react";
-
-interface TemplateVariable {
-  name: string;
-  type: string;
-  charLimit: number;
-}
+import { templateManager, type TemplateDetail, type TemplateVariable } from "@/api/template-manager";
 
 interface AssignedTemplate {
   id: string;
@@ -28,54 +23,38 @@ export function TemplatesSettings() {
     const fetchAssignedTemplates = async () => {
       setIsLoading(true);
       try {
-        // Fetch from HeyGen API first
-        const { data, error } = await supabase.functions.invoke('heygen-templates');
+        console.log('Fetching assigned templates using template manager');
         
-        if (data && data.success) {
-          // Filter to assigned templates and transform
-          const assignedTemplateIds = [
-            "bccf8cfb2b1e422dbc425755f1b7dc67",
-            "3bb2bf2276754c0ea6b235db9409f508", 
-            "47a53273dcd0428bbe7bf960b8bf7f02",
-            "aeec955f97a6476d88e4547adfeb3c97"
-          ];
+        const templateDetails = await templateManager.getClientTemplates('default');
+        
+        // Transform to AssignedTemplate format
+        const assignedTemplates: AssignedTemplate[] = templateDetails.map(template => {
+          // Convert variableTypes to TemplateVariable array
+          const variables: TemplateVariable[] = Object.entries(template.variableTypes).map(([name, config]) => ({
+            name: name,
+            type: config.type,
+            charLimit: config.charLimit,
+            required: config.required,
+            description: config.description
+          }));
 
-          const userTemplates = data.templates
-            .filter((template: any) => assignedTemplateIds.includes(template.template_id || template.id))
-            .map((template: any) => ({
-              id: template.template_id || template.id,
-              name: template.name || `Template ${template.template_id?.slice(-8) || 'Unknown'}`,
-              heygenId: template.template_id || template.id,
-              variables: template.variables || getDefaultVariables(template.template_id || template.id)
-            }));
+          return {
+            id: template.id,
+            name: template.name,
+            heygenId: template.id,
+            variables: variables
+          };
+        });
 
-          setAssignedTemplates(userTemplates);
-        } else {
-          throw new Error('Failed to fetch from HeyGen API');
-        }
+        setAssignedTemplates(assignedTemplates);
+        console.log('Successfully loaded assigned templates:', assignedTemplates);
+        
       } catch (error) {
         console.error('Error fetching assigned templates:', error);
         
-        // Fallback to hardcoded templates
-        const assignedTemplateIds = [
-          "bccf8cfb2b1e422dbc425755f1b7dc67",
-          "3bb2bf2276754c0ea6b235db9409f508", 
-          "47a53273dcd0428bbe7bf960b8bf7f02",
-          "aeec955f97a6476d88e4547adfeb3c97"
-        ];
-
-        const fallbackTemplates = assignedTemplateIds.map(templateId => ({
-          id: templateId,
-          name: `Template ${templateId.slice(-8)}`,
-          heygenId: templateId,
-          variables: getDefaultVariables(templateId)
-        }));
-
-        setAssignedTemplates(fallbackTemplates);
-        
         toast({
-          title: "Using Fallback Templates",
-          description: "Unable to load templates from HeyGen. Using default configuration.",
+          title: "Template Loading Error",
+          description: "Unable to load templates from HeyGen. Please try refreshing the page.",
           variant: "destructive",
         });
       } finally {
@@ -85,54 +64,6 @@ export function TemplatesSettings() {
 
     fetchAssignedTemplates();
   }, [toast]);
-
-  const getDefaultVariables = (templateId: string): TemplateVariable[] => {
-    const defaultVariableMap: Record<string, TemplateVariable[]> = {
-      "bccf8cfb2b1e422dbc425755f1b7dc67": [
-        { name: "product_name", type: "text", charLimit: 50 },
-        { name: "product_price", type: "text", charLimit: 20 },
-        { name: "product_discount", type: "text", charLimit: 15 },
-        { name: "category_name", type: "text", charLimit: 30 },
-        { name: "feature_one", type: "text", charLimit: 100 },
-        { name: "feature_two", type: "text", charLimit: 100 },
-        { name: "feature_three", type: "text", charLimit: 100 },
-        { name: "website_description", type: "text", charLimit: 200 },
-        { name: "product_image", type: "image_url", charLimit: 500 }
-      ],
-      "3bb2bf2276754c0ea6b235db9409f508": [
-        { name: "product_name", type: "text", charLimit: 50 },
-        { name: "main_feature", type: "text", charLimit: 80 },
-        { name: "benefit_one", type: "text", charLimit: 100 },
-        { name: "benefit_two", type: "text", charLimit: 100 },
-        { name: "call_to_action", type: "text", charLimit: 60 },
-        { name: "brand_name", type: "text", charLimit: 40 },
-        { name: "product_image", type: "image_url", charLimit: 500 }
-      ],
-      "47a53273dcd0428bbe7bf960b8bf7f02": [
-        { name: "brand_name", type: "text", charLimit: 40 },
-        { name: "product_name", type: "text", charLimit: 50 },
-        { name: "brand_story", type: "text", charLimit: 150 },
-        { name: "unique_value", type: "text", charLimit: 100 },
-        { name: "customer_testimonial", type: "text", charLimit: 120 },
-        { name: "product_image", type: "image_url", charLimit: 500 },
-        { name: "website_url", type: "url", charLimit: 200 }
-      ],
-      "aeec955f97a6476d88e4547adfeb3c97": [
-        { name: "product_name", type: "text", charLimit: 50 },
-        { name: "product_price", type: "text", charLimit: 20 },
-        { name: "discount_percent", type: "text", charLimit: 10 },
-        { name: "brand_name", type: "text", charLimit: 40 },
-        { name: "urgency_text", type: "text", charLimit: 80 },
-        { name: "product_image", type: "image_url", charLimit: 500 },
-        { name: "cta_text", type: "text", charLimit: 40 }
-      ]
-    };
-    
-    return defaultVariableMap[templateId] || [
-      { name: "product_name", type: "text", charLimit: 50 },
-      { name: "product_image", type: "image_url", charLimit: 500 }
-    ];
-  };
 
   if (isLoading) {
     return (
@@ -192,6 +123,7 @@ export function TemplatesSettings() {
                         <TableHead>Variable Name</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Character Limit</TableHead>
+                        <TableHead>Required</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -204,6 +136,11 @@ export function TemplatesSettings() {
                             <Badge variant="secondary">{variable.type}</Badge>
                           </TableCell>
                           <TableCell>{variable.charLimit}</TableCell>
+                          <TableCell>
+                            <Badge variant={variable.required ? "destructive" : "outline"}>
+                              {variable.required ? "Yes" : "No"}
+                            </Badge>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -215,8 +152,8 @@ export function TemplatesSettings() {
 
           <div className="bg-blue-50 p-4 rounded-lg mt-6">
             <p className="text-sm text-blue-800">
-              <strong>Note:</strong> Templates are assigned by the system administrator based on your account plan and requirements. 
-              These templates will automatically appear in your Video Template Utility.
+              <strong>Note:</strong> Templates are dynamically loaded from HeyGen API with intelligent caching. 
+              Template configurations will automatically update when changes are made in HeyGen.
             </p>
           </div>
         </CardContent>

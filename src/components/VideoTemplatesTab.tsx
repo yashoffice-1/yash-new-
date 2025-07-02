@@ -3,13 +3,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { TemplateGrid } from "./templates/TemplateGrid";
 import { TemplateRequestDialog } from "./templates/TemplateRequestDialog";
 import { OnboardingDialog } from "./templates/OnboardingDialog";
 import { TemplateHeader } from "./templates/TemplateHeader";
 import { TemplateLoadingState } from "./templates/TemplateLoadingState";
 import { EmptyTemplatesState } from "./templates/EmptyTemplatesState";
+import { templateManager } from "@/api/template-manager";
 
 interface VideoTemplate {
   id: string;
@@ -27,67 +27,37 @@ export function VideoTemplatesTab() {
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showOnboardingDialog, setShowOnboardingDialog] = useState(false);
 
-  // Define assigned template IDs at the top level
-  const assignedTemplateIds = [
-    "bccf8cfb2b1e422dbc425755f1b7dc67",
-    "3bb2bf2276754c0ea6b235db9409f508", 
-    "47a53273dcd0428bbe7bf960b8bf7f02",
-    "aeec955f97a6476d88e4547adfeb3c97"
-  ];
-
-  // Fetch templates from HeyGen API via Supabase function
+  // Fetch templates using the new template manager
   const { data: templates, isLoading, error } = useQuery({
-    queryKey: ['heygen-templates'],
+    queryKey: ['client-templates', 'default'], // Could be dynamic based on user's client
     queryFn: async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('heygen-templates');
+        console.log('Fetching client templates using template manager');
         
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to fetch templates');
-        }
-
-        // Transform HeyGen templates to our format
-        const transformedTemplates = data.templates.map((template: any) => ({
-          id: template.template_id || template.id,
-          name: template.name || `Template ${template.template_id?.slice(-8) || 'Unknown'}`,
-          description: template.description || 'HeyGen video template',
-          thumbnail: template.thumbnail || template.preview_url || 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop',
-          category: template.category || 'Custom',
-          duration: template.duration || '30s',
+        const templateDetails = await templateManager.getClientTemplates('default');
+        
+        // Transform to VideoTemplate format
+        const videoTemplates: VideoTemplate[] = templateDetails.map(template => ({
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          thumbnail: template.thumbnail || 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop',
+          category: template.category,
+          duration: template.duration,
           status: 'active' as const,
-          heygenTemplateId: template.template_id || template.id
+          heygenTemplateId: template.id
         }));
 
-        // Filter to only assigned templates for this user
-        const userTemplates = transformedTemplates.filter((template: VideoTemplate) => 
-          assignedTemplateIds.includes(template.id)
-        );
-
-        console.log('Fetched and filtered templates:', userTemplates);
-        return userTemplates;
+        console.log('Successfully fetched templates via template manager:', videoTemplates);
+        return videoTemplates;
 
       } catch (error) {
-        console.error('Error fetching HeyGen templates:', error);
-        
-        // Fallback to hardcoded templates if API fails
-        return assignedTemplateIds.map(templateId => ({
-          id: templateId,
-          name: `Template ${templateId.slice(-8)}`,
-          description: "Custom video template",
-          thumbnail: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop",
-          category: "Custom",
-          duration: "30s",
-          status: "active" as const,
-          heygenTemplateId: templateId
-        }));
+        console.error('Error fetching templates via template manager:', error);
+        throw error;
       }
     },
-    retry: 1,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 2,
+    staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
   const handleRequestTemplate = () => {
@@ -111,11 +81,11 @@ export function VideoTemplatesTab() {
     });
   };
 
-  // Show error state if HeyGen API fails completely
-  if (error && (!templates || templates.length === 0)) {
+  // Show error state if template fetching fails completely
+  if (error) {
     toast({
       title: "Template Loading Error",
-      description: "Unable to load templates from HeyGen. Using fallback templates.",
+      description: "Unable to load templates. Please try refreshing the page.",
       variant: "destructive",
     });
   }

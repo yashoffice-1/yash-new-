@@ -1,19 +1,24 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { Clapperboard } from "lucide-react";
 import { TemplateSelector } from "./video-template/TemplateSelector";
 import { IntegrationMethodSelector } from "./video-template/IntegrationMethodSelector";
 import { ProductVariableTable } from "./video-template/ProductVariableTable";
 import { VideoCreationControls } from "./video-template/VideoCreationControls";
+import { templateManager, type TemplateDetail } from "@/api/template-manager";
 import { 
   InventoryItem, 
-  Template, 
   ProductVariableState, 
   IntegrationMethod 
 } from "./video-template/types";
 import { initializeProductVariables } from "./video-template/utils";
+
+interface Template {
+  id: string;
+  name: string;
+  variables: string[];
+}
 
 interface VideoTemplateUtilityProps {
   selectedProduct: InventoryItem;
@@ -29,32 +34,21 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
 
-  // Fetch templates from HeyGen API
+  // Fetch templates using the new template manager
   useEffect(() => {
     const fetchUserTemplates = async () => {
       setIsLoadingTemplates(true);
       try {
-        const { data, error } = await supabase.functions.invoke('heygen-templates');
+        console.log('Fetching templates for video utility using template manager');
         
-        if (error || !data.success) {
-          throw new Error(error?.message || data?.error || 'Failed to fetch templates');
-        }
-
-        // Transform and filter templates
-        const assignedTemplateIds = [
-          "bccf8cfb2b1e422dbc425755f1b7dc67",
-          "3bb2bf2276754c0ea6b235db9409f508", 
-          "47a53273dcd0428bbe7bf960b8bf7f02",
-          "aeec955f97a6476d88e4547adfeb3c97"
-        ];
-
-        const transformedTemplates = data.templates
-          .filter((template: any) => assignedTemplateIds.includes(template.template_id || template.id))
-          .map((template: any) => ({
-            id: template.template_id || template.id,
-            name: template.name || `Template ${template.template_id?.slice(-8) || 'Unknown'}`,
-            variables: template.variables || getDefaultVariables(template.template_id || template.id)
-          }));
+        const templateDetails = await templateManager.getClientTemplates('default');
+        
+        // Transform to the Template format expected by this component
+        const transformedTemplates: Template[] = templateDetails.map(template => ({
+          id: template.id,
+          name: template.name,
+          variables: template.variables
+        }));
 
         setTemplates(transformedTemplates);
         
@@ -64,29 +58,15 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
             description: "No video templates are assigned to your account. Please contact your administrator.",
             variant: "destructive",
           });
+        } else {
+          console.log('Successfully loaded templates:', transformedTemplates);
         }
       } catch (error) {
         console.error('Error fetching user templates:', error);
         
-        // Fallback to hardcoded templates
-        const assignedTemplateIds = [
-          "bccf8cfb2b1e422dbc425755f1b7dc67",
-          "3bb2bf2276754c0ea6b235db9409f508", 
-          "47a53273dcd0428bbe7bf960b8bf7f02",
-          "aeec955f97a6476d88e4547adfeb3c97"
-        ];
-
-        const fallbackTemplates = assignedTemplateIds.map(templateId => ({
-          id: templateId,
-          name: `Template ${templateId.slice(-8)}`,
-          variables: getDefaultVariables(templateId)
-        }));
-
-        setTemplates(fallbackTemplates);
-        
         toast({
-          title: "Using Fallback Templates",
-          description: "Unable to load templates from HeyGen. Using default configuration.",
+          title: "Template Loading Error",
+          description: "Unable to load templates. Using fallback configuration.",
           variant: "destructive",
         });
       } finally {
@@ -97,30 +77,40 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     fetchUserTemplates();
   }, [toast]);
 
-  const getDefaultVariables = (templateId: string): string[] => {
-    const defaultVariableMap: Record<string, string[]> = {
-      "bccf8cfb2b1e422dbc425755f1b7dc67": ["product_name", "product_price", "product_discount", "category_name", "feature_one", "feature_two", "feature_three", "website_description", "product_image"],
-      "3bb2bf2276754c0ea6b235db9409f508": ["product_name", "main_feature", "benefit_one", "benefit_two", "call_to_action", "brand_name", "product_image"],
-      "47a53273dcd0428bbe7bf960b8bf7f02": ["brand_name", "product_name", "brand_story", "unique_value", "customer_testimonial", "product_image", "website_url"],
-      "aeec955f97a6476d88e4547adfeb3c97": ["product_name", "product_price", "discount_percent", "brand_name", "urgency_text", "product_image", "cta_text"]
-    };
-    
-    return defaultVariableMap[templateId] || ["product_name", "product_image"];
-  };
-
-  const handleTemplateSelect = (templateId: string) => {
+  const handleTemplateSelect = async (templateId: string) => {
     setSelectedTemplate(templateId);
-    const template = templates.find(t => t.id === templateId);
     
-    if (template) {
-      setTemplateVariables(template.variables);
-      const newProductVariables = initializeProductVariables(template.variables, selectedProduct);
-      setProductVariables(newProductVariables);
+    try {
+      // Get detailed template information including variable types
+      const templateDetail = await templateManager.getTemplateDetail(templateId);
       
-      toast({
-        title: "Template Selected",
-        description: `${template.name} loaded for ${selectedProduct.name}`,
-      });
+      if (templateDetail) {
+        setTemplateVariables(templateDetail.variables);
+        const newProductVariables = initializeProductVariables(templateDetail.variables, selectedProduct);
+        setProductVariables(newProductVariables);
+        
+        toast({
+          title: "Template Selected",
+          description: `${templateDetail.name} loaded for ${selectedProduct.name}`,
+        });
+      } else {
+        throw new Error('Template detail not found');
+      }
+    } catch (error) {
+      console.error('Error loading template detail:', error);
+      
+      // Fallback to basic template info
+      const template = templates.find(t => t.id === templateId);
+      if (template) {
+        setTemplateVariables(template.variables);
+        const newProductVariables = initializeProductVariables(template.variables, selectedProduct);
+        setProductVariables(newProductVariables);
+        
+        toast({
+          title: "Template Selected",
+          description: `${template.name} loaded for ${selectedProduct.name} (using fallback configuration)`,
+        });
+      }
     }
   };
 
