@@ -1,27 +1,14 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { 
-  Share2, 
-  Mail, 
-  MessageSquare, 
-  Copy, 
-  Download, 
-  Play,
-  Heart,
-  HeartOff,
-  Image as ImageIcon
-} from "lucide-react";
+import { LibraryAssetCard } from "./library/LibraryAssetCard";
 
 interface LibraryAsset {
   id: string;
   title: string;
   type: 'video' | 'image' | 'content';
   url: string;
-  gif_url?: string; // New field for HeyGen GIF URLs
+  gif_url?: string;
   thumbnail?: string;
   createdAt: string;
   favorited: boolean;
@@ -29,14 +16,13 @@ interface LibraryAsset {
 }
 
 export function LibrarySection() {
-  const { toast } = useToast();
   const [assets] = useState<LibraryAsset[]>([
     {
       id: "1",
       title: "Professional Drill Product Showcase",
       type: "video",
       url: "https://example.com/video1.mp4",
-      gif_url: "https://example.com/video1.gif", // Example GIF URL from HeyGen
+      gif_url: "https://example.com/video1.gif",
       thumbnail: "/placeholder.svg",
       createdAt: "2024-01-15",
       favorited: true,
@@ -47,7 +33,7 @@ export function LibrarySection() {
       title: "Brand Story Video",
       type: "video",
       url: "https://example.com/video2.mp4",
-      gif_url: "https://example.com/video2.gif", // Example GIF URL from HeyGen
+      gif_url: "https://example.com/video2.gif",
       thumbnail: "/placeholder.svg",
       createdAt: "2024-01-14",
       favorited: false,
@@ -65,61 +51,6 @@ export function LibrarySection() {
     }
   ]);
 
-  const handleShare = (method: 'email' | 'sms' | 'whatsapp' | 'copy', asset: LibraryAsset, isGif: boolean = false) => {
-    const shareUrl = isGif && asset.gif_url 
-      ? asset.gif_url 
-      : `${window.location.origin}/share/${asset.id}`;
-    const shareText = isGif 
-      ? `Check out this GIF preview: ${asset.title}` 
-      : `Check out this video: ${asset.title}`;
-
-    switch (method) {
-      case 'email':
-        window.open(`mailto:?subject=${encodeURIComponent(asset.title)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`);
-        break;
-      case 'sms':
-        window.open(`sms:?body=${encodeURIComponent(`${shareText} ${shareUrl}`)}`);
-        break;
-      case 'whatsapp':
-        window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`);
-        break;
-      case 'copy':
-        navigator.clipboard.writeText(shareUrl);
-        toast({
-          title: "Link Copied",
-          description: `${isGif ? 'GIF' : 'Video'} link has been copied to clipboard.`,
-        });
-        break;
-    }
-  };
-
-  const handleDownload = (asset: LibraryAsset, isGif: boolean = false) => {
-    const url = isGif && asset.gif_url ? asset.gif_url : asset.url;
-    const filename = isGif ? `${asset.title}.gif` : `${asset.title}.mp4`;
-    
-    // Create a temporary anchor element for download
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast({
-      title: "Download Started",
-      description: `${isGif ? 'GIF' : 'Video'} download has started.`,
-    });
-  };
-
-  const toggleFavorite = (assetId: string) => {
-    // In real implementation, this would update the database
-    toast({
-      title: "Updated",
-      description: "Asset favorite status updated.",
-    });
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -131,157 +62,7 @@ export function LibrarySection() {
       <CardContent>
         <div className="space-y-4">
           {assets.map((asset) => (
-            <div key={asset.id} className="border rounded-lg p-4">
-              <div className="flex items-start space-x-4">
-                {/* Thumbnail */}
-                <div className="relative">
-                  <img 
-                    src={asset.thumbnail} 
-                    alt={asset.title}
-                    className="w-24 h-16 object-cover rounded bg-gray-200"
-                  />
-                  {asset.type === 'video' && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Play className="h-6 w-6 text-white bg-black bg-opacity-50 rounded-full p-1" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold">{asset.title}</h3>
-                      <p className="text-sm text-gray-600">
-                        Created: {new Date(asset.createdAt).toLocaleDateString()}
-                      </p>
-                      {asset.gif_url && (
-                        <p className="text-xs text-blue-600 mt-1">
-                          ✨ GIF preview available
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge 
-                        variant={asset.status === 'completed' ? 'default' : asset.status === 'processing' ? 'secondary' : 'destructive'}
-                      >
-                        {asset.status}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleFavorite(asset.id)}
-                      >
-                        {asset.favorited ? (
-                          <Heart className="h-4 w-4 text-red-500 fill-current" />
-                        ) : (
-                          <HeartOff className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Share buttons - only show for completed assets */}
-                  {asset.status === 'completed' && (
-                    <div className="mt-4 space-y-3">
-                      {/* Video sharing section */}
-                      <div>
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Share2 className="h-4 w-4" />
-                          <span className="text-sm font-medium">Share Video:</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleShare('email', asset)}
-                            className="flex items-center space-x-1"
-                          >
-                            <Mail className="h-3 w-3" />
-                            <span>Email</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleShare('whatsapp', asset)}
-                            className="flex items-center space-x-1 bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                          >
-                            <MessageSquare className="h-3 w-3" />
-                            <span>WhatsApp</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleShare('copy', asset)}
-                            className="flex items-center space-x-1"
-                          >
-                            <Copy className="h-3 w-3" />
-                            <span>Copy Link</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownload(asset)}
-                            className="flex items-center space-x-1"
-                          >
-                            <Download className="h-3 w-3" />
-                            <span>Download</span>
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* GIF sharing section - only show if GIF URL exists */}
-                      {asset.gif_url && (
-                        <div>
-                          <div className="flex items-center space-x-2 mb-2">
-                            <ImageIcon className="h-4 w-4" />
-                            <span className="text-sm font-medium">Share GIF Preview:</span>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleShare('email', asset, true)}
-                              className="flex items-center space-x-1 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                            >
-                              <Mail className="h-3 w-3" />
-                              <span>Email GIF</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleShare('whatsapp', asset, true)}
-                              className="flex items-center space-x-1 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                              <span>WhatsApp GIF</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleShare('copy', asset, true)}
-                              className="flex items-center space-x-1 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                            >
-                              <Copy className="h-3 w-3" />
-                              <span>Copy GIF</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDownload(asset, true)}
-                              className="flex items-center space-x-1 bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                            >
-                              <Download className="h-3 w-3" />
-                              <span>Download GIF</span>
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <LibraryAssetCard key={asset.id} asset={asset} />
           ))}
         </div>
       </CardContent>
