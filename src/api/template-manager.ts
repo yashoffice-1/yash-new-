@@ -149,6 +149,49 @@ class TemplateManager {
         throw new Error(data.error || 'Failed to fetch template detail');
       }
 
+      // Get variables from HeyGen API response
+      let variables = data.template.variableNames || data.template.variables || [];
+      let variableTypes = data.template.variableTypes || {};
+      
+      // If HeyGen API returns no variables, try to use fallback variables
+      if (!variables || variables.length === 0) {
+        console.log(`HeyGen API returned no variables for ${templateId}, checking for fallback variables`);
+        
+        try {
+          // Try to get fallback variables from database first
+          const { data: fallbackVars, error } = await supabase
+            .from('template_fallback_variables')
+            .select('variable_name')
+            .eq('template_id', templateId)
+            .order('variable_order');
+
+          if (!error && fallbackVars && fallbackVars.length > 0) {
+            variables = fallbackVars.map(v => v.variable_name);
+            console.log(`Using database fallback variables for ${templateId}:`, variables);
+          } else {
+            // Fallback to hardcoded variables if database lookup fails
+            const config = await this.getClientConfig('default');
+            variables = config.fallbackVariables?.[templateId] || [];
+            console.log(`Using hardcoded fallback variables for ${templateId}:`, variables);
+          }
+          
+          // Generate variable types for fallback variables
+          if (variables.length > 0) {
+            variableTypes = variables.reduce((acc, varName) => {
+              acc[varName] = {
+                name: varName,
+                type: varName.includes('image') ? 'image_url' : varName.includes('url') ? 'url' : 'text',
+                charLimit: varName.includes('image') || varName.includes('url') ? 500 : 100,
+                required: true
+              };
+              return acc;
+            }, {} as Record<string, TemplateVariable>);
+          }
+        } catch (fallbackError) {
+          console.error(`Error getting fallback variables for ${templateId}:`, fallbackError);
+        }
+      }
+
       const templateDetail: TemplateDetail = {
         id: data.template.templateId || data.template.id || templateId,
         name: data.template.name || `Template ${templateId.slice(-8)}`,
@@ -156,8 +199,8 @@ class TemplateManager {
         thumbnail: data.template.thumbnail || data.template.preview_url || data.template.cover_image || `https://img.heygen.com/template/${templateId}/thumbnail.jpg`,
         category: data.template.category || 'Custom',
         duration: data.template.duration || '30s',
-        variables: data.template.variableNames || data.template.variables || [],
-        variableTypes: data.template.variableTypes || {}
+        variables: variables,
+        variableTypes: variableTypes
       };
       
       // Cache the result
