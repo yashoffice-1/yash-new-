@@ -33,9 +33,14 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
     const fetchTemplateDetails = async () => {
       setIsLoadingTemplate(true);
       try {
+        console.log('Fetching template details for template ID:', template.id);
         const templateDetail = await templateManager.getTemplateDetail(template.id);
         
+        console.log('Raw template detail response:', templateDetail);
+        
         if (templateDetail) {
+          console.log('Template variables found:', templateDetail.variables);
+          console.log('Template variables length:', templateDetail.variables.length);
           setTemplateVariables(templateDetail.variables);
           
           // Initialize variable values with default suggestions
@@ -60,7 +65,10 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
               initialValues[variable] = `Enter ${variable.replace(/_/g, ' ')}`;
             }
           });
+          console.log('Initial variable values:', initialValues);
           setVariableValues(initialValues);
+        } else {
+          console.error('Template detail is null - no template found');
         }
       } catch (error) {
         console.error('Error loading template details:', error);
