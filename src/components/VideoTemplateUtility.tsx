@@ -1,12 +1,13 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Clapperboard, Send } from "lucide-react";
+import { Clapperboard, Send, Zap, Bot } from "lucide-react";
 
 interface InventoryItem {
   id: string;
@@ -38,6 +39,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [templateVariables, setTemplateVariables] = useState<string[]>([]);
+  const [integrationMethod, setIntegrationMethod] = useState<'direct' | 'zapier'>('direct');
   
   // Dynamic template data based on current template variables
   const [extractedData, setExtractedData] = useState<Record<string, string>>({});
@@ -62,7 +64,6 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     }
   ];
 
-  // Extract data from selected product
   const extractProductData = (variables: string[]): Record<string, string> => {
     const data: Record<string, string> = {};
     
@@ -110,7 +111,6 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     return data;
   };
 
-  // Generate AI suggestions based on extracted data
   const generateAISuggestions = (variables: string[], extracted: Record<string, string>): Record<string, string> => {
     const suggestions: Record<string, string> = {};
     
@@ -222,8 +222,9 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     setIsGenerating(true);
     
     try {
-      // Send to HeyGen via existing edge function
-      const response = await fetch('/api/heygen-generate', {
+      const endpoint = integrationMethod === 'direct' ? '/api/heygen-direct' : '/api/heygen-generate';
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -243,9 +244,10 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       const result = await response.json();
       
       if (result.success) {
+        const method = integrationMethod === 'direct' ? 'HeyGen Direct API' : 'Google Sheets + Zapier';
         toast({
           title: "Video Creation Started",
-          description: `Video creation started for ${selectedProduct.name} using ${templates.find(t => t.id === selectedTemplate)?.name}. You'll be notified when it's ready.`,
+          description: `Video creation started for ${selectedProduct.name} using ${templates.find(t => t.id === selectedTemplate)?.name} via ${method}. You'll be notified when it's ready.`,
         });
       } else {
         throw new Error(result.error || 'Failed to create video');
@@ -286,6 +288,33 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Integration Method Selection */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Integration Method</Label>
+            <RadioGroup value={integrationMethod} onValueChange={(value: 'direct' | 'zapier') => setIntegrationMethod(value)}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="direct" id="direct" />
+                <Label htmlFor="direct" className="flex items-center space-x-2 cursor-pointer">
+                  <Bot className="h-4 w-4" />
+                  <span>Direct HeyGen API (Recommended)</span>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="zapier" id="zapier" />
+                <Label htmlFor="zapier" className="flex items-center space-x-2 cursor-pointer">
+                  <Zap className="h-4 w-4" />
+                  <span>Google Sheets + Zapier</span>
+                </Label>
+              </div>
+            </RadioGroup>
+            <p className="text-xs text-gray-500">
+              {integrationMethod === 'direct' 
+                ? 'Uses HeyGen API directly for faster, more reliable video generation'
+                : 'Uses Google Sheets and Zapier automation (legacy method)'
+              }
+            </p>
+          </div>
+
           {/* Template Selection Dropdown */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Choose Template</label>
@@ -303,7 +332,6 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
             </Select>
           </div>
 
-          {/* Template Data Table - Only show if template is selected */}
           {selectedTemplate && templateVariables.length > 0 && (
             <div className="border rounded-lg overflow-hidden">
               <Table>
@@ -353,7 +381,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
             </div>
           )}
 
-          {/* Row Labels - Only show if template is selected */}
+          {/* Row Labels */}
           {selectedTemplate && (
             <div className="text-sm text-gray-600 space-y-1">
               <div className="flex items-center space-x-2">
@@ -380,7 +408,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
               size="lg"
             >
               <Send className="h-4 w-4 mr-2" />
-              {isGenerating ? "Creating Video..." : "Send to Create Video"}
+              {isGenerating ? "Creating Video..." : `Send to Create Video ${integrationMethod === 'direct' ? '(Direct API)' : '(Zapier)'}`}
             </Button>
           </div>
         </CardContent>
