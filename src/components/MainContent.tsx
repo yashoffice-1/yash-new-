@@ -5,13 +5,14 @@ import { UserDashboard } from "./UserDashboard";
 import { AssetLibrary } from "./AssetLibrary";
 import { InventoryDisplay } from "./inventory/InventoryDisplay";
 import { VideoTemplatesTab } from "./VideoTemplatesTab";
+import { UserModule } from "./user/UserModule";
 import { useState } from "react";
 import { Button } from "./ui/button";
-import { Library, Package, Video } from "lucide-react";
+import { Library, Package, Video, User } from "lucide-react";
 
 export function MainContent() {
   const { isAdmin } = useView();
-  const [activeTab, setActiveTab] = useState<'inventory' | 'library' | 'templates'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'library' | 'templates' | 'user'>('inventory');
 
   if (isAdmin) {
     return <AdminDashboard />;
@@ -47,12 +48,22 @@ export function MainContent() {
           <Video className="h-4 w-4" />
           <span>Video Templates</span>
         </Button>
+
+        <Button 
+          variant={activeTab === 'user' ? 'default' : 'ghost'} 
+          onClick={() => setActiveTab('user')}
+          className="rounded-b-none flex items-center space-x-2"
+        >
+          <User className="h-4 w-4" />
+          <span>User Account</span>
+        </Button>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'inventory' && <InventoryDisplay />}
       {activeTab === 'library' && <AssetLibrary />}
       {activeTab === 'templates' && <VideoTemplatesTab />}
+      {activeTab === 'user' && <UserModule />}
     </div>
   );
 }
