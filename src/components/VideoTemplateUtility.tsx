@@ -1,46 +1,22 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Clapperboard, Send, Zap, Bot, CheckCircle } from "lucide-react";
-
-interface InventoryItem {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number | null;
-  sku: string | null;
-  category: string | null;
-  brand: string | null;
-  images: string[];
-  metadata: any;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Clapperboard } from "lucide-react";
+import { TemplateSelector } from "./video-template/TemplateSelector";
+import { IntegrationMethodSelector } from "./video-template/IntegrationMethodSelector";
+import { ProductVariableTable } from "./video-template/ProductVariableTable";
+import { VideoCreationControls } from "./video-template/VideoCreationControls";
+import { 
+  InventoryItem, 
+  Template, 
+  ProductVariableState, 
+  IntegrationMethod 
+} from "./video-template/types";
+import { initializeProductVariables } from "./video-template/utils";
 
 interface VideoTemplateUtilityProps {
   selectedProduct: InventoryItem;
-}
-
-interface Template {
-  id: string;
-  name: string;
-  variables: string[];
-}
-
-interface ProductVariableState {
-  extracted: string;
-  aiSuggested: string;
-  userImproved: string;
-  checked: boolean;
 }
 
 export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityProps) {
@@ -48,9 +24,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [templateVariables, setTemplateVariables] = useState<string[]>([]);
-  const [integrationMethod, setIntegrationMethod] = useState<'direct' | 'zapier'>('direct');
-  
-  // Per-product variable states
+  const [integrationMethod, setIntegrationMethod] = useState<IntegrationMethod>('direct');
   const [productVariables, setProductVariables] = useState<Record<string, ProductVariableState>>({});
 
   const templates: Template[] = [
@@ -71,88 +45,13 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     }
   ];
 
-  const extractProductData = (variable: string): string => {
-    switch (variable) {
-      case "product_name":
-        return selectedProduct.name || "";
-      case "product_price":
-        return selectedProduct.price ? `$${selectedProduct.price}` : "";
-      case "category_name":
-        return selectedProduct.category || "";
-      case "brand_name":
-        return selectedProduct.brand || "";
-      case "website_description":
-        return selectedProduct.description || "";
-      case "product_image":
-        return selectedProduct.images?.[0] || "";
-      default:
-        return "";
-    }
-  };
-
-  const generateAISuggestion = (variable: string, extractedValue: string): string => {
-    switch (variable) {
-      case "product_name":
-        return extractedValue ? `Professional ${extractedValue}` : "";
-      case "product_price":
-        return extractedValue || "$1,155";
-      case "product_discount":
-        return "15% Off Limited Time";
-      case "category_name":
-        return extractedValue || "Premium Tools";
-      case "brand_name":
-        return extractedValue || "Premium Brand";
-      case "feature_one":
-        return "Universal Compatibility";
-      case "feature_two":
-        return "Advanced Security Features";
-      case "feature_three":
-        return "User-Friendly Interface";
-      case "main_feature":
-        return "Industry-Leading Performance";
-      case "benefit_one":
-        return "Saves Time and Money";
-      case "benefit_two":
-        return "Professional Results";
-      case "call_to_action":
-        return "Order Now - Limited Time Offer!";
-      case "brand_story":
-        return "Trusted by professionals worldwide for over a decade";
-      case "unique_value":
-        return "The only solution you'll ever need";
-      case "customer_testimonial":
-        return "This product transformed our business operations";
-      case "website_description":
-        return extractedValue ? 
-          `Complete ${extractedValue || "professional"} solution combining advanced technologies.` : 
-          "Professional solution for your needs";
-      case "product_image":
-        return extractedValue || "https://example.com/product-image.jpg";
-      case "website_url":
-        return "https://yourwebsite.com";
-      default:
-        return "";
-    }
-  };
-
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId);
     const template = templates.find(t => t.id === templateId);
     
     if (template) {
       setTemplateVariables(template.variables);
-      
-      // Initialize product variables state
-      const newProductVariables: Record<string, ProductVariableState> = {};
-      template.variables.forEach(variable => {
-        const extractedValue = extractProductData(variable);
-        newProductVariables[variable] = {
-          extracted: extractedValue,
-          aiSuggested: generateAISuggestion(variable, extractedValue),
-          userImproved: "",
-          checked: false
-        };
-      });
+      const newProductVariables = initializeProductVariables(template.variables, selectedProduct);
       setProductVariables(newProductVariables);
       
       toast({
@@ -204,7 +103,6 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     setIsGenerating(true);
     
     try {
-      // Prepare final data using user improved values with fallbacks
       const finalData: Record<string, string> = {};
       templateVariables.forEach(variable => {
         const varData = productVariables[variable];
@@ -253,10 +151,6 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     }
   };
 
-  const formatVariableName = (variable: string): string => {
-    return variable.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
   return (
     <div className="space-y-6">
       <Card>
@@ -270,121 +164,32 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Integration Method Selection */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Integration Method</Label>
-            <RadioGroup value={integrationMethod} onValueChange={(value: 'direct' | 'zapiar') => setIntegrationMethod(value)}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="direct" id="direct" />
-                <Label htmlFor="direct" className="flex items-center space-x-2 cursor-pointer">
-                  <Bot className="h-4 w-4" />
-                  <span>Direct HeyGen API (Recommended)</span>
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="zapier" id="zapier" />
-                <Label htmlFor="zapier" className="flex items-center space-x-2 cursor-pointer">
-                  <Zap className="h-4 w-4" />
-                  <span>Google Sheets + Zapier</span>
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
+          <IntegrationMethodSelector
+            integrationMethod={integrationMethod}
+            onIntegrationMethodChange={setIntegrationMethod}
+          />
 
-          {/* Template Selection */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Choose Template</Label>
-            <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a video template..." />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <TemplateSelector
+            templates={templates}
+            selectedTemplate={selectedTemplate}
+            onTemplateSelect={handleTemplateSelect}
+          />
 
-          {/* Per-Product Variable Block */}
-          {selectedTemplate && templateVariables.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Product: {selectedProduct.name}</h3>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <span className="text-sm">{getCheckedCount()} / {templateVariables.length} completed</span>
-                </div>
-              </div>
+          <ProductVariableTable
+            selectedProduct={selectedProduct}
+            templateVariables={templateVariables}
+            productVariables={productVariables}
+            onUpdateProductVariable={updateProductVariable}
+          />
 
-              <div className="border rounded-lg overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-slate-700">
-                      <TableHead className="text-white">✅</TableHead>
-                      <TableHead className="text-white">Variable Name</TableHead>
-                      <TableHead className="text-white">Feed Value</TableHead>
-                      <TableHead className="text-white">AI Suggested</TableHead>
-                      <TableHead className="text-white">Your Final Value</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {templateVariables.map((variable) => {
-                      const varData = productVariables[variable];
-                      return (
-                        <TableRow key={variable} className={varData?.checked ? "bg-green-50" : ""}>
-                          <TableCell>
-                            <Checkbox
-                              checked={varData?.checked || false}
-                              onCheckedChange={(checked) => 
-                                updateProductVariable(variable, 'checked', !!checked)
-                              }
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {formatVariableName(variable)}
-                          </TableCell>
-                          <TableCell className="text-sm text-gray-600">
-                            {varData?.extracted || "-"}
-                          </TableCell>
-                          <TableCell className="text-sm text-blue-600">
-                            {varData?.aiSuggested || "-"}
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={varData?.userImproved || ""}
-                              onChange={(e) => updateProductVariable(variable, 'userImproved', e.target.value)}
-                              placeholder={varData?.aiSuggested || "Enter value..."}
-                              className="min-w-[200px]"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-
-          {/* Send to Create Video Button */}
-          {selectedTemplate && (
-            <div className="flex justify-center pt-6">
-              <Button
-                onClick={handleSendToCreateVideo}
-                disabled={isGenerating || !areAllVariablesChecked()}
-                className={`px-8 py-3 text-base ${areAllVariablesChecked() ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400'}`}
-                size="lg"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {isGenerating ? "Creating Video..." : 
-                 areAllVariablesChecked() ? "Send to Make Video" : 
-                 `Complete All Variables (${getCheckedCount()}/${templateVariables.length})`}
-              </Button>
-            </div>
-          )}
+          <VideoCreationControls
+            selectedTemplate={selectedTemplate}
+            isGenerating={isGenerating}
+            areAllVariablesChecked={areAllVariablesChecked()}
+            checkedCount={getCheckedCount()}
+            totalVariables={templateVariables.length}
+            onSendToCreateVideo={handleSendToCreateVideo}
+          />
         </CardContent>
       </Card>
     </div>
