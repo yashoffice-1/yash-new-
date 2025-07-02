@@ -9,6 +9,7 @@ import { OnboardingDialog } from "./templates/OnboardingDialog";
 import { TemplateHeader } from "./templates/TemplateHeader";
 import { TemplateLoadingState } from "./templates/TemplateLoadingState";
 import { EmptyTemplatesState } from "./templates/EmptyTemplatesState";
+import { TemplateVideoCreator } from "./templates/TemplateVideoCreator";
 import { templateManager } from "@/api/template-manager";
 
 interface VideoTemplate {
@@ -26,6 +27,7 @@ export function VideoTemplatesTab() {
   const { toast } = useToast();
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showOnboardingDialog, setShowOnboardingDialog] = useState(false);
+  const [selectedTemplateForCreation, setSelectedTemplateForCreation] = useState<VideoTemplate | null>(null);
 
   // Fetch templates using the new template manager
   const { data: templates, isLoading, error } = useQuery({
@@ -81,6 +83,14 @@ export function VideoTemplatesTab() {
     });
   };
 
+  const handleTemplateSelect = (template: VideoTemplate) => {
+    setSelectedTemplateForCreation(template);
+  };
+
+  const handleBackToTemplates = () => {
+    setSelectedTemplateForCreation(null);
+  };
+
   // Show error state if template fetching fails completely
   if (error) {
     toast({
@@ -88,6 +98,16 @@ export function VideoTemplatesTab() {
       description: "Unable to load templates. Please try refreshing the page.",
       variant: "destructive",
     });
+  }
+
+  // Show template video creator if a template is selected
+  if (selectedTemplateForCreation) {
+    return (
+      <TemplateVideoCreator 
+        template={selectedTemplateForCreation}
+        onBack={handleBackToTemplates}
+      />
+    );
   }
 
   return (
@@ -102,7 +122,10 @@ export function VideoTemplatesTab() {
           {isLoading ? (
             <TemplateLoadingState />
           ) : templates && templates.length > 0 ? (
-            <TemplateGrid templates={templates} />
+            <TemplateGrid 
+              templates={templates} 
+              onTemplateSelect={handleTemplateSelect}
+            />
           ) : (
             <EmptyTemplatesState
               onOpenOnboarding={() => setShowOnboardingDialog(true)}

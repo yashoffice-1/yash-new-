@@ -17,12 +17,13 @@ interface VideoTemplate {
 
 interface TemplateGridProps {
   templates: VideoTemplate[];
+  onTemplateSelect?: (template: VideoTemplate) => void;
 }
 
-export function TemplateGrid({ templates }: TemplateGridProps) {
+export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps) {
   const handleUseTemplate = (template: VideoTemplate) => {
     console.log('Using template:', template);
-    // This would integrate with HeyGen API to use the template
+    onTemplateSelect?.(template);
   };
 
   const getStatusColor = (status: string) => {
