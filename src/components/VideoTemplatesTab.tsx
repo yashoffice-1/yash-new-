@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,56 +38,62 @@ export function VideoTemplatesTab() {
         "aeec955f97a6476d88e4547adfeb3c97"
       ];
 
-      // Template configurations with proper thumbnails
-      const templateConfigurations: Record<string, VideoTemplate> = {
-        "bccf8cfb2b1e422dbc425755f1b7dc67": {
-          id: "bccf8cfb2b1e422dbc425755f1b7dc67",
-          name: "Product Showcase",
-          description: "Perfect for highlighting product features and benefits with professional presentation",
+      try {
+        // Fetch actual template data from HeyGen or template service
+        const templatePromises = assignedTemplateIds.map(async (templateId) => {
+          try {
+            // In a real implementation, this would fetch from your template service/HeyGen
+            // For now, we'll simulate the API call with fallback data
+            const response = await fetch(`/api/templates/${templateId}`);
+            
+            if (response.ok) {
+              return await response.json();
+            } else {
+              // Fallback to basic template structure if API fails
+              return {
+                id: templateId,
+                name: `Template ${templateId.slice(-8)}`, // Use last 8 chars of ID as fallback
+                description: "Custom video template",
+                thumbnail: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop",
+                category: "Custom",
+                duration: "30s",
+                status: "active",
+                heygenTemplateId: templateId
+              };
+            }
+          } catch (error) {
+            console.log(`Template ${templateId} not found, using fallback`);
+            // Return fallback template data
+            return {
+              id: templateId,
+              name: `Template ${templateId.slice(-8)}`,
+              description: "Custom video template",
+              thumbnail: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop",
+              category: "Custom",
+              duration: "30s",
+              status: "active",
+              heygenTemplateId: templateId
+            };
+          }
+        });
+
+        const fetchedTemplates = await Promise.all(templatePromises);
+        return fetchedTemplates.filter(template => template !== null);
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+        
+        // Fallback to basic template list if all else fails
+        return assignedTemplateIds.map(templateId => ({
+          id: templateId,
+          name: `Template ${templateId.slice(-8)}`,
+          description: "Custom video template",
           thumbnail: "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop",
-          category: "Product",
+          category: "Custom",
           duration: "30s",
-          status: "active",
-          heygenTemplateId: "bccf8cfb2b1e422dbc425755f1b7dc67"
-        },
-        "3bb2bf2276754c0ea6b235db9409f508": {
-          id: "3bb2bf2276754c0ea6b235db9409f508",
-          name: "Feature Highlight",
-          description: "Emphasize key features and benefits of your product with dynamic visuals",
-          thumbnail: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=400&h=200&fit=crop",
-          category: "Feature",
-          duration: "25s",
-          status: "active",
-          heygenTemplateId: "3bb2bf2276754c0ea6b235db9409f508"
-        },
-        "47a53273dcd0428bbe7bf960b8bf7f02": {
-          id: "47a53273dcd0428bbe7bf960b8bf7f02",
-          name: "Brand Story",
-          description: "Tell your brand story with engaging visuals and compelling narrative",
-          thumbnail: "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?w=400&h=200&fit=crop",
-          category: "Brand",
-          duration: "60s",
-          status: "active",
-          heygenTemplateId: "47a53273dcd0428bbe7bf960b8bf7f02"
-        },
-        "aeec955f97a6476d88e4547adfeb3c97": {
-          id: "aeec955f97a6476d88e4547adfeb3c97",
-          name: "Social Media Promo",
-          description: "Create engaging social media promotional videos that drive engagement",
-          thumbnail: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=400&h=200&fit=crop",
-          category: "Social",
-          duration: "15s",
-          status: "active",
-          heygenTemplateId: "aeec955f97a6476d88e4547adfeb3c97"
-        }
-      };
-      
-      // Build available templates based on user's assigned IDs
-      const availableTemplates = assignedTemplateIds
-        .map(id => templateConfigurations[id])
-        .filter(template => template !== undefined);
-      
-      return availableTemplates;
+          status: "active" as const,
+          heygenTemplateId: templateId
+        }));
+      }
     },
   });
 

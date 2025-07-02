@@ -33,74 +33,41 @@ export function TemplatesSettings() {
           "aeec955f97a6476d88e4547adfeb3c97"
         ];
 
-        // Template configurations with their variables
-        const templateConfigurations: Record<string, AssignedTemplate> = {
-          "bccf8cfb2b1e422dbc425755f1b7dc67": {
-            id: "bccf8cfb2b1e422dbc425755f1b7dc67",
-            name: "Product Showcase",
-            heygenId: "bccf8cfb2b1e422dbc425755f1b7dc67",
-            variables: [
-              { name: "product_name", type: "text", charLimit: 50 },
-              { name: "product_price", type: "text", charLimit: 20 },
-              { name: "product_discount", type: "text", charLimit: 15 },
-              { name: "category_name", type: "text", charLimit: 30 },
-              { name: "feature_one", type: "text", charLimit: 100 },
-              { name: "feature_two", type: "text", charLimit: 100 },
-              { name: "feature_three", type: "text", charLimit: 100 },
-              { name: "website_description", type: "text", charLimit: 200 },
-              { name: "product_image", type: "image_url", charLimit: 500 }
-            ]
-          },
-          "3bb2bf2276754c0ea6b235db9409f508": {
-            id: "3bb2bf2276754c0ea6b235db9409f508",
-            name: "Feature Highlight",
-            heygenId: "3bb2bf2276754c0ea6b235db9409f508",
-            variables: [
-              { name: "product_name", type: "text", charLimit: 50 },
-              { name: "main_feature", type: "text", charLimit: 80 },
-              { name: "benefit_one", type: "text", charLimit: 100 },
-              { name: "benefit_two", type: "text", charLimit: 100 },
-              { name: "call_to_action", type: "text", charLimit: 60 },
-              { name: "brand_name", type: "text", charLimit: 40 },
-              { name: "product_image", type: "image_url", charLimit: 500 }
-            ]
-          },
-          "47a53273dcd0428bbe7bf960b8bf7f02": {
-            id: "47a53273dcd0428bbe7bf960b8bf7f02",
-            name: "Brand Story",
-            heygenId: "47a53273dcd0428bbe7bf960b8bf7f02",
-            variables: [
-              { name: "brand_name", type: "text", charLimit: 40 },
-              { name: "product_name", type: "text", charLimit: 50 },
-              { name: "brand_story", type: "text", charLimit: 150 },
-              { name: "unique_value", type: "text", charLimit: 100 },
-              { name: "customer_testimonial", type: "text", charLimit: 120 },
-              { name: "product_image", type: "image_url", charLimit: 500 },
-              { name: "website_url", type: "url", charLimit: 200 }
-            ]
-          },
-          "aeec955f97a6476d88e4547adfeb3c97": {
-            id: "aeec955f97a6476d88e4547adfeb3c97",
-            name: "Social Media Promo",
-            heygenId: "aeec955f97a6476d88e4547adfeb3c97",
-            variables: [
-              { name: "product_name", type: "text", charLimit: 50 },
-              { name: "product_price", type: "text", charLimit: 20 },
-              { name: "discount_percent", type: "text", charLimit: 10 },
-              { name: "brand_name", type: "text", charLimit: 40 },
-              { name: "urgency_text", type: "text", charLimit: 80 },
-              { name: "product_image", type: "image_url", charLimit: 500 },
-              { name: "cta_text", type: "text", charLimit: 40 }
-            ]
+        const templatePromises = assignedTemplateIds.map(async (templateId) => {
+          try {
+            // Fetch actual template data from your template service
+            const response = await fetch(`/api/templates/${templateId}`);
+            
+            if (response.ok) {
+              const templateData = await response.json();
+              return {
+                id: templateId,
+                name: templateData.name || `Template ${templateId.slice(-8)}`,
+                heygenId: templateId,
+                variables: templateData.variables || getDefaultVariables(templateId)
+              };
+            } else {
+              // Fallback to predefined template data if API fails
+              return {
+                id: templateId,
+                name: `Template ${templateId.slice(-8)}`,
+                heygenId: templateId,
+                variables: getDefaultVariables(templateId)
+              };
+            }
+          } catch (error) {
+            console.log(`Template ${templateId} not found, using fallback`);
+            return {
+              id: templateId,
+              name: `Template ${templateId.slice(-8)}`,
+              heygenId: templateId,
+              variables: getDefaultVariables(templateId)
+            };
           }
-        };
+        });
 
-        // Build available templates based on user's assigned IDs
-        const availableTemplates = assignedTemplateIds
-          .map(id => templateConfigurations[id])
-          .filter(template => template !== undefined);
-
-        setAssignedTemplates(availableTemplates);
+        const fetchedTemplates = await Promise.all(templatePromises);
+        setAssignedTemplates(fetchedTemplates.filter(template => template !== null));
       } catch (error) {
         console.error('Error fetching assigned templates:', error);
       } finally {
@@ -110,6 +77,55 @@ export function TemplatesSettings() {
 
     fetchAssignedTemplates();
   }, []);
+
+  // Helper function to get default variables for fallback
+  const getDefaultVariables = (templateId: string): TemplateVariable[] => {
+    const defaultVariableMap: Record<string, TemplateVariable[]> = {
+      "bccf8cfb2b1e422dbc425755f1b7dc67": [
+        { name: "product_name", type: "text", charLimit: 50 },
+        { name: "product_price", type: "text", charLimit: 20 },
+        { name: "product_discount", type: "text", charLimit: 15 },
+        { name: "category_name", type: "text", charLimit: 30 },
+        { name: "feature_one", type: "text", charLimit: 100 },
+        { name: "feature_two", type: "text", charLimit: 100 },
+        { name: "feature_three", type: "text", charLimit: 100 },
+        { name: "website_description", type: "text", charLimit: 200 },
+        { name: "product_image", type: "image_url", charLimit: 500 }
+      ],
+      "3bb2bf2276754c0ea6b235db9409f508": [
+        { name: "product_name", type: "text", charLimit: 50 },
+        { name: "main_feature", type: "text", charLimit: 80 },
+        { name: "benefit_one", type: "text", charLimit: 100 },
+        { name: "benefit_two", type: "text", charLimit: 100 },
+        { name: "call_to_action", type: "text", charLimit: 60 },
+        { name: "brand_name", type: "text", charLimit: 40 },
+        { name: "product_image", type: "image_url", charLimit: 500 }
+      ],
+      "47a53273dcd0428bbe7bf960b8bf7f02": [
+        { name: "brand_name", type: "text", charLimit: 40 },
+        { name: "product_name", type: "text", charLimit: 50 },
+        { name: "brand_story", type: "text", charLimit: 150 },
+        { name: "unique_value", type: "text", charLimit: 100 },
+        { name: "customer_testimonial", type: "text", charLimit: 120 },
+        { name: "product_image", type: "image_url", charLimit: 500 },
+        { name: "website_url", type: "url", charLimit: 200 }
+      ],
+      "aeec955f97a6476d88e4547adfeb3c97": [
+        { name: "product_name", type: "text", charLimit: 50 },
+        { name: "product_price", type: "text", charLimit: 20 },
+        { name: "discount_percent", type: "text", charLimit: 10 },
+        { name: "brand_name", type: "text", charLimit: 40 },
+        { name: "urgency_text", type: "text", charLimit: 80 },
+        { name: "product_image", type: "image_url", charLimit: 500 },
+        { name: "cta_text", type: "text", charLimit: 40 }
+      ]
+    };
+    
+    return defaultVariableMap[templateId] || [
+      { name: "product_name", type: "text", charLimit: 50 },
+      { name: "product_image", type: "image_url", charLimit: 500 }
+    ];
+  };
 
   if (isLoading) {
     return (

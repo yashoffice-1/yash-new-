@@ -41,38 +41,40 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
           "aeec955f97a6476d88e4547adfeb3c97"
         ];
 
-        // Map template IDs to template configurations
-        const templateConfigurations: Record<string, Template> = {
-          "bccf8cfb2b1e422dbc425755f1b7dc67": {
-            id: "bccf8cfb2b1e422dbc425755f1b7dc67",
-            name: "Product Showcase",
-            variables: ["product_name", "product_price", "product_discount", "category_name", "feature_one", "feature_two", "feature_three", "website_description", "product_image"]
-          },
-          "3bb2bf2276754c0ea6b235db9409f508": {
-            id: "3bb2bf2276754c0ea6b235db9409f508",
-            name: "Feature Highlight", 
-            variables: ["product_name", "main_feature", "benefit_one", "benefit_two", "call_to_action", "brand_name", "product_image"]
-          },
-          "47a53273dcd0428bbe7bf960b8bf7f02": {
-            id: "47a53273dcd0428bbe7bf960b8bf7f02",
-            name: "Brand Story",
-            variables: ["brand_name", "product_name", "brand_story", "unique_value", "customer_testimonial", "product_image", "website_url"]
-          },
-          "aeec955f97a6476d88e4547adfeb3c97": {
-            id: "aeec955f97a6476d88e4547adfeb3c97",
-            name: "Social Media Promo",
-            variables: ["product_name", "product_price", "discount_percent", "brand_name", "urgency_text", "product_image", "cta_text"]
+        const templatePromises = assignedTemplateIds.map(async (templateId) => {
+          try {
+            // Fetch actual template data from your template service
+            const response = await fetch(`/api/templates/${templateId}`);
+            
+            if (response.ok) {
+              const templateData = await response.json();
+              return {
+                id: templateId,
+                name: templateData.name || `Template ${templateId.slice(-8)}`,
+                variables: templateData.variables || getDefaultVariables(templateId)
+              };
+            } else {
+              // Fallback to predefined variables if API fails
+              return {
+                id: templateId,
+                name: `Template ${templateId.slice(-8)}`,
+                variables: getDefaultVariables(templateId)
+              };
+            }
+          } catch (error) {
+            console.log(`Template ${templateId} not found, using fallback`);
+            return {
+              id: templateId,
+              name: `Template ${templateId.slice(-8)}`,
+              variables: getDefaultVariables(templateId)
+            };
           }
-        };
+        });
 
-        // Build available templates based on user's assigned IDs
-        const availableTemplates = assignedTemplateIds
-          .map(id => templateConfigurations[id])
-          .filter(template => template !== undefined);
-
-        setTemplates(availableTemplates);
+        const fetchedTemplates = await Promise.all(templatePromises);
+        setTemplates(fetchedTemplates.filter(template => template !== null));
         
-        if (availableTemplates.length === 0) {
+        if (fetchedTemplates.length === 0) {
           toast({
             title: "No Templates Available",
             description: "No video templates are assigned to your account. Please contact your administrator.",
@@ -93,6 +95,18 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
 
     fetchUserTemplates();
   }, [toast]);
+
+  // Helper function to get default variables for fallback
+  const getDefaultVariables = (templateId: string): string[] => {
+    const defaultVariableMap: Record<string, string[]> = {
+      "bccf8cfb2b1e422dbc425755f1b7dc67": ["product_name", "product_price", "product_discount", "category_name", "feature_one", "feature_two", "feature_three", "website_description", "product_image"],
+      "3bb2bf2276754c0ea6b235db9409f508": ["product_name", "main_feature", "benefit_one", "benefit_two", "call_to_action", "brand_name", "product_image"],
+      "47a53273dcd0428bbe7bf960b8bf7f02": ["brand_name", "product_name", "brand_story", "unique_value", "customer_testimonial", "product_image", "website_url"],
+      "aeec955f97a6476d88e4547adfeb3c97": ["product_name", "product_price", "discount_percent", "brand_name", "urgency_text", "product_image", "cta_text"]
+    };
+    
+    return defaultVariableMap[templateId] || ["product_name", "product_image"];
+  };
 
   const handleTemplateSelect = (templateId: string) => {
     setSelectedTemplate(templateId);
