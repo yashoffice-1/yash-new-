@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +9,7 @@ interface GeneratedVideo {
   source_system: string;
   timestamp: Date;
   message?: string;
+  gif_url?: string; // New field for HeyGen GIF URLs
 }
 
 interface FormatSpecs {
@@ -117,7 +117,8 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
         instruction: instruction,
         source_system: provider === 'runway' ? 'runway' : 'heygen_zapier',
         timestamp: new Date(),
-        message: data.message
+        message: data.message,
+        gif_url: data.gif_url // Store GIF URL if provided by HeyGen
       };
 
       // Show enhanced success messages with format details
@@ -129,7 +130,7 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
       
       const successMessage = provider === 'runway' 
         ? `${isAd ? 'Ad video' : 'Video'} created using RunwayML with ${aspectRatio} aspect ratio (${dimensions}) for ${durationText} with format: ${specification}`
-        : `${isAd ? 'Ad video' : 'Video'} generation request sent to HeyGen via Google Sheets + Zapier automation with ${aspectRatio} aspect ratio for ${durationText} with format: ${specification}`;
+        : `${isAd ? 'Ad video' : 'Video'} generation request sent to HeyGen via Google Sheets + Zapier automation with ${aspectRatio} aspect ratio for ${durationText} with format: ${specification}${data.gif_url ? ' (GIF preview will be available)' : ''}`;
 
       toast({
         title: "Video Generation Started",
