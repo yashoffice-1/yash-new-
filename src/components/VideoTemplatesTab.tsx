@@ -27,6 +27,14 @@ export function VideoTemplatesTab() {
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showOnboardingDialog, setShowOnboardingDialog] = useState(false);
 
+  // Define assigned template IDs at the top level
+  const assignedTemplateIds = [
+    "bccf8cfb2b1e422dbc425755f1b7dc67",
+    "3bb2bf2276754c0ea6b235db9409f508", 
+    "47a53273dcd0428bbe7bf960b8bf7f02",
+    "aeec955f97a6476d88e4547adfeb3c97"
+  ];
+
   // Fetch templates from HeyGen API via Supabase function
   const { data: templates, isLoading, error } = useQuery({
     queryKey: ['heygen-templates'],
@@ -55,13 +63,6 @@ export function VideoTemplatesTab() {
         }));
 
         // Filter to only assigned templates for this user
-        const assignedTemplateIds = [
-          "bccf8cfb2b1e422dbc425755f1b7dc67",
-          "3bb2bf2276754c0ea6b235db9409f508", 
-          "47a53273dcd0428bbe7bf960b8bf7f02",
-          "aeec955f97a6476d88e4547adfeb3c97"
-        ];
-
         const userTemplates = transformedTemplates.filter((template: VideoTemplate) => 
           assignedTemplateIds.includes(template.id)
         );
