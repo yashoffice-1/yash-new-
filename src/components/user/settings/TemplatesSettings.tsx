@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Lock, FileText } from "lucide-react";
 
 interface TemplateVariable {
@@ -18,6 +20,7 @@ interface AssignedTemplate {
 }
 
 export function TemplatesSettings() {
+  const { toast } = useToast();
   const [assignedTemplates, setAssignedTemplates] = useState<AssignedTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -25,7 +28,35 @@ export function TemplatesSettings() {
     const fetchAssignedTemplates = async () => {
       setIsLoading(true);
       try {
-        // Get user's assigned template IDs
+        // Fetch from HeyGen API first
+        const { data, error } = await supabase.functions.invoke('heygen-templates');
+        
+        if (data && data.success) {
+          // Filter to assigned templates and transform
+          const assignedTemplateIds = [
+            "bccf8cfb2b1e422dbc425755f1b7dc67",
+            "3bb2bf2276754c0ea6b235db9409f508", 
+            "47a53273dcd0428bbe7bf960b8bf7f02",
+            "aeec955f97a6476d88e4547adfeb3c97"
+          ];
+
+          const userTemplates = data.templates
+            .filter((template: any) => assignedTemplateIds.includes(template.template_id || template.id))
+            .map((template: any) => ({
+              id: template.template_id || template.id,
+              name: template.name || `Template ${template.template_id?.slice(-8) || 'Unknown'}`,
+              heygenId: template.template_id || template.id,
+              variables: template.variables || getDefaultVariables(template.template_id || template.id)
+            }));
+
+          setAssignedTemplates(userTemplates);
+        } else {
+          throw new Error('Failed to fetch from HeyGen API');
+        }
+      } catch (error) {
+        console.error('Error fetching assigned templates:', error);
+        
+        // Fallback to hardcoded templates
         const assignedTemplateIds = [
           "bccf8cfb2b1e422dbc425755f1b7dc67",
           "3bb2bf2276754c0ea6b235db9409f508", 
@@ -33,52 +64,28 @@ export function TemplatesSettings() {
           "aeec955f97a6476d88e4547adfeb3c97"
         ];
 
-        const templatePromises = assignedTemplateIds.map(async (templateId) => {
-          try {
-            // Fetch actual template data from your template service
-            const response = await fetch(`/api/templates/${templateId}`);
-            
-            if (response.ok) {
-              const templateData = await response.json();
-              return {
-                id: templateId,
-                name: templateData.name || `Template ${templateId.slice(-8)}`,
-                heygenId: templateId,
-                variables: templateData.variables || getDefaultVariables(templateId)
-              };
-            } else {
-              // Fallback to predefined template data if API fails
-              return {
-                id: templateId,
-                name: `Template ${templateId.slice(-8)}`,
-                heygenId: templateId,
-                variables: getDefaultVariables(templateId)
-              };
-            }
-          } catch (error) {
-            console.log(`Template ${templateId} not found, using fallback`);
-            return {
-              id: templateId,
-              name: `Template ${templateId.slice(-8)}`,
-              heygenId: templateId,
-              variables: getDefaultVariables(templateId)
-            };
-          }
-        });
+        const fallbackTemplates = assignedTemplateIds.map(templateId => ({
+          id: templateId,
+          name: `Template ${templateId.slice(-8)}`,
+          heygenId: templateId,
+          variables: getDefaultVariables(templateId)
+        }));
 
-        const fetchedTemplates = await Promise.all(templatePromises);
-        setAssignedTemplates(fetchedTemplates.filter(template => template !== null));
-      } catch (error) {
-        console.error('Error fetching assigned templates:', error);
+        setAssignedTemplates(fallbackTemplates);
+        
+        toast({
+          title: "Using Fallback Templates",
+          description: "Unable to load templates from HeyGen. Using default configuration.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchAssignedTemplates();
-  }, []);
+  }, [toast]);
 
-  // Helper function to get default variables for fallback
   const getDefaultVariables = (templateId: string): TemplateVariable[] => {
     const defaultVariableMap: Record<string, TemplateVariable[]> = {
       "bccf8cfb2b1e422dbc425755f1b7dc67": [

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Clapperboard } from "lucide-react";
 import { TemplateSelector } from "./video-template/TemplateSelector";
 import { IntegrationMethodSelector } from "./video-template/IntegrationMethodSelector";
@@ -28,12 +29,18 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
 
-  // Fetch templates dynamically
+  // Fetch templates from HeyGen API
   useEffect(() => {
     const fetchUserTemplates = async () => {
       setIsLoadingTemplates(true);
       try {
-        // Get user's assigned template IDs from settings
+        const { data, error } = await supabase.functions.invoke('heygen-templates');
+        
+        if (error || !data.success) {
+          throw new Error(error?.message || data?.error || 'Failed to fetch templates');
+        }
+
+        // Transform and filter templates
         const assignedTemplateIds = [
           "bccf8cfb2b1e422dbc425755f1b7dc67",
           "3bb2bf2276754c0ea6b235db9409f508", 
@@ -41,40 +48,17 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
           "aeec955f97a6476d88e4547adfeb3c97"
         ];
 
-        const templatePromises = assignedTemplateIds.map(async (templateId) => {
-          try {
-            // Fetch actual template data from your template service
-            const response = await fetch(`/api/templates/${templateId}`);
-            
-            if (response.ok) {
-              const templateData = await response.json();
-              return {
-                id: templateId,
-                name: templateData.name || `Template ${templateId.slice(-8)}`,
-                variables: templateData.variables || getDefaultVariables(templateId)
-              };
-            } else {
-              // Fallback to predefined variables if API fails
-              return {
-                id: templateId,
-                name: `Template ${templateId.slice(-8)}`,
-                variables: getDefaultVariables(templateId)
-              };
-            }
-          } catch (error) {
-            console.log(`Template ${templateId} not found, using fallback`);
-            return {
-              id: templateId,
-              name: `Template ${templateId.slice(-8)}`,
-              variables: getDefaultVariables(templateId)
-            };
-          }
-        });
+        const transformedTemplates = data.templates
+          .filter((template: any) => assignedTemplateIds.includes(template.template_id || template.id))
+          .map((template: any) => ({
+            id: template.template_id || template.id,
+            name: template.name || `Template ${template.template_id?.slice(-8) || 'Unknown'}`,
+            variables: template.variables || getDefaultVariables(template.template_id || template.id)
+          }));
 
-        const fetchedTemplates = await Promise.all(templatePromises);
-        setTemplates(fetchedTemplates.filter(template => template !== null));
+        setTemplates(transformedTemplates);
         
-        if (fetchedTemplates.length === 0) {
+        if (transformedTemplates.length === 0) {
           toast({
             title: "No Templates Available",
             description: "No video templates are assigned to your account. Please contact your administrator.",
@@ -83,9 +67,26 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         }
       } catch (error) {
         console.error('Error fetching user templates:', error);
+        
+        // Fallback to hardcoded templates
+        const assignedTemplateIds = [
+          "bccf8cfb2b1e422dbc425755f1b7dc67",
+          "3bb2bf2276754c0ea6b235db9409f508", 
+          "47a53273dcd0428bbe7bf960b8bf7f02",
+          "aeec955f97a6476d88e4547adfeb3c97"
+        ];
+
+        const fallbackTemplates = assignedTemplateIds.map(templateId => ({
+          id: templateId,
+          name: `Template ${templateId.slice(-8)}`,
+          variables: getDefaultVariables(templateId)
+        }));
+
+        setTemplates(fallbackTemplates);
+        
         toast({
-          title: "Error Loading Templates",
-          description: "Failed to load your assigned templates. Please try again.",
+          title: "Using Fallback Templates",
+          description: "Unable to load templates from HeyGen. Using default configuration.",
           variant: "destructive",
         });
       } finally {
@@ -96,7 +97,6 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     fetchUserTemplates();
   }, [toast]);
 
-  // Helper function to get default variables for fallback
   const getDefaultVariables = (templateId: string): string[] => {
     const defaultVariableMap: Record<string, string[]> = {
       "bccf8cfb2b1e422dbc425755f1b7dc67": ["product_name", "product_price", "product_discount", "category_name", "feature_one", "feature_two", "feature_three", "website_description", "product_image"],
