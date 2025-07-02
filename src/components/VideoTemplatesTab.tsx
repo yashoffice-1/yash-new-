@@ -84,6 +84,7 @@ export function VideoTemplatesTab() {
   };
 
   const handleTemplateSelect = (template: VideoTemplate) => {
+    console.log('Template selected in VideoTemplatesTab:', template);
     setSelectedTemplateForCreation(template);
   };
 
