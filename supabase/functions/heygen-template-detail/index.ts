@@ -43,30 +43,54 @@ serve(async (req) => {
     const data = await response.json();
     console.log('Successfully fetched template details from HeyGen');
 
+    console.log('Raw HeyGen API response data:', JSON.stringify(data, null, 2));
+
+    // Extract variables from the HeyGen API response
+    let extractedVariables: string[] = [];
+    
+    // Try multiple possible locations for variables in the response
+    if (data.variables && Array.isArray(data.variables)) {
+      extractedVariables = data.variables.map((v: any) => {
+        if (typeof v === 'string') return v;
+        return v.name || v.key || v.variable_name || v.id;
+      }).filter(Boolean);
+    } else if (data.template && data.template.variables) {
+      extractedVariables = data.template.variables.map((v: any) => {
+        if (typeof v === 'string') return v;
+        return v.name || v.key || v.variable_name || v.id;
+      }).filter(Boolean);
+    } else if (data.data && data.data.variables) {
+      extractedVariables = data.data.variables.map((v: any) => {
+        if (typeof v === 'string') return v;
+        return v.name || v.key || v.variable_name || v.id;
+      }).filter(Boolean);
+    }
+
+    console.log('Extracted variables from HeyGen API:', extractedVariables);
+
     // Transform the response to extract variables with metadata
     const templateDetail = {
-      id: data.template_id || templateId,
-      name: data.name || `Template ${templateId.slice(-8)}`,
+      id: data.template_id || data.id || templateId,
+      name: data.name || data.template_name || `Template ${templateId.slice(-8)}`,
       description: data.description || 'HeyGen video template',
-      thumbnail: data.thumbnail || data.preview_url,
+      thumbnail: data.thumbnail || data.preview_url || data.cover_image,
       category: data.category || 'Custom',
       duration: data.duration || '30s',
-      variables: data.variables || [],
+      variables: extractedVariables,
       // Extract variable names and types for easier processing
-      variableNames: (data.variables || []).map((v: any) => v.name || v.key),
-      variableTypes: (data.variables || []).reduce((acc: any, v: any) => {
-        const name = v.name || v.key;
-        if (name) {
-          acc[name] = {
-            type: v.type || 'text',
-            required: v.required || false,
-            charLimit: v.char_limit || v.maxLength || 500,
-            description: v.description || ''
-          };
-        }
+      variableNames: extractedVariables,
+      variableTypes: extractedVariables.reduce((acc: any, varName: string) => {
+        acc[varName] = {
+          type: 'text',
+          required: true,
+          charLimit: 500,
+          description: `Variable for ${varName.replace(/_/g, ' ')}`
+        };
         return acc;
       }, {})
     };
+
+    console.log('Final template detail to return:', JSON.stringify(templateDetail, null, 2));
 
     return new Response(JSON.stringify({ 
       success: true, 
