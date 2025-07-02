@@ -3,14 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Clapperboard } from "lucide-react";
 import { TemplateSelector } from "./video-template/TemplateSelector";
-import { IntegrationMethodSelector } from "./video-template/IntegrationMethodSelector";
 import { ProductVariableTable } from "./video-template/ProductVariableTable";
 import { VideoCreationControls } from "./video-template/VideoCreationControls";
 import { templateManager, type TemplateDetail } from "@/api/template-manager";
 import { 
   InventoryItem, 
-  ProductVariableState, 
-  IntegrationMethod 
+  ProductVariableState
 } from "./video-template/types";
 import { initializeProductVariables } from "./video-template/utils";
 
@@ -18,6 +16,7 @@ interface Template {
   id: string;
   name: string;
   variables: string[];
+  thumbnail?: string;
 }
 
 interface VideoTemplateUtilityProps {
@@ -29,7 +28,6 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [templateVariables, setTemplateVariables] = useState<string[]>([]);
-  const [integrationMethod, setIntegrationMethod] = useState<IntegrationMethod>('direct');
   const [productVariables, setProductVariables] = useState<Record<string, ProductVariableState>>({});
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
@@ -105,7 +103,8 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         const transformedTemplates: Template[] = templateDetails.map(template => ({
           id: template.id,
           name: template.name,
-          variables: template.variables
+          variables: template.variables,
+          thumbnail: template.thumbnail
         }));
 
         setTemplates(transformedTemplates);
@@ -254,9 +253,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         finalData[variable] = varData.aiSuggested || varData.extracted || "";
       });
 
-      const endpoint = integrationMethod === 'direct' ? '/api/heygen-direct' : '/api/heygen-generate';
-      
-      const response = await fetch(endpoint, {
+      const response = await fetch('/functions/v1/heygen-direct', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -276,12 +273,11 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       const result = await response.json();
       
       if (result.success) {
-        const method = integrationMethod === 'direct' ? 'HeyGen Direct API' : 'Google Sheets + Zapier';
         const templateName = templates.find(t => t.id === selectedTemplate)?.name || 'Selected Template';
         
         toast({
           title: "Video Generation Successful! 🎉",
-          description: `Your video for "${selectedProduct.name}" using "${templateName}" has been successfully submitted via ${method}. You'll receive your video shortly!`,
+          description: `Your video for "${selectedProduct.name}" using "${templateName}" has been successfully submitted via HeyGen Direct API. You'll receive your video shortly!`,
         });
         
         // Reset the form after successful submission
@@ -339,10 +335,30 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <IntegrationMethodSelector
-            integrationMethod={integrationMethod}
-            onIntegrationMethodChange={setIntegrationMethod}
-          />
+          {selectedTemplate && (
+            <div className="p-4 bg-gray-50 rounded-lg border">
+              <div className="flex items-center space-x-4">
+                {templates.find(t => t.id === selectedTemplate)?.thumbnail && (
+                  <img 
+                    src={templates.find(t => t.id === selectedTemplate)?.thumbnail || `https://img.heygen.com/template/${selectedTemplate}/thumbnail.jpg`}
+                    alt="Template thumbnail"
+                    className="w-24 h-16 object-cover rounded border"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop';
+                    }}
+                  />
+                )}
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {templates.find(t => t.id === selectedTemplate)?.name || `Template ${selectedTemplate.slice(-8)}`}
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    {templateVariables.length} variables • Creating video for {selectedProduct.name}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <TemplateSelector
             templates={templates}
