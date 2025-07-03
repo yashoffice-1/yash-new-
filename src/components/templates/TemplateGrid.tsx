@@ -1,8 +1,10 @@
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Clock, Tag, Image, Smartphone } from "lucide-react";
+import { Play, Clock, Tag, Image, Smartphone, Eye } from "lucide-react";
+import { TemplatePreviewModal } from "./TemplatePreviewModal";
 
 interface VideoTemplate {
   id: string;
@@ -23,9 +25,17 @@ interface TemplateGridProps {
 }
 
 export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps) {
+  const [selectedTemplateForPreview, setSelectedTemplateForPreview] = useState<VideoTemplate | null>(null);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+
   const handleUseTemplate = (template: VideoTemplate) => {
     console.log('Using template:', template);
     onTemplateSelect?.(template);
+  };
+
+  const handlePreviewTemplate = (template: VideoTemplate) => {
+    setSelectedTemplateForPreview(template);
+    setPreviewModalOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -130,16 +140,27 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
                        </div>
                      )}
                      
-                    <Button
-                      size="sm"
-                      onClick={() => handleUseTemplate(template)}
-                      disabled={template.status !== 'active'}
-                      className="w-full flex items-center justify-center space-x-1 text-xs"
-                    >
-                      <Play className="h-3 w-3" />
-                      <span>Use</span>
-                    </Button>
-                  </CardContent>
+                     <div className="flex space-x-1">
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => handlePreviewTemplate(template)}
+                         className="flex-1 flex items-center justify-center space-x-1 text-xs"
+                       >
+                         <Eye className="h-3 w-3" />
+                         <span>Preview</span>
+                       </Button>
+                       <Button
+                         size="sm"
+                         onClick={() => handleUseTemplate(template)}
+                         disabled={template.status !== 'active'}
+                         className="flex-1 flex items-center justify-center space-x-1 text-xs"
+                       >
+                         <Play className="h-3 w-3" />
+                         <span>Use</span>
+                       </Button>
+                     </div>
+                   </CardContent>
                 </Card>
               );
             })}
@@ -238,23 +259,42 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
                         </div>
                       </div>
                     )}
-                    
-                    <Button
-                      size="sm"
-                      onClick={() => handleUseTemplate(template)}
-                      disabled={template.status !== 'active'}
-                      className="w-full flex items-center justify-center space-x-2"
-                    >
-                      <Play className="h-3 w-3" />
-                      <span>Use Template</span>
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+                     
+                     <div className="flex space-x-2">
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => handlePreviewTemplate(template)}
+                         className="flex-1 flex items-center justify-center space-x-2"
+                       >
+                         <Eye className="h-3 w-3" />
+                         <span>Preview</span>
+                       </Button>
+                       <Button
+                         size="sm"
+                         onClick={() => handleUseTemplate(template)}
+                         disabled={template.status !== 'active'}
+                         className="flex-1 flex items-center justify-center space-x-2"
+                       >
+                         <Play className="h-3 w-3" />
+                         <span>Use Template</span>
+                       </Button>
+                     </div>
+                   </CardContent>
+                 </Card>
+               );
+             })}
+           </div>
+         </div>
+       )}
+
+       {/* Template Preview Modal */}
+       <TemplatePreviewModal
+         template={selectedTemplateForPreview}
+         open={previewModalOpen}
+         onOpenChange={setPreviewModalOpen}
+         onUseTemplate={handleUseTemplate}
+       />
+     </div>
+   );
+ }
