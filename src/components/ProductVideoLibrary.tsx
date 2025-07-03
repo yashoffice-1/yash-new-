@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { Download, ExternalLink, Play } from "lucide-react";
+import { Download, ExternalLink, Play, Clock, Sparkles } from "lucide-react";
 
 interface GeneratedVideo {
   id: string;
@@ -23,6 +24,7 @@ interface ProductVideoLibraryProps {
 export function ProductVideoLibrary({ productId, productName }: ProductVideoLibraryProps) {
   const [videos, setVideos] = useState<GeneratedVideo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [progressStates, setProgressStates] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchProductVideos = async () => {
@@ -92,6 +94,63 @@ export function ProductVideoLibrary({ productId, productName }: ProductVideoLibr
     fetchProductVideos();
   }, [productId, productName]);
 
+  // Animate progress for processing videos
+  useEffect(() => {
+    const processingVideos = videos.filter(video => 
+      video.asset_url === 'processing' || !video.asset_url
+    );
+
+    if (processingVideos.length === 0) return;
+
+    // Initialize progress states for processing videos
+    const initialProgress: Record<string, number> = {};
+    processingVideos.forEach(video => {
+      if (!(video.id in progressStates)) {
+        // Start with random progress between 10-30% to simulate real progress
+        initialProgress[video.id] = Math.floor(Math.random() * 20) + 10;
+      }
+    });
+
+    if (Object.keys(initialProgress).length > 0) {
+      setProgressStates(prev => ({ ...prev, ...initialProgress }));
+    }
+
+    // Animate progress
+    const interval = setInterval(() => {
+      setProgressStates(prev => {
+        const newStates = { ...prev };
+        let hasUpdates = false;
+
+        processingVideos.forEach(video => {
+          const currentProgress = newStates[video.id] || 0;
+          
+          // Simulate realistic progress: faster at start, slower near end
+          let increment;
+          if (currentProgress < 30) {
+            increment = Math.random() * 8 + 2; // 2-10% increments early on
+          } else if (currentProgress < 70) {
+            increment = Math.random() * 4 + 1; // 1-5% increments in middle
+          } else if (currentProgress < 90) {
+            increment = Math.random() * 2 + 0.5; // 0.5-2.5% increments near end
+          } else {
+            increment = Math.random() * 0.5; // Very slow near completion
+          }
+
+          const newProgress = Math.min(95, currentProgress + increment); // Cap at 95% to avoid showing 100% without completion
+          
+          if (newProgress !== currentProgress) {
+            newStates[video.id] = newProgress;
+            hasUpdates = true;
+          }
+        });
+
+        return hasUpdates ? newStates : prev;
+      });
+    }, 1500 + Math.random() * 1000); // Random interval between 1.5-2.5 seconds
+
+    return () => clearInterval(interval);
+  }, [videos, progressStates]);
+
   const handleDownload = (url: string, title: string) => {
     const link = document.createElement('a');
     link.href = url;
@@ -143,71 +202,112 @@ export function ProductVideoLibrary({ productId, productName }: ProductVideoLibr
           </div>
         ) : (
           <div className="space-y-4">
-            {videos.map((video) => (
-              <div key={video.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  {video.gif_url && video.gif_url !== 'processing' && video.gif_url !== 'failed' ? (
-                    <img 
-                      src={video.gif_url} 
-                      alt="Video preview"
-                      className="w-16 h-12 object-cover rounded border"
-                    />
-                  ) : (
-                    <div className="w-16 h-12 bg-gray-200 rounded border flex items-center justify-center">
-                      <Play className="h-4 w-4 text-gray-500" />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <h4 className="font-medium text-sm">{video.title}</h4>
-                    {video.description && (
-                      <p className="text-xs text-gray-600 mt-1">{video.description}</p>
+            {videos.map((video) => {
+              const isProcessing = video.asset_url === 'processing' || !video.asset_url;
+              const currentProgress = progressStates[video.id] || 0;
+              
+              return (
+                <div key={video.id} className={`flex items-center justify-between p-4 border rounded-lg transition-all duration-300 ${
+                  isProcessing ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 animate-pulse' : ''
+                }`}>
+                  <div className="flex items-center space-x-4">
+                    {video.gif_url && video.gif_url !== 'processing' && video.gif_url !== 'failed' ? (
+                      <img 
+                        src={video.gif_url} 
+                        alt="Video preview"
+                        className="w-16 h-12 object-cover rounded border"
+                      />
+                    ) : isProcessing ? (
+                      <div className="w-16 h-12 bg-gradient-to-br from-blue-100 to-purple-100 rounded border flex items-center justify-center relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-[slide-in-right_2s_ease-in-out_infinite]"></div>
+                        <Sparkles className="h-4 w-4 text-blue-600 animate-spin" />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-12 bg-gray-200 rounded border flex items-center justify-center">
+                        <Play className="h-4 w-4 text-gray-500" />
+                      </div>
                     )}
-                    <div className="flex items-center space-x-2 mt-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {video.source_system}
-                      </Badge>
-                      <span className="text-xs text-gray-500">
-                        {new Date(video.created_at).toLocaleDateString()}
-                      </span>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-sm">{video.title}</h4>
+                      {video.description && (
+                        <p className="text-xs text-gray-600 mt-1">{video.description}</p>
+                      )}
+                      
+                      {/* Progress bar for processing videos */}
+                      {isProcessing && (
+                        <div className="mt-2 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-blue-600 flex items-center space-x-1">
+                              <Clock className="h-3 w-3" />
+                              <span>Generating video...</span>
+                            </span>
+                            <span className="text-xs font-bold text-purple-600">
+                              {Math.round(currentProgress)}%
+                            </span>
+                          </div>
+                          <Progress 
+                            value={currentProgress} 
+                            className="h-2 bg-blue-100"
+                          />
+                          <p className="text-xs text-gray-500">
+                            Estimated time remaining: {Math.max(1, Math.round((100 - currentProgress) / 20))} minutes
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {video.source_system}
+                        </Badge>
+                        <span className="text-xs text-gray-500">
+                          {new Date(video.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    {video.asset_url && video.asset_url !== 'processing' && video.asset_url !== 'failed' && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenVideo(video.asset_url)}
+                          className="flex items-center space-x-1"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          <span>View</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(video.asset_url, video.title)}
+                          className="flex items-center space-x-1"
+                        >
+                          <Download className="h-3 w-3" />
+                          <span>Download</span>
+                        </Button>
+                      </>
+                    )}
+                    {isProcessing && (
+                      <div className="flex flex-col items-end space-y-1">
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 animate-pulse">
+                          <Sparkles className="h-3 w-3 mr-1 animate-spin" />
+                          Processing
+                        </Badge>
+                        <span className="text-xs text-gray-500">
+                          HeyGen is creating your video
+                        </span>
+                      </div>
+                    )}
+                    {video.asset_url === 'failed' && (
+                      <Badge variant="destructive" className="text-xs">
+                        Failed
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  {video.asset_url && video.asset_url !== 'processing' && video.asset_url !== 'failed' && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenVideo(video.asset_url)}
-                        className="flex items-center space-x-1"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        <span>View</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDownload(video.asset_url, video.title)}
-                        className="flex items-center space-x-1"
-                      >
-                        <Download className="h-3 w-3" />
-                        <span>Download</span>
-                      </Button>
-                    </>
-                  )}
-                  {(video.asset_url === 'processing' || !video.asset_url) && (
-                    <Badge variant="outline" className="text-xs">
-                      Processing...
-                    </Badge>
-                  )}
-                  {video.asset_url === 'failed' && (
-                    <Badge variant="destructive" className="text-xs">
-                      Failed
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
