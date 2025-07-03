@@ -44,8 +44,8 @@ serve(async (req) => {
     console.log('Template ID:', templateId);
     console.log('Product ID:', productId);
 
-    // Prepare variables for HeyGen template according to API documentation
-    const variables: Record<string, any> = {};
+    // Prepare variables for HeyGen template - variables should be a string according to API docs
+    const variablesObject: Record<string, any> = {};
     
     // Use user improved data first, then AI suggested, then extracted as fallback
     const allKeys = Object.keys(templateData.userImproved || {});
@@ -54,19 +54,13 @@ serve(async (req) => {
                      templateData.aiSuggested[key] || 
                      templateData.extracted[key] || '';
       
-      // Format variables according to HeyGen API documentation format
-      variables[key] = {
-        name: key,
-        type: key.includes('image') ? 'image' : 'text',
-        properties: key.includes('image') ? {
-          url: content
-        } : {
-          content: content
-        }
-      };
+      // Store variables as key-value pairs
+      variablesObject[key] = content;
     });
 
-    console.log('Template variables prepared in HeyGen format:', variables);
+    // Convert variables object to JSON string as expected by HeyGen API
+    const variables = JSON.stringify(variablesObject);
+    console.log('Template variables prepared as JSON string:', variables);
 
     // If no variables provided, this might be a template that doesn't need variables
     if (allKeys.length === 0) {
