@@ -87,99 +87,50 @@ serve(async (req) => {
     console.log('Found our video:', ourVideo.status);
     console.log('Video URL:', ourVideo.video_url);
 
-    if (ourVideo.status === 'completed' && ourVideo.video_url) {
-      console.log('Video is completed! Downloading and storing...');
+    if (ourVideo.status === 'completed' && ourVideo.video_id) {
+      console.log('Video is completed! Getting shareable URL...');
       
-      // Download and store the video to our storage
-      let storedVideoUrl = ourVideo.video_url;
-      let storedGifUrl = ourVideo.gif_url;
-
+      // Get shareable URL using HeyGen share API
+      let shareableUrl = ourVideo.video_url; // fallback to original URL
+      
       try {
-        // Download video
-        console.log('Fetching video from URL:', ourVideo.video_url);
-        const videoResponse = await fetch(ourVideo.video_url, {
+        console.log('Getting shareable URL for video ID:', ourVideo.video_id);
+        const shareResponse = await fetch('https://api.heygen.com/v1/video/share', {
+          method: 'POST',
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
+            'X-Api-Key': heygenApiKey,
+            'accept': 'application/json',
+            'content-type': 'application/json'
+          },
+          body: JSON.stringify({
+            video_id: ourVideo.video_id
+          })
         });
         
-        console.log('Video response status:', videoResponse.status);
+        console.log('Share response status:', shareResponse.status);
         
-        if (videoResponse.ok) {
-          const videoBlob = await videoResponse.blob();
-          console.log('Video blob size:', videoBlob.size);
+        if (shareResponse.ok) {
+          const shareData = await shareResponse.json();
+          console.log('Share response:', shareData);
           
-          const videoFileName = `heygen-video-${callbackId}-${Date.now()}.mp4`;
-          
-          const { data: videoUpload, error: videoUploadError } = await supabase.storage
-            .from('generated-assets')
-            .upload(videoFileName, videoBlob, {
-              contentType: 'video/mp4',
-              upsert: true
-            });
-
-          if (videoUploadError) {
-            console.error('Video upload error:', videoUploadError);
-          } else {
-            const { data: { publicUrl: videoPublicUrl } } = supabase.storage
-              .from('generated-assets')
-              .getPublicUrl(videoUpload.path);
-            storedVideoUrl = videoPublicUrl;
-            console.log('Video stored successfully:', videoPublicUrl);
+          if (shareData.code === 100 && shareData.data) {
+            shareableUrl = shareData.data;
+            console.log('Got shareable URL:', shareableUrl);
           }
         } else {
-          console.error('Failed to fetch video:', videoResponse.status, videoResponse.statusText);
+          console.error('Failed to get shareable URL:', shareResponse.status, shareResponse.statusText);
         }
-
-        // Download GIF if available
-        if (ourVideo.gif_url) {
-          console.log('Fetching GIF from URL:', ourVideo.gif_url);
-          const gifResponse = await fetch(ourVideo.gif_url, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          });
-          
-          console.log('GIF response status:', gifResponse.status);
-          
-          if (gifResponse.ok) {
-            const gifBlob = await gifResponse.blob();
-            console.log('GIF blob size:', gifBlob.size);
-            
-            const gifFileName = `heygen-gif-${callbackId}-${Date.now()}.gif`;
-            
-            const { data: gifUpload, error: gifUploadError } = await supabase.storage
-              .from('generated-assets')
-              .upload(gifFileName, gifBlob, {
-                contentType: 'image/gif',
-                upsert: true
-              });
-
-            if (gifUploadError) {
-              console.error('GIF upload error:', gifUploadError);
-            } else {
-              const { data: { publicUrl: gifPublicUrl } } = supabase.storage
-                .from('generated-assets')
-                .getPublicUrl(gifUpload.path);
-              storedGifUrl = gifPublicUrl;
-              console.log('GIF stored successfully:', gifPublicUrl);
-            }
-          } else {
-            console.error('Failed to fetch GIF:', gifResponse.status, gifResponse.statusText);
-          }
-        }
-      } catch (downloadError) {
-        console.error('Failed to download and store assets:', downloadError);
-        console.log('Using original URLs as fallback');
+      } catch (shareError) {
+        console.error('Error getting shareable URL:', shareError);
       }
 
-      // Update the asset with the stored video URL
+      // Update the asset with the shareable URL
       const { error: updateError } = await supabase
         .from('asset_library')
         .update({
-          asset_url: storedVideoUrl,
-          gif_url: storedGifUrl || null,
-          description: `${asset.description} | Real video retrieved and stored: ${new Date().toISOString()}`
+          asset_url: shareableUrl,
+          gif_url: ourVideo.gif_url || null,
+          description: `${asset.description} | Shareable video URL retrieved: ${new Date().toISOString()}`
         })
         .eq('id', assetId);
 
@@ -188,13 +139,13 @@ serve(async (req) => {
         throw updateError;
       }
 
-      console.log('Asset updated with stored video');
+      console.log('Asset updated with shareable URL');
       
       return new Response(JSON.stringify({ 
         success: true,
-        message: 'Real video downloaded, stored, and updated',
-        video_url: storedVideoUrl,
-        gif_url: storedGifUrl,
+        message: 'Shareable video URL retrieved and updated',
+        video_url: shareableUrl,
+        gif_url: ourVideo.gif_url,
         status: 'completed'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
