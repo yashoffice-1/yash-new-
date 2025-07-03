@@ -241,17 +241,17 @@ export function AssetLibrary() {
                           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 text-blue-800 p-4">
                             <div className="text-center">
                               <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                              <p className="font-medium mb-2">🎬 HeyGen is creating your video</p>
+                              <p className="font-medium mb-2">🎬 FeedGenesis is working on your video</p>
                               <div className="flex items-center space-x-2 mb-2">
                                 <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-32">
-                                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '75%' }}></div>
+                                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: "75%" }}></div>
                                 </div>
                                 <span className="text-xs text-gray-600">75%</span>
                               </div>
                               <p className="text-xs text-gray-600">
                                 Estimated time remaining: 1-2 minutes
                               </p>
-                              {asset.asset_url === 'pending' && (
+                              {asset.asset_url === "pending" && (
                                 <p className="text-xs text-orange-600 mt-1">
                                   ⏳ Request sent - Processing will begin shortly
                                 </p>

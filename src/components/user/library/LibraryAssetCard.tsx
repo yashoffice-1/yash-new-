@@ -94,14 +94,14 @@ export function LibraryAssetCard({ asset }: LibraryAssetCardProps) {
                   ✨ GIF preview available
                 </p>
               )}
-              {asset.status === 'processing' && (
+              {asset.status === "processing" && (
                 <div className="mt-2">
                   <p className="text-xs text-blue-600 mb-1">
-                    🎬 HeyGen is creating your video
+                    🎬 FeedGenesis is working on your video
                   </p>
                   <div className="flex items-center space-x-2">
                     <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '75%' }}></div>
+                      <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: "75%" }}></div>
                     </div>
                     <span className="text-xs text-gray-500">75%</span>
                   </div>
@@ -110,9 +110,9 @@ export function LibraryAssetCard({ asset }: LibraryAssetCardProps) {
                   </p>
                 </div>
               )}
-              {asset.status === 'processing' && asset.url === 'pending' && (
+              {asset.status === "processing" && asset.url === "pending" && (
                 <p className="text-xs text-orange-600 mt-1">
-                  ⏳ Request sent to HeyGen - Processing will begin shortly
+                  ⏳ Request sent - Processing will begin shortly
                 </p>
               )}
               {asset.status === 'failed' && (
