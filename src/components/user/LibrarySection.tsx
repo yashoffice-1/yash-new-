@@ -65,8 +65,8 @@ export function LibrarySection() {
 
     fetchAssets();
     
-    // Refresh assets every 30 seconds to check for updates
-    const interval = setInterval(fetchAssets, 30000);
+    // Refresh assets every 10 seconds to check for updates (more frequent for better UX)
+    const interval = setInterval(fetchAssets, 10000);
     return () => clearInterval(interval);
   }, [getLibraryAssets]);
 
