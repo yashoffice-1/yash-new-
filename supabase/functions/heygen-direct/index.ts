@@ -88,7 +88,12 @@ serve(async (req) => {
 
     if (!heygenResponse.ok) {
       const errorText = await heygenResponse.text();
-      console.error('HeyGen API error:', errorText);
+      console.error('HeyGen API error:', {
+        status: heygenResponse.status,
+        statusText: heygenResponse.statusText,
+        error: errorText,
+        url: heygenResponse.url
+      });
       throw new Error(`HeyGen API error: ${heygenResponse.status} - ${errorText}`);
     }
 
@@ -132,10 +137,16 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in heygen-direct function:', error);
+    console.error('Error in heygen-direct function:', {
+      message: error.message,
+      stack: error.stack,
+      templateId,
+      productId
+    });
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message 
+      error: error.message,
+      details: 'Check function logs for more information'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
