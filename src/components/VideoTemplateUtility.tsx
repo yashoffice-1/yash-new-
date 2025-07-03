@@ -281,8 +281,8 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     
     // Show initial "getting ready" message
     toast({
-      title: "Video Processing Started",
-      description: "Your video is being prepared. This may take a few minutes...",
+      title: "🎬 HeyGen Video Generation Started",
+      description: "Your video is now being generated on HeyGen's servers. This typically takes 2-5 minutes. You can check progress in your HeyGen dashboard or wait for it to appear in the Asset Library.",
     });
     
     try {
@@ -349,8 +349,8 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         const templateName = templates.find(t => t.id === selectedTemplate)?.name || 'Selected Template';
         
         toast({
-          title: "Video Generation Successful! 🎉",
-          description: `Your video for "${selectedProduct.name}" using "${templateName}" has been successfully submitted via HeyGen Direct API. You'll receive your video shortly!`,
+          title: "🎬 HeyGen Video Generation Started!",
+          description: `Video for "${selectedProduct.name}" using "${templateName}" is now being processed on HeyGen. Check your HeyGen dashboard for progress or wait for it to appear in the Asset Library (2-5 minutes).`,
         });
         
         // Reset the form after successful submission
