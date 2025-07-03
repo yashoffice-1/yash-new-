@@ -144,33 +144,41 @@ serve(async (req) => {
 
     // Store the generation request in database
     console.log('Storing asset in database...');
-    const { data: asset, error: dbError } = await supabase
-      .from('generated_assets')
-      .insert({
-        channel: 'youtube',
-        format: 'mp4',
-        source_system: 'heygen',
-        asset_type: 'video',
-        url: heygenData.data?.video_url || 'pending',
-        instruction: instruction || 'Direct HeyGen API video generation',
-        approved: false,
-        inventory_id: productId
-      })
-      .select()
-      .single();
+    let assetId = null;
+    try {
+      const { data: asset, error: dbError } = await supabase
+        .from('generated_assets')
+        .insert({
+          channel: 'youtube',
+          format: 'mp4',
+          source_system: 'heygen',
+          asset_type: 'video',
+          url: heygenData.data?.video_url || 'pending',
+          instruction: instruction || 'Direct HeyGen API video generation',
+          approved: false,
+          inventory_id: productId
+        })
+        .select()
+        .single();
 
-    if (dbError) {
-      console.error('Database error:', dbError);
-      throw new Error(`Database error: ${dbError.message}`);
+      if (dbError) {
+        console.error('Database error:', dbError);
+        // Don't throw here - video was created successfully in HeyGen
+        console.log('Video created in HeyGen but database storage failed:', dbError.message);
+      } else {
+        console.log('Video generation request stored in database with ID:', asset.id);
+        assetId = asset.id;
+      }
+    } catch (dbStoreError) {
+      console.error('Database storage error (non-fatal):', dbStoreError);
+      // Continue execution - video was created in HeyGen successfully
     }
-
-    console.log('Video generation request stored in database with ID:', asset.id);
 
     const responseData = { 
       success: true, 
       video_id: heygenData.data?.video_id,
       video_url: heygenData.data?.video_url || 'processing',
-      asset_id: asset.id,
+      asset_id: assetId,
       type: 'video',
       message: 'Video generation started via HeyGen Direct API. Processing may take a few minutes.',
       template_id: templateId,
