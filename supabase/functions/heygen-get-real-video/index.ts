@@ -57,11 +57,11 @@ serve(async (req) => {
 
     // Get all videos from HeyGen
     console.log('Fetching videos from HeyGen API...');
-    const heygenResponse = await fetch('https://api.heygen.com/v2/video/list', {
+    const heygenResponse = await fetch('https://api.heygen.com/v1/video.list', {
       method: 'GET',
       headers: {
         'X-Api-Key': heygenApiKey,
-        'Content-Type': 'application/json'
+        'accept': 'application/json'
       }
     });
 

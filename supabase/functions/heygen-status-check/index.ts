@@ -61,11 +61,11 @@ serve(async (req) => {
 
     // Check HeyGen status using the List Videos API
     console.log('Checking HeyGen API for video status...');
-    const heygenResponse = await fetch('https://api.heygen.com/v2/video/list', {
+    const heygenResponse = await fetch('https://api.heygen.com/v1/video.list', {
       method: 'GET',
       headers: {
         'X-Api-Key': heygenApiKey,
-        'Content-Type': 'application/json'
+        'accept': 'application/json'
       }
     });
 
