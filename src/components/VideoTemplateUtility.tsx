@@ -258,12 +258,22 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       let functionData: any = null;
       
       try {
-        console.log('Invoking heygen-direct function with payload:', {
-          templateId: selectedTemplate,
-          productId: selectedProduct.id,
-          finalData
-        });
-
+        console.log('Testing basic function connectivity...');
+        
+        // First test basic connectivity
+        const { data: testData, error: testError } = await supabase.functions.invoke('test-heygen');
+        console.log('Test function response:', { testData, testError });
+        
+        if (testError) {
+          throw new Error(`Function connectivity test failed: ${JSON.stringify(testError)}`);
+        }
+        
+        if (!testData?.hasHeyGenKey) {
+          throw new Error('HeyGen API key is not configured in Supabase secrets. Please add HEYGEN_API_KEY.');
+        }
+        
+        console.log('Basic connectivity OK, now calling heygen-direct function...');
+        
         const { data, error } = await supabase.functions.invoke('heygen-direct', {
           body: {
             templateId: selectedTemplate,
