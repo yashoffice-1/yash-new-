@@ -44,14 +44,6 @@ serve(async (req) => {
     console.log('Successfully fetched template details from HeyGen');
 
     console.log('Raw HeyGen API response data:', JSON.stringify(data, null, 2));
-    console.log('Checking for duration in response:', {
-      'data.duration': data.duration,
-      'data.video_duration': data.video_duration,
-      'data.length': data.length,
-      'data.data?.duration': data.data?.duration,
-      'data.data?.video_duration': data.data?.video_duration,
-      'data.data?.length': data.data?.length
-    });
 
     // Extract template info - try multiple possible response structures
     let templateInfo = data;
@@ -89,23 +81,122 @@ serve(async (req) => {
     console.log('Extracted template thumbnail:', templateThumbnail);
     console.log('Extracted template duration:', templateDuration);
 
-    // Extract variables from the HeyGen API response
+    // Enhanced variable extraction with multiple strategies
     let extractedVariables: string[] = [];
     
-    // Try multiple possible locations for variables in the response
+    // Strategy 1: Direct variables array
     if (templateInfo.variables && Array.isArray(templateInfo.variables)) {
+      console.log('Found variables array directly:', templateInfo.variables);
       extractedVariables = templateInfo.variables.map((v: any) => {
         if (typeof v === 'string') return v;
-        return v.name || v.key || v.variable_name || v.id;
-      }).filter(Boolean);
-    } else if (templateInfo.template && templateInfo.template.variables) {
-      extractedVariables = templateInfo.template.variables.map((v: any) => {
-        if (typeof v === 'string') return v;
-        return v.name || v.key || v.variable_name || v.id;
+        return v.name || v.key || v.variable_name || v.id || v.placeholder;
       }).filter(Boolean);
     }
+    
+    // Strategy 2: Template nested variables
+    if (extractedVariables.length === 0 && templateInfo.template && templateInfo.template.variables) {
+      console.log('Found variables in template object:', templateInfo.template.variables);
+      extractedVariables = templateInfo.template.variables.map((v: any) => {
+        if (typeof v === 'string') return v;
+        return v.name || v.key || v.variable_name || v.id || v.placeholder;
+      }).filter(Boolean);
+    }
+    
+    // Strategy 3: Look for variable_list or variableList
+    if (extractedVariables.length === 0 && (templateInfo.variable_list || templateInfo.variableList)) {
+      const varList = templateInfo.variable_list || templateInfo.variableList;
+      console.log('Found variable_list:', varList);
+      if (Array.isArray(varList)) {
+        extractedVariables = varList.map((v: any) => {
+          if (typeof v === 'string') return v;
+          return v.name || v.key || v.variable_name || v.id || v.placeholder;
+        }).filter(Boolean);
+      }
+    }
+    
+    // Strategy 4: Look for placeholders or elements array
+    if (extractedVariables.length === 0 && templateInfo.elements && Array.isArray(templateInfo.elements)) {
+      console.log('Found elements array, looking for variables:', templateInfo.elements);
+      const elementVariables: string[] = [];
+      templateInfo.elements.forEach((element: any) => {
+        if (element.variable_name) {
+          elementVariables.push(element.variable_name);
+        }
+        if (element.placeholder) {
+          elementVariables.push(element.placeholder);
+        }
+        if (element.name && element.type === 'variable') {
+          elementVariables.push(element.name);
+        }
+      });
+      extractedVariables = [...new Set(elementVariables)]; // Remove duplicates
+    }
+    
+    // Strategy 5: Look for scenes/layers with variables
+    if (extractedVariables.length === 0 && templateInfo.scenes && Array.isArray(templateInfo.scenes)) {
+      console.log('Found scenes array, searching for variables in layers');
+      const sceneVariables: string[] = [];
+      templateInfo.scenes.forEach((scene: any) => {
+        if (scene.layers && Array.isArray(scene.layers)) {
+          scene.layers.forEach((layer: any) => {
+            if (layer.variable_name) {
+              sceneVariables.push(layer.variable_name);
+            }
+            if (layer.placeholder) {
+              sceneVariables.push(layer.placeholder);
+            }
+            if (layer.text_variable) {
+              sceneVariables.push(layer.text_variable);
+            }
+          });
+        }
+      });
+      extractedVariables = [...new Set(sceneVariables)];
+    }
+    
+    // Strategy 6: String parsing for common variable patterns (last resort)
+    if (extractedVariables.length === 0) {
+      console.log('No structured variables found, attempting string parsing');
+      const jsonString = JSON.stringify(templateInfo);
+      const variablePatterns = [
+        /\{\{([^}]+)\}\}/g,  // {{variable_name}}
+        /"variable_name":\s*"([^"]+)"/g,  // "variable_name": "name"
+        /"placeholder":\s*"([^"]+)"/g,    // "placeholder": "name"
+        /"name":\s*"([^"]+)"[^}]*"type":\s*"variable"/g  // name with type variable
+      ];
+      
+      const foundVars = new Set<string>();
+      variablePatterns.forEach(pattern => {
+        let match;
+        while ((match = pattern.exec(jsonString)) !== null) {
+          if (match[1] && match[1].trim()) {
+            foundVars.add(match[1].trim());
+          }
+        }
+      });
+      
+      extractedVariables = Array.from(foundVars);
+      console.log('Variables found through string parsing:', extractedVariables);
+    }
 
-    console.log('Extracted variables from HeyGen API:', extractedVariables);
+    console.log('Final extracted variables from HeyGen API:', extractedVariables);
+    console.log('Total variable count:', extractedVariables.length);
+
+    // If still no variables found, create common fallback variables for mobile templates
+    if (extractedVariables.length === 0 && templateName.toLowerCase().includes('mobile')) {
+      console.log('No variables detected for mobile template, using fallback variables');
+      extractedVariables = [
+        'product_name',
+        'brand_name', 
+        'price',
+        'discount',
+        'description',
+        'call_to_action',
+        'website_url',
+        'product_image'
+      ];
+      console.log('Applied fallback mobile template variables:', extractedVariables);
+    }
 
     // Transform the response to extract variables with metadata
     const templateDetail = {
@@ -116,13 +207,27 @@ serve(async (req) => {
       category: templateInfo.category || 'Custom',
       duration: templateDuration,
       variables: extractedVariables,
-      // Extract variable names and types for easier processing
       variableNames: extractedVariables,
       variableTypes: extractedVariables.reduce((acc: any, varName: string) => {
+        // Determine variable type based on name patterns
+        let varType = 'text';
+        let charLimit = 500;
+        
+        if (varName.toLowerCase().includes('image') || varName.toLowerCase().includes('photo')) {
+          varType = 'image';
+          charLimit = 2000; // URL length
+        } else if (varName.toLowerCase().includes('price') || varName.toLowerCase().includes('discount')) {
+          charLimit = 20; // Short text for prices
+        } else if (varName.toLowerCase().includes('name') || varName.toLowerCase().includes('title')) {
+          charLimit = 100; // Medium length for names
+        } else if (varName.toLowerCase().includes('description')) {
+          charLimit = 300; // Longer for descriptions
+        }
+        
         acc[varName] = {
-          type: 'text',
+          type: varType,
           required: true,
-          charLimit: 500,
+          charLimit: charLimit,
           description: `Variable for ${varName.replace(/_/g, ' ')}`
         };
         return acc;
@@ -130,6 +235,8 @@ serve(async (req) => {
     };
 
     console.log('Final template detail to return:', JSON.stringify(templateDetail, null, 2));
+    console.log('Variables being returned:', templateDetail.variables);
+    console.log('Variable count in response:', templateDetail.variables.length);
 
     return new Response(JSON.stringify({ 
       success: true, 

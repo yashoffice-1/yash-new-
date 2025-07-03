@@ -40,49 +40,70 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     setSelectedTemplate(templateId);
     
     try {
-      console.log('Fetching template detail from database first for:', templateId);
-      // Get detailed template information from database-first approach
+      console.log('Fetching template detail with enhanced variable detection for:', templateId);
+      
+      // Get detailed template information with enhanced variable detection
       const templateDetail = await templateManager.getTemplateDetail(templateId, true);
       
       console.log('Template detail response:', templateDetail);
+      console.log('Variables from template detail:', templateDetail?.variables);
+      console.log('Variable count from template detail:', templateDetail?.variables?.length || 0);
       
-      if (templateDetail) {
-        console.log('Setting template variables:', templateDetail.variables);
+      if (templateDetail && templateDetail.variables) {
+        console.log('Setting template variables from API response:', templateDetail.variables);
         setTemplateVariables(templateDetail.variables);
+        
+        // Log each variable for debugging
+        templateDetail.variables.forEach((variable, index) => {
+          console.log(`Variable ${index + 1}: "${variable}"`);
+        });
         
         // Generate AI suggestions for the variables
         await generateVariableSuggestions(templateDetail.variables);
         
-        
         toast({
           title: "Template Selected",
-          description: `${templateDetail.name} loaded for ${selectedProduct.name}`,
+          description: `${templateDetail.name} loaded with ${templateDetail.variables.length} variables for ${selectedProduct.name}`,
         });
       } else {
-        console.error('Template detail is null');
-        throw new Error('Template detail not found');
+        console.error('Template detail is null or has no variables');
+        
+        // Try fallback approach
+        const template = templates.find(t => t.id === templateId);
+        if (template && template.variables.length > 0) {
+          console.log('Using fallback template variables:', template.variables);
+          setTemplateVariables(template.variables);
+          await generateVariableSuggestions(template.variables);
+          
+          toast({
+            title: "Template Selected",
+            description: `${template.name} loaded with ${template.variables.length} variables (fallback)`,
+            variant: "destructive"
+          });
+        } else {
+          throw new Error('No variables found in template');
+        }
       }
     } catch (error) {
       console.error('Error loading template detail:', error);
       
-      // Fallback to basic template info
+      // Final fallback
       const template = templates.find(t => t.id === templateId);
-      console.log('Using fallback template:', template);
       if (template) {
-        console.log('Setting fallback template variables:', template.variables);
-        setTemplateVariables(template.variables);
+        console.log('Using basic template fallback:', template);
+        setTemplateVariables(template.variables || []);
         
-        // Generate AI suggestions for fallback variables too
-        await generateVariableSuggestions(template.variables);
-        
+        if (template.variables && template.variables.length > 0) {
+          await generateVariableSuggestions(template.variables);
+        }
         
         toast({
           title: "Template Selected",
-          description: `${template.name} loaded for ${selectedProduct.name} (using fallback configuration)`,
+          description: `${template.name} loaded (basic fallback) - ${template.variables?.length || 0} variables`,
           variant: "destructive"
         });
       } else {
-        console.error('No fallback template found');
+        console.error('No template found for fallback');
         toast({
           title: "Error",
           description: "Could not load template variables. Please try another template.",
@@ -97,21 +118,36 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     const fetchUserTemplates = async () => {
       setIsLoadingTemplates(true);
       try {
-        console.log('Fetching templates using optimized database-first approach');
+        console.log('Fetching templates using enhanced template manager');
         
-        // Use database-first approach (no cache clearing needed)
+        // Use database-first approach with enhanced variable detection
         const templateDetails = await templateManager.getClientTemplates('default');
         
+        console.log('Raw template details from manager:', templateDetails);
+        
         // Transform to the Template format expected by this component
-        const transformedTemplates: Template[] = templateDetails.map(template => ({
-          id: template.id,
-          name: template.name,
-          variables: template.variables,
-          thumbnail: template.thumbnail
-        }));
+        const transformedTemplates: Template[] = templateDetails.map(template => {
+          console.log(`Processing template: ${template.name}`, {
+            id: template.id,
+            variables: template.variables,
+            variableCount: template.variables.length
+          });
+          
+          return {
+            id: template.id,
+            name: template.name,
+            variables: template.variables,
+            thumbnail: template.thumbnail
+          };
+        });
 
         setTemplates(transformedTemplates);
-        console.log('Templates loaded with details:', transformedTemplates);
+        console.log('Templates loaded with variable counts:', transformedTemplates.map(t => ({
+          name: t.name,
+          id: t.id,
+          variableCount: t.variables.length,
+          variables: t.variables
+        })));
         
         if (transformedTemplates.length === 0) {
           toast({
@@ -122,11 +158,14 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         } else {
           console.log('Successfully loaded templates:', transformedTemplates);
           
-          // Auto-select the first template with variables
+          // Auto-select the first template with variables, or the mobile template if available
+          const mobileTemplate = transformedTemplates.find(t => t.name.toLowerCase().includes('mobile'));
           const templateWithVariables = transformedTemplates.find(t => t.variables.length > 0);
-          if (templateWithVariables) {
-            console.log('Auto-selecting template with variables:', templateWithVariables.id);
-            handleTemplateSelect(templateWithVariables.id);
+          const templateToSelect = mobileTemplate || templateWithVariables;
+          
+          if (templateToSelect) {
+            console.log('Auto-selecting template:', templateToSelect.name, 'with', templateToSelect.variables.length, 'variables');
+            handleTemplateSelect(templateToSelect.id);
           }
         }
       } catch (error) {
@@ -145,10 +184,10 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     fetchUserTemplates();
   }, [toast]);
 
-
   const generateVariableSuggestions = async (variables: string[]) => {
     try {
       console.log('Generating AI suggestions for variables:', variables);
+      console.log('Variable count for AI suggestions:', variables.length);
       
       // If no variables, skip AI suggestions and initialize empty
       if (variables.length === 0) {
@@ -253,6 +292,9 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         // Use aiSuggested (which is now editable) as the final value
         finalData[variable] = varData.aiSuggested || varData.extracted || "";
       });
+
+      console.log('Sending variables to video generation:', finalData);
+      console.log('Variable count being sent:', Object.keys(finalData).length);
 
       let functionData: any = null;
       
@@ -407,8 +449,13 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
                     {templates.find(t => t.id === selectedTemplate)?.name || `Template ${selectedTemplate.slice(-8)}`}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {templateVariables.length} variables • Creating video for {selectedProduct.name}
+                    {templateVariables.length} variables detected • Creating video for {selectedProduct.name}
                   </p>
+                  {templateVariables.length > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Variables: {templateVariables.join(', ')}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
