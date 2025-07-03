@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heart, Download, Copy, Trash2, Search, AlertCircle } from 'lucide-react';
 import { useAssetLibrary, AssetLibraryItem } from '@/hooks/useAssetLibrary';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export function AssetLibrary() {
   const [assets, setAssets] = useState<AssetLibraryItem[]>([]);
@@ -103,6 +104,42 @@ export function AssetLibrary() {
       toast({
         title: "Copy Failed",
         description: "Failed to copy content to clipboard.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRefreshVideo = async (assetId: string) => {
+    toast({
+      title: "Checking Video Status",
+      description: "Refreshing video status from HeyGen...",
+    });
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('heygen-status-check', {
+        body: { assetId }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.success) {
+        toast({
+          title: "Status Updated",
+          description: data.message,
+        });
+        
+        // Reload assets to show updated status
+        await loadAssets();
+      } else {
+        throw new Error(data.error || 'Failed to check status');
+      }
+    } catch (error) {
+      console.error('Error refreshing video status:', error);
+      toast({
+        title: "Refresh Failed", 
+        description: "Failed to check video status. Please try again.",
         variant: "destructive",
       });
     }
@@ -335,25 +372,37 @@ export function AssetLibrary() {
                         {new Date(asset.created_at).toLocaleDateString()}
                       </span>
                       
-                      <div className="flex space-x-1">
-                        {asset.asset_type === 'content' && asset.content ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCopyContent(asset.content!, asset.title)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownload(asset)}
-                            disabled={!asset.asset_url}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        )}
+                       <div className="flex space-x-1">
+                         {/* Show refresh button for processing videos */}
+                         {(asset.asset_url === "processing" || asset.asset_url === "pending") && asset.source_system === "heygen" && (
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleRefreshVideo(asset.id)}
+                             className="text-blue-600 hover:text-blue-700"
+                           >
+                             🔄
+                           </Button>
+                         )}
+                         
+                         {asset.asset_type === 'content' && asset.content ? (
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleCopyContent(asset.content!, asset.title)}
+                           >
+                             <Copy className="h-4 w-4" />
+                           </Button>
+                         ) : (
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleDownload(asset)}
+                             disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
+                           >
+                             <Download className="h-4 w-4" />
+                           </Button>
+                         )}
                         
                         <Button
                           variant="outline"
