@@ -28,6 +28,10 @@ export function AssetLibrary() {
 
   useEffect(() => {
     loadAssets();
+    
+    // Auto-refresh every 10 seconds to check for processing updates
+    const interval = setInterval(loadAssets, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -231,50 +235,83 @@ export function AssetLibrary() {
                       </div>
                     )}
 
-                    {asset.asset_type === 'video' && asset.asset_url && (
+                    {asset.asset_type === 'video' && (
                       <div className="aspect-video bg-black rounded overflow-hidden relative">
-                        <video 
-                          src={asset.asset_url} 
-                          className="w-full h-full object-contain"
-                          controls
-                          onError={(e) => {
-                            console.error('Video failed to load:', asset.asset_url);
-                            const target = e.target as HTMLVideoElement;
-                            target.style.display = 'none';
-                            // Show error message
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-sm p-4';
-                            errorDiv.innerHTML = `
-                              <div class="text-center">
-                                <div class="flex items-center justify-center mb-2">
-                                  <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                  </svg>
+                        {asset.asset_url === 'processing' || asset.asset_url === 'pending' ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 text-blue-800 p-4">
+                            <div className="text-center">
+                              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                              <p className="font-medium mb-2">🎬 HeyGen is creating your video</p>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-32">
+                                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '75%' }}></div>
                                 </div>
-                                <p class="font-medium">Video unavailable</p>
-                                <p class="text-xs mt-1">HeyGen video may require authentication</p>
-                                ${asset.gif_url ? '<p class="text-xs mt-1 text-blue-600">Trying GIF preview...</p>' : ''}
+                                <span className="text-xs text-gray-600">75%</span>
                               </div>
-                            `;
-                            target.parentElement?.appendChild(errorDiv);
-                            
-                            // If there's a GIF URL, try to show that instead
-                            if (asset.gif_url) {
-                              setTimeout(() => {
-                                const img = document.createElement('img');
-                                img.src = asset.gif_url!;
-                                img.className = 'w-full h-full object-contain';
-                                img.onload = () => {
-                                  errorDiv.remove();
-                                  target.parentElement?.appendChild(img);
-                                };
-                                img.onerror = () => {
-                                  errorDiv.querySelector('.text-blue-600')!.textContent = 'GIF preview also unavailable';
-                                };
-                              }, 1000);
-                            }
-                          }}
-                        />
+                              <p className="text-xs text-gray-600">
+                                Estimated time remaining: 1-2 minutes
+                              </p>
+                              {asset.asset_url === 'pending' && (
+                                <p className="text-xs text-orange-600 mt-1">
+                                  ⏳ Request sent - Processing will begin shortly
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ) : asset.asset_url === 'failed' || !asset.asset_url ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-sm p-4">
+                            <div className="text-center">
+                              <div className="flex items-center justify-center mb-2">
+                                <AlertCircle className="h-8 w-8" />
+                              </div>
+                              <p className="font-medium">❌ Video generation failed</p>
+                              <p className="text-xs mt-1">Please try generating again</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <video 
+                            src={asset.asset_url} 
+                            className="w-full h-full object-contain"
+                            controls
+                            onError={(e) => {
+                              console.error('Video failed to load:', asset.asset_url);
+                              const target = e.target as HTMLVideoElement;
+                              target.style.display = 'none';
+                              // Show error message
+                              const errorDiv = document.createElement('div');
+                              errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-sm p-4';
+                              errorDiv.innerHTML = `
+                                <div class="text-center">
+                                  <div class="flex items-center justify-center mb-2">
+                                    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                  <p class="font-medium">Video unavailable</p>
+                                  <p class="text-xs mt-1">HeyGen video may require authentication</p>
+                                  ${asset.gif_url ? '<p class="text-xs mt-1 text-blue-600">Trying GIF preview...</p>' : ''}
+                                </div>
+                              `;
+                              target.parentElement?.appendChild(errorDiv);
+                              
+                              // If there's a GIF URL, try to show that instead
+                              if (asset.gif_url) {
+                                setTimeout(() => {
+                                  const img = document.createElement('img');
+                                  img.src = asset.gif_url!;
+                                  img.className = 'w-full h-full object-contain';
+                                  img.onload = () => {
+                                    errorDiv.remove();
+                                    target.parentElement?.appendChild(img);
+                                  };
+                                  img.onerror = () => {
+                                    errorDiv.querySelector('.text-blue-600')!.textContent = 'GIF preview also unavailable';
+                                  };
+                                }, 1000);
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                     )}
 
