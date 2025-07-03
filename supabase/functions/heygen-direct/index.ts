@@ -56,33 +56,33 @@ serve(async (req) => {
 
     console.log('Template variables prepared:', variables);
 
-    // Call HeyGen API to generate video
-    const heygenResponse = await fetch('https://api.heygen.com/v2/video/generate', {
+    // Validate required variables
+    const missingVariables = Object.keys(templateData.userImproved || {}).filter(key => 
+      !variables[key] || variables[key].trim() === ''
+    );
+
+    if (missingVariables.length > 0) {
+      throw new Error(`Missing required variables: ${missingVariables.join(', ')}`);
+    }
+
+    console.log('Creating video with template variables:', {
+      templateId,
+      variables,
+      missingCount: missingVariables.length
+    });
+
+    // Call HeyGen API to generate video using template
+    const heygenResponse = await fetch(`https://api.heygen.com/v2/template/${templateId}/generate`, {
       method: 'POST',
       headers: {
         'X-API-KEY': heygenApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        video_inputs: [{
-          character: {
-            type: "avatar",
-            avatar_id: "default_avatar", // You may want to make this configurable
-          },
-          voice: {
-            type: "text",
-            input_text: variables.website_description || variables.product_name || "Product showcase video",
-            voice_id: "default_voice", // You may want to make this configurable
-          }
-        }],
-        dimension: {
-          width: 1080,
-          height: 1920,
-        },
-        aspect_ratio: "9:16",
-        test: false, // Set to true for testing, false for production
+        variables: variables,
+        test: false,
         caption: false,
-        callback_id: `feedgen_${Date.now()}`,
+        callback_id: `feedgen_${templateId}_${Date.now()}`,
       }),
     });
 

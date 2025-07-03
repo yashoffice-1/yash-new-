@@ -1,8 +1,8 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckCircle, Check } from "lucide-react";
 import { ProductVariableState, InventoryItem } from './types';
 import { formatVariableName } from './utils';
 
@@ -41,8 +41,8 @@ export function ProductVariableTable({
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-700">
-              <TableHead className="text-white">✅</TableHead>
-              <TableHead className="text-white">Variable Name</TableHead>
+              <TableHead className="text-white w-24">Status</TableHead>
+              <TableHead className="text-white w-48">Variable Name</TableHead>
               <TableHead className="text-white">Column A (Feed Value)</TableHead>
               <TableHead className="text-white">Column B (OpenAI Suggested - Editable)</TableHead>
             </TableRow>
@@ -52,26 +52,43 @@ export function ProductVariableTable({
               const varData = productVariables[variable];
               return (
                 <TableRow key={variable} className={varData?.checked ? "bg-green-50" : ""}>
-                  <TableCell>
-                    <Checkbox
-                      checked={varData?.checked || false}
-                      onCheckedChange={(checked) => 
-                        onUpdateProductVariable(variable, 'checked', !!checked)
-                      }
-                    />
+                  <TableCell className="w-24">
+                    <Button
+                      variant={varData?.checked ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => onUpdateProductVariable(variable, 'checked', !varData?.checked)}
+                      className={`w-20 h-8 text-xs font-medium ${
+                        varData?.checked 
+                          ? 'bg-green-600 hover:bg-green-700 text-white' 
+                          : 'border-2 hover:border-green-500 hover:text-green-600'
+                      }`}
+                    >
+                      {varData?.checked ? (
+                        <>
+                          <Check className="h-3 w-3 mr-1" />
+                          Checked
+                        </>
+                      ) : (
+                        'Check'
+                      )}
+                    </Button>
                   </TableCell>
-                  <TableCell className="font-medium">
-                    {formatVariableName(variable)}
+                  <TableCell className="font-medium w-48">
+                    <div className="break-words">
+                      {formatVariableName(variable)}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    {varData?.extracted || "-"}
+                  <TableCell className="text-sm text-gray-600 max-w-xs">
+                    <div className="break-words whitespace-normal">
+                      {varData?.extracted || "-"}
+                    </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-xs">
                     <Input
                       value={varData?.aiSuggested || ""}
                       onChange={(e) => onUpdateProductVariable(variable, 'aiSuggested', e.target.value)}
                       placeholder="Enter value..."
-                      className="min-w-[200px]"
+                      className="w-full break-words"
                     />
                   </TableCell>
                 </TableRow>

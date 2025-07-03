@@ -293,9 +293,25 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       }
     } catch (error) {
       console.error('Error creating video:', error);
+      
+      let errorMessage = "Failed to send video creation request. Please check your settings and try again.";
+      
+      // Parse specific error details
+      if (error instanceof Error) {
+        if (error.message.includes('Missing required variables')) {
+          errorMessage = `Video failed: ${error.message}`;
+        } else if (error.message.includes('API key')) {
+          errorMessage = "Video failed: Invalid API key or authentication issue";
+        } else if (error.message.includes('template')) {
+          errorMessage = "Video failed: Invalid template ID or template not found";
+        } else {
+          errorMessage = `Video failed: ${error.message}`;
+        }
+      }
+      
       toast({
         title: "Video Generation Failed",
-        description: "Failed to send video creation request. Please check your settings and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

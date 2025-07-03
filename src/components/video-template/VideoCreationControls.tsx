@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 
 interface VideoCreationControlsProps {
   selectedTemplate: string;
@@ -31,8 +31,12 @@ export function VideoCreationControls({
         className={`px-8 py-3 text-base ${areAllVariablesChecked ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400'}`}
         size="lg"
       >
-        <Send className="h-4 w-4 mr-2" />
-        {isGenerating ? "Creating Video..." : 
+{isGenerating ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4 mr-2" />
+        )}
+        {isGenerating ? "Generating Video..." : 
          areAllVariablesChecked ? "Send to Make Video" : 
          `Complete All Variables (${checkedCount}/${totalVariables})`}
       </Button>
