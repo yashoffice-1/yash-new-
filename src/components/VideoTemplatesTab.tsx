@@ -133,6 +133,32 @@ export function VideoTemplatesTab() {
     );
   }
 
+  // Show template video creator if a template is selected for creation
+  if (selectedTemplateForCreation) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="outline"
+            onClick={handleBackToTemplates}
+            className="flex items-center space-x-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Templates</span>
+          </Button>
+          <div>
+            <h2 className="text-lg font-semibold">Using Template: {selectedTemplateForCreation.name}</h2>
+            <p className="text-sm text-gray-600">Configure your video creation with this template</p>
+          </div>
+        </div>
+        <TemplateVideoCreator 
+          template={selectedTemplateForCreation}
+          onBack={handleBackToTemplates}
+        />
+      </div>
+    );
+  }
+
   // If no product selected and no specific template selected, show the main template grid
 
   return (
