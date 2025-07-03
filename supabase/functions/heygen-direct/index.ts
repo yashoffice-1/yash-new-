@@ -44,7 +44,7 @@ serve(async (req) => {
     console.log('Template ID:', templateId);
     console.log('Product ID:', productId);
 
-    // Prepare variables for HeyGen template in the correct format
+    // Prepare variables for HeyGen template in the correct format based on variable type
     const variables: Record<string, any> = {};
     
     // Use user improved data first, then AI suggested, then extracted as fallback
@@ -54,14 +54,17 @@ serve(async (req) => {
                      templateData.aiSuggested[key] || 
                      templateData.extracted[key] || '';
       
-      // Format variables according to HeyGen API specification
-      variables[key] = {
-        name: key,
-        type: key.includes('image') ? 'image_url' : 'text',
-        properties: {
-          content: content
-        }
-      };
+      // Format variables according to HeyGen's expected format based on type
+      if (key.includes('image')) {
+        // Image variables: image.{variable_name}.url
+        variables[`image.${key}.url`] = content;
+      } else if (key.includes('video')) {
+        // Video variables: video_name.{variable_name}.content  
+        variables[`video_name.${key}.content`] = content;
+      } else {
+        // Text variables: text.{variable_name}.content
+        variables[`text.${key}.content`] = content;
+      }
     });
 
     console.log('Template variables prepared in HeyGen format:', variables);
@@ -72,7 +75,9 @@ serve(async (req) => {
     } else {
       // Validate required variables only if we have variables to check
       const missingVariables = allKeys.filter(key => {
-        const content = variables[key]?.properties?.content;
+        const content = templateData.userImproved[key] || 
+                       templateData.aiSuggested[key] || 
+                       templateData.extracted[key] || '';
         return !content || content.toString().trim() === '';
       });
 
