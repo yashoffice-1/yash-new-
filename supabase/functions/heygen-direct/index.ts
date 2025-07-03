@@ -184,11 +184,11 @@ serve(async (req) => {
             }
           }
           
-          // Format title: "product name + format + price"
+          // Format title: "product name + price + landscape/portrait"  
           const titleParts = [];
           if (productData?.name) titleParts.push(productData.name);
-          titleParts.push('mp4'); // format
           if (productData?.price) titleParts.push(`$${productData.price}`);
+          titleParts.push('landscape'); // Default to landscape, template should specify actual orientation
           const videoTitle = titleParts.length > 0 ? titleParts.join(' + ') : `HeyGen Video - ${productId || 'Product'}`;
           
           const { error: libraryError } = await supabase

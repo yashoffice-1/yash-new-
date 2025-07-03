@@ -96,11 +96,11 @@ serve(async (req) => {
           console.log('Could not fetch product data for title formatting:', productError);
         }
         
-        // Format title: "product name + format + price"
+        // Format title: "product name + price + landscape/portrait"
         const titleParts = [];
         if (productData?.name) titleParts.push(productData.name);
-        titleParts.push('mp4'); // format
         if (productData?.price) titleParts.push(`$${productData.price}`);
+        titleParts.push('landscape'); // Default to landscape, should get actual orientation from template
         const videoTitle = titleParts.length > 0 ? titleParts.join(' + ') : `HeyGen Video - ${video_id}`;
         
         const { error: insertLibraryError } = await supabase
