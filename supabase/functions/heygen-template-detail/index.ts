@@ -201,16 +201,19 @@ serve(async (req) => {
       
       const correctMobileVariables = [
         'product_name',
-        'main_feature', 
-        'benefit_one',
-        'benefit_two',
-        'call_to_action',
-        'brand_name',
-        'product_image'
+        'category_name',
+        'feature_one',
+        'feature_two',
+        'feature_three',
+        'website_description',
+        'product_price',
+        'product_discount',
+        'product_image',
+        'video_name.product_name'
       ];
       
       extractedVariables = correctMobileVariables;
-      console.log('Mobile template variables set to correct 7 variables:', extractedVariables);
+      console.log('Mobile template variables set to correct 10 variables:', extractedVariables);
     }
     
     // Generic comprehensive fallback for any template with insufficient variables
