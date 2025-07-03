@@ -94,15 +94,21 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
 
   const handleCreateVideo = async () => {
     try {
+      // Show generating status immediately
+      toast({
+        title: "🎬 Video Generation Starting",
+        description: "Your video is being created with HeyGen. This may take a few minutes...",
+      });
+
       // Create an instruction based on the template and variables
-      const instruction = `Create a video using template "${template.name}" with the following details: ${Object.entries(variableValues).map(([key, value]) => `${key}: ${value}`).join(', ')}`;
+      const instruction = `Create video using template ${template.id} with product: ${Object.entries(variableValues).map(([key, value]) => `${key}: ${value}`).join(', ')}`;
       
       // Use HeyGen for video generation with template
       await generateVideo(instruction, undefined, 'heygen');
       
       toast({
-        title: "Video Creation Started",
-        description: `Video generation has started using template "${template.name}". You'll receive a notification when it's ready.`,
+        title: "✨ Video Generation In Progress",
+        description: `Your video is being generated using template "${template.name}". Check the Asset Library for updates!`,
       });
       
       // Go back to templates after successful creation
@@ -110,7 +116,7 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
     } catch (error) {
       console.error('Error creating video:', error);
       toast({
-        title: "Creation Failed",
+        title: "❌ Creation Failed",
         description: "Failed to create video. Please try again.",
         variant: "destructive",
       });
