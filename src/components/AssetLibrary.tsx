@@ -125,7 +125,7 @@ export function AssetLibrary() {
     });
     
     try {
-      const { data, error } = await supabase.functions.invoke('heygen-get-real-video', {
+      const { data, error } = await supabase.functions.invoke('heygen-share-video', {
         body: { assetId }
       });
 
