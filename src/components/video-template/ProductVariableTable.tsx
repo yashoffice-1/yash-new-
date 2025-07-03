@@ -43,8 +43,8 @@ export function ProductVariableTable({
             <TableRow className="bg-slate-700">
               <TableHead className="text-white w-24">Status</TableHead>
               <TableHead className="text-white w-48">Variable Name</TableHead>
-              <TableHead className="text-white">Column A (Feed Value)</TableHead>
-              <TableHead className="text-white">Column B (OpenAI Suggested - Editable)</TableHead>
+              <TableHead className="text-white w-1/4">Column A (Feed Value)</TableHead>
+              <TableHead className="text-white w-1/3">Column B (OpenAI Suggested - Editable)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -74,21 +74,26 @@ export function ProductVariableTable({
                     </Button>
                   </TableCell>
                   <TableCell className="font-medium w-48">
-                    <div className="break-words">
+                    <div className="break-words text-sm leading-tight">
                       {formatVariableName(variable)}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm text-gray-600 max-w-xs">
-                    <div className="break-words whitespace-normal">
+                  <TableCell className="text-sm text-gray-600 w-1/4">
+                    <div className="break-words whitespace-normal text-xs leading-relaxed p-2 bg-gray-50 rounded min-h-[2rem] max-h-20 overflow-y-auto">
                       {varData?.extracted || "-"}
                     </div>
                   </TableCell>
-                  <TableCell className="max-w-xs">
-                    <Input
+                  <TableCell className="w-1/3">
+                    <textarea
                       value={varData?.aiSuggested || ""}
                       onChange={(e) => onUpdateProductVariable(variable, 'aiSuggested', e.target.value)}
                       placeholder="Enter value..."
-                      className="w-full break-words"
+                      className="w-full min-h-[3rem] max-h-24 p-2 text-xs border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ 
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                        whiteSpace: 'pre-wrap'
+                      }}
                     />
                   </TableCell>
                 </TableRow>
