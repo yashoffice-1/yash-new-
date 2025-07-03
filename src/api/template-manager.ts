@@ -135,6 +135,34 @@ class TemplateManager {
       return this.templateCache.get(templateId) || null;
     }
 
+    // FORCE API CALL FOR MOBILE TEMPLATE TO GET COMPLETE VARIABLES
+    const isMobileTemplate = templateId === '3bb2bf2276754c0ea6b235db9409f508';
+    
+    if (isMobileTemplate) {
+      console.log('MOBILE TEMPLATE DETECTED - FORCING API CALL FOR COMPLETE VARIABLES');
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('heygen-template-detail', {
+          body: { templateId }
+        });
+
+        if (error) throw error;
+        
+        if (data?.success && data?.template) {
+          console.log('MOBILE TEMPLATE - API returned variables:', data.template.variables);
+          console.log('MOBILE TEMPLATE - Variable count from API:', data.template.variables.length);
+          
+          // Cache the result
+          this.templateCache.set(templateId, data.template);
+          this.cacheExpiry.set(templateId, Date.now() + this.CACHE_DURATION);
+          
+          return data.template;
+        }
+      } catch (apiError) {
+        console.error('MOBILE TEMPLATE - API call failed, falling back to database:', apiError);
+      }
+    }
+
     // First try to get template info from database (faster than API calls)
     try {
       console.log(`Fetching template detail from database for ${templateId}`);
@@ -443,6 +471,9 @@ class TemplateManager {
 
       // Clear cache to force refresh
       this.clientConfigCache.delete(config.clientId);
+      
+      // Also clear template cache to force fresh API calls
+      this.clearCache();
       
       console.log(`Successfully added client configuration for ${config.clientId}`);
     } catch (error) {
