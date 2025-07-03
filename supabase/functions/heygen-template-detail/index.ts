@@ -44,6 +44,14 @@ serve(async (req) => {
     console.log('Successfully fetched template details from HeyGen');
 
     console.log('Raw HeyGen API response data:', JSON.stringify(data, null, 2));
+    console.log('Checking for duration in response:', {
+      'data.duration': data.duration,
+      'data.video_duration': data.video_duration,
+      'data.length': data.length,
+      'data.data?.duration': data.data?.duration,
+      'data.data?.video_duration': data.data?.video_duration,
+      'data.data?.length': data.data?.length
+    });
 
     // Extract template info - try multiple possible response structures
     let templateInfo = data;

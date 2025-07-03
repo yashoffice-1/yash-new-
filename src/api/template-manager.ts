@@ -229,7 +229,7 @@ class TemplateManager {
     const config = await this.getClientConfig(clientId);
     
     // First, try to get template list with names and thumbnails from heygen-templates
-    let templateBasicInfo: Record<string, { name: string; thumbnail: string; aspectRatio?: string }> = {};
+    let templateBasicInfo: Record<string, { name: string; thumbnail: string; aspectRatio?: string; duration?: string }> = {};
     
     try {
       console.log('Fetching template list from heygen-templates API...');
@@ -241,7 +241,8 @@ class TemplateManager {
           templateBasicInfo[template.template_id] = {
             name: template.name,
             thumbnail: template.thumbnail_image_url,
-            aspectRatio: template.aspect_ratio
+            aspectRatio: template.aspect_ratio,
+            duration: template.duration || template.video_duration || template.length || '30s'
           };
         });
         console.log('Successfully loaded template basic info:', templateBasicInfo);
@@ -255,12 +256,16 @@ class TemplateManager {
     for (const templateId of config.assignedTemplateIds) {
       const template = await this.getTemplateDetail(templateId);
       if (template) {
-        // Override with actual name, thumbnail, and aspect ratio if available
+        // Override with actual name, thumbnail, aspect ratio, and duration if available
         if (templateBasicInfo[templateId]) {
           template.name = templateBasicInfo[templateId].name;
           template.thumbnail = templateBasicInfo[templateId].thumbnail;
           // Map aspect_ratio correctly to aspectRatio
           template.aspectRatio = templateBasicInfo[templateId].aspectRatio as 'landscape' | 'portrait' || 'landscape';
+          // Override duration with actual value from templates list API
+          if (templateBasicInfo[templateId].duration) {
+            template.duration = templateBasicInfo[templateId].duration;
+          }
         }
         console.log(`Template ${templateId} processed:`, {
           name: template.name,
