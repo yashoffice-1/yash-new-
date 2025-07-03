@@ -50,7 +50,7 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4">
+    <div className="grid grid-cols-1 gap-6">
       {/* Portrait templates in a row */}
       {templates.filter(t => t.aspectRatio === 'portrait').length > 0 && (
         <div className="space-y-4">

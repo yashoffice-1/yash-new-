@@ -247,13 +247,19 @@ class TemplateManager {
     for (const templateId of config.assignedTemplateIds) {
       const template = await this.getTemplateDetail(templateId);
       if (template) {
-        // Override with actual name and thumbnail if available
+        // Override with actual name, thumbnail, and aspect ratio if available
         if (templateBasicInfo[templateId]) {
           template.name = templateBasicInfo[templateId].name;
           template.thumbnail = templateBasicInfo[templateId].thumbnail;
-          // Add aspect ratio from basic info if available
-          template.aspectRatio = (templateBasicInfo[templateId] as any).aspectRatio;
+          // Map aspect_ratio correctly to aspectRatio
+          template.aspectRatio = templateBasicInfo[templateId].aspectRatio as 'landscape' | 'portrait' || 'landscape';
         }
+        console.log(`Template ${templateId} processed:`, {
+          name: template.name,
+          aspectRatio: template.aspectRatio,
+          variableCount: template.variables.length,
+          thumbnail: template.thumbnail
+        });
         templates.push(template);
       }
     }
