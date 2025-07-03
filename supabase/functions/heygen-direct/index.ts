@@ -154,11 +154,10 @@ serve(async (req) => {
     let libraryId = null;
     
     try {
-      // First, store in generated_assets table
+      // First, store in generated_assets table (let database generate the ID)
       const { data: asset, error: dbError } = await supabase
         .from('generated_assets')
         .insert({
-          id: callbackId, // Use callback ID as the asset ID for easier tracking
           channel: 'youtube',
           format: 'mp4',
           source_system: 'heygen',
@@ -231,7 +230,7 @@ serve(async (req) => {
               asset_url: 'processing',
               source_system: 'heygen',
               instruction: instruction || 'Direct HeyGen API video generation',
-              original_asset_id: callbackId,
+              original_asset_id: assetId,
               description: `Video: ${productData?.name || 'Product'} | Template: ${templateId} | Callback: ${callbackId}`
             })
             .select()
