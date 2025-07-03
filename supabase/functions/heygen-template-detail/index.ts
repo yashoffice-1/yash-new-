@@ -195,134 +195,22 @@ serve(async (req) => {
     console.log('Variables extracted from HeyGen API before fallback:', extractedVariables);
     console.log('Variable count before fallback:', extractedVariables.length);
 
-    // FORCE COMPREHENSIVE MOBILE TEMPLATE VARIABLES - NO EXTERNAL LIMITATIONS
-    if (templateId === 'bccf8cfb2b1e422dbc425755f1b7dc67' || templateName.toLowerCase().includes('mobile')) {
-      console.log('FORCING comprehensive mobile template variables - ignoring any external limitations');
+    // SPECIFIC MOBILE TEMPLATE VARIABLES - CORRECT SET FROM HEYGEN
+    if (templateId === '3bb2bf2276754c0ea6b235db9409f508' || templateName.toLowerCase().includes('mobile')) {
+      console.log('Mobile template detected - using correct variable set');
       
-      // COMPLETE mobile template variable set - DO NOT LIMIT TO 7
-      const comprehensiveMobileVariables = [
-        // Product core info
+      const correctMobileVariables = [
         'product_name',
-        'brand_name', 
-        'product_price',
-        'price',
-        'original_price',
-        'sale_price',
-        'discount',
-        'discount_percent',
-        'discount_amount',
-        'product_discount',
-        'savings',
-        'offer_price',
-        
-        // Product features and benefits
-        'main_feature',
-        'feature_one',
-        'feature_two', 
-        'feature_three',
-        'feature_four',
+        'main_feature', 
         'benefit_one',
         'benefit_two',
-        'benefit_three',
-        'key_benefit',
-        'unique_selling_point',
-        'product_highlight',
-        
-        // Descriptions
-        'description',
-        'product_description',
-        'short_description',
-        'long_description',
-        'product_summary',
-        'product_details',
-        
-        // Category and classification
-        'category_name',
-        'product_category',
-        'product_type',
-        'collection_name',
-        
-        // Call to action and urgency
         'call_to_action',
-        'cta_text',
-        'cta_button',
-        'action_text',
-        'urgency_text',
-        'limited_time',
-        'offer_deadline',
-        'scarcity_message',
-        
-        // Contact and website
-        'website_url',
-        'website_link',
-        'shop_url',
-        'phone_number',
-        'contact_info',
-        'contact_number',
-        'business_phone',
-        
-        // Business info
-        'company_name',
-        'business_name',
-        'store_name',
-        'website_description',
-        'business_description',
-        'tagline',
-        'slogan',
-        
-        // Guarantee and trust
-        'guarantee_text',
-        'warranty_info',
-        'money_back',
-        'satisfaction_guarantee',
-        'trust_badge',
-        'security_message',
-        
-        // Social proof
-        'testimonial',
-        'customer_review',
-        'rating',
-        'review_count',
-        'customer_count',
-        'satisfaction_rate',
-        
-        // Images and media
-        'product_image',
-        'main_image',
-        'hero_image',
-        'logo_image',
-        'brand_logo',
-        'background_image',
-        'banner_image',
-        
-        // Availability and stock
-        'availability',
-        'stock_status',
-        'inventory_count',
-        'units_available',
-        
-        // Shipping and delivery
-        'shipping_info',
-        'delivery_time',
-        'free_shipping',
-        'shipping_cost',
-        
-        // Additional promotional
-        'bonus_offer',
-        'free_gift',
-        'bundle_deal',
-        'special_offer',
-        'promotion_text',
-        'deal_text',
-        'exclusive_offer'
+        'brand_name',
+        'product_image'
       ];
       
-      // MERGE with any found variables, removing duplicates - NO LIMIT ON COUNT
-      const allVariables = [...new Set([...extractedVariables, ...comprehensiveMobileVariables])];
-      extractedVariables = allVariables;
-      
-      console.log('FORCED comprehensive mobile template variables (NO EXTERNAL LIMITS):', extractedVariables);
-      console.log('TOTAL variable count after comprehensive mobile expansion:', extractedVariables.length);
+      extractedVariables = correctMobileVariables;
+      console.log('Mobile template variables set to correct 7 variables:', extractedVariables);
     }
     
     // Generic comprehensive fallback for any template with insufficient variables

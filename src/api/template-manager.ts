@@ -129,6 +129,12 @@ class TemplateManager {
   }
 
   async getTemplateDetail(templateId: string, useCache: boolean = true): Promise<TemplateDetail | null> {
+    // FORCE CACHE BYPASS FOR MOBILE TEMPLATE TO GET UPDATED VARIABLES
+    if (templateId === '3bb2bf2276754c0ea6b235db9409f508') {
+      console.log('Mobile template detected - bypassing cache to get updated variables');
+      useCache = false;
+    }
+    
     // Check cache first
     if (useCache && this.isInCache(templateId)) {
       console.log(`Using cached template detail for ${templateId}`);
