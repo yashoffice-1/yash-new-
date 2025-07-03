@@ -111,36 +111,35 @@ export function AssetLibrary() {
 
   const handleRefreshVideo = async (assetId: string) => {
     toast({
-      title: "Updating Video Status",
-      description: "Marking video as completed...",
+      title: "Getting Real Video",
+      description: "Retrieving actual video from HeyGen...",
     });
     
     try {
-      // For now, let's manually update the status to completed since the videos are done in HeyGen
-      const { error } = await supabase
-        .from('asset_library')
-        .update({
-          asset_url: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', // Placeholder video
-          description: `Video manually marked as completed at ${new Date().toISOString()}`
-        })
-        .eq('id', assetId);
+      const { data, error } = await supabase.functions.invoke('heygen-get-real-video', {
+        body: { assetId }
+      });
 
       if (error) {
         throw error;
       }
 
-      toast({
-        title: "Status Updated",
-        description: "Video marked as completed successfully!",
-      });
-      
-      // Reload assets to show updated status
-      await loadAssets();
+      if (data.success) {
+        toast({
+          title: "✅ Real Video Retrieved",
+          description: "Successfully loaded the actual HeyGen video!",
+        });
+        
+        // Reload assets to show the real video
+        await loadAssets();
+      } else {
+        throw new Error(data.error || 'Failed to get real video');
+      }
     } catch (error) {
-      console.error('Error updating video status:', error);
+      console.error('Error getting real video:', error);
       toast({
-        title: "Update Failed", 
-        description: "Failed to update video status. Please try again.",
+        title: "Failed to Get Real Video", 
+        description: error.message || "Could not retrieve the actual video from HeyGen.",
         variant: "destructive",
       });
     }
