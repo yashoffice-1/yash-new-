@@ -135,6 +135,54 @@ class TemplateManager {
       return this.templateCache.get(templateId) || null;
     }
 
+    // First try to get template info from database (faster than API calls)
+    try {
+      console.log(`Fetching template detail from database for ${templateId}`);
+      
+      // Get template variables from database first
+      const { data: fallbackVars, error: varsError } = await supabase
+        .from('template_fallback_variables')
+        .select('variable_name')
+        .eq('template_id', templateId)
+        .order('variable_order');
+
+      if (!varsError && fallbackVars && fallbackVars.length > 0) {
+        const variables = fallbackVars.map(v => v.variable_name);
+        console.log(`Using database template variables for ${templateId}:`, variables);
+        
+        // Generate variable types for database variables
+        const variableTypes = variables.reduce((acc, varName) => {
+          acc[varName] = {
+            name: varName,
+            type: varName.includes('image') ? 'image_url' : varName.includes('url') ? 'url' : 'text',
+            charLimit: varName.includes('image') || varName.includes('url') ? 500 : 100,
+            required: true
+          };
+          return acc;
+        }, {} as Record<string, TemplateVariable>);
+
+        const templateDetail: TemplateDetail = {
+          id: templateId,
+          name: `Template ${templateId.slice(-8)}`,
+          description: 'HeyGen video template (from database)',
+          thumbnail: `https://img.heygen.com/template/${templateId}/thumbnail.jpg`,
+          category: 'Custom',
+          duration: '30s',
+          variables: variables,
+          variableTypes: variableTypes
+        };
+        
+        // Cache the result
+        this.templateCache.set(templateId, templateDetail);
+        this.cacheExpiry.set(templateId, Date.now() + this.CACHE_DURATION);
+        
+        console.log('Successfully fetched template detail from database:', templateDetail);
+        return templateDetail;
+      }
+    } catch (dbError) {
+      console.warn('Error fetching from database, falling back to API call:', dbError);
+    }
+
     try {
       console.log(`Fetching fresh template detail for ${templateId}`);
       

@@ -5,6 +5,7 @@ import { Clapperboard } from "lucide-react";
 import { TemplateSelector } from "./video-template/TemplateSelector";
 import { ProductVariableTable } from "./video-template/ProductVariableTable";
 import { VideoCreationControls } from "./video-template/VideoCreationControls";
+import { ProductVideoLibrary } from "./ProductVideoLibrary";
 import { templateManager, type TemplateDetail } from "@/api/template-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -39,9 +40,9 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     setSelectedTemplate(templateId);
     
     try {
-      console.log('Fetching template detail for:', templateId);
-      // Get detailed template information including variable types
-      const templateDetail = await templateManager.getTemplateDetail(templateId);
+      console.log('Fetching template detail from database first for:', templateId);
+      // Get detailed template information from database-first approach
+      const templateDetail = await templateManager.getTemplateDetail(templateId, true);
       
       console.log('Template detail response:', templateDetail);
       
@@ -96,11 +97,9 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
     const fetchUserTemplates = async () => {
       setIsLoadingTemplates(true);
       try {
-        console.log('Fetching templates for video utility using template manager');
+        console.log('Fetching templates using optimized database-first approach');
         
-        // Clear cache to ensure fresh data from HeyGen
-        templateManager.clearCache();
-        
+        // Use database-first approach (no cache clearing needed)
         const templateDetails = await templateManager.getClientTemplates('default');
         
         // Transform to the Template format expected by this component
@@ -372,6 +371,13 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
 
   return (
     <div className="space-y-6">
+      {/* Generated Videos Library */}
+      <ProductVideoLibrary 
+        productId={selectedProduct.id} 
+        productName={selectedProduct.name} 
+      />
+      
+      {/* Template Utility */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">

@@ -171,16 +171,36 @@ serve(async (req) => {
         
         // Also create entry in asset library for immediate tracking
         try {
+          // First get product info for title formatting
+          let productData = null;
+          if (productId) {
+            const { data: product, error: productError } = await supabase
+              .from('inventory')
+              .select('name, price')
+              .eq('id', productId)
+              .single();
+            if (!productError && product) {
+              productData = product;
+            }
+          }
+          
+          // Format title: "product name + format + price"
+          const titleParts = [];
+          if (productData?.name) titleParts.push(productData.name);
+          titleParts.push('mp4'); // format
+          if (productData?.price) titleParts.push(`$${productData.price}`);
+          const videoTitle = titleParts.length > 0 ? titleParts.join(' + ') : `HeyGen Video - ${productId || 'Product'}`;
+          
           const { error: libraryError } = await supabase
             .from('asset_library')
             .insert({
-              title: `HeyGen Video - ${productId || 'Product'}`,
+              title: videoTitle,
               asset_type: 'video',
               asset_url: 'processing',
               source_system: 'heygen',
               instruction: instruction || 'Direct HeyGen API video generation',
               original_asset_id: asset.id,
-              description: `Video generation started for template ${templateId}${productId ? ` (Product: ${productId})` : ''}`
+              description: `Video generation started for template ${templateId}${productData?.name ? ` (Product: ${productData.name})` : ''}`
             });
             
           if (libraryError) {

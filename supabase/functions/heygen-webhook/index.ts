@@ -70,18 +70,50 @@ serve(async (req) => {
       if (updateLibraryError) {
         console.error('Failed to update asset library:', updateLibraryError);
         
-        // If no existing library entry found, create a new one
+        // If no existing library entry found, create a new one with proper title format
+        console.log('No existing library entry found, creating new one');
+        
+        // Try to get product info for title formatting
+        let productData = null;
+        try {
+          const { data: generatedAsset } = await supabase
+            .from('generated_assets')
+            .select('inventory_id')
+            .eq('id', callback_id || video_id)
+            .single();
+            
+          if (generatedAsset?.inventory_id) {
+            const { data: product } = await supabase
+              .from('inventory')
+              .select('name, price')
+              .eq('id', generatedAsset.inventory_id)
+              .single();
+            if (product) {
+              productData = product;
+            }
+          }
+        } catch (productError) {
+          console.log('Could not fetch product data for title formatting:', productError);
+        }
+        
+        // Format title: "product name + format + price"
+        const titleParts = [];
+        if (productData?.name) titleParts.push(productData.name);
+        titleParts.push('mp4'); // format
+        if (productData?.price) titleParts.push(`$${productData.price}`);
+        const videoTitle = titleParts.length > 0 ? titleParts.join(' + ') : `HeyGen Video - ${video_id}`;
+        
         const { error: insertLibraryError } = await supabase
           .from('asset_library')
           .insert({
-            title: `HeyGen Video - ${video_id}`,
+            title: videoTitle,
             asset_type: 'video',
             asset_url: video_url,
             gif_url: gif_download_url,
             source_system: 'heygen',
             instruction: 'Video generated via HeyGen webhook',
             original_asset_id: callback_id || video_id,
-            description: `Generated HeyGen video (ID: ${video_id})`
+            description: `Generated HeyGen video completed (ID: ${video_id})${productData?.name ? ` (Product: ${productData.name})` : ''}`
           });
           
         if (insertLibraryError) {
