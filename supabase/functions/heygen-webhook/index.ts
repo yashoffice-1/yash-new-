@@ -15,7 +15,7 @@ serve(async (req) => {
 
   try {
     const webhookData = await req.json();
-    console.log('Received HeyGen webhook:', webhookData);
+    console.log('Received HeyGen webhook:', JSON.stringify(webhookData, null, 2));
 
     const { event_type, event_data } = webhookData;
 
@@ -39,17 +39,22 @@ serve(async (req) => {
         video_id,
         video_url,
         gif_download_url,
-        thumbnail_url
+        thumbnail_url,
+        callback_id
       });
 
+      const trackingId = callback_id || video_id;
+      console.log('Using tracking ID:', trackingId);
+
       // Update generated_assets table
+      console.log('Updating generated_assets table...');
       const { error: updateAssetError } = await supabase
         .from('generated_assets')
         .update({
           url: video_url,
           approved: true
         })
-        .eq('id', callback_id || video_id);
+        .eq('id', trackingId);
 
       if (updateAssetError) {
         console.error('Failed to update generated asset:', updateAssetError);
@@ -58,20 +63,15 @@ serve(async (req) => {
       }
 
       // Update asset_library table with both video URL and GIF URL
-      const { error: updateLibraryError } = await supabase
+      console.log('Updating asset_library table...');
+      const { data: existingLibraryEntry, error: findLibraryError } = await supabase
         .from('asset_library')
-        .update({
-          asset_url: video_url,
-          gif_url: gif_download_url,
-          description: `Generated HeyGen video completed (ID: ${video_id})`
-        })
-        .eq('original_asset_id', callback_id || video_id);
+        .select('*')
+        .eq('original_asset_id', trackingId)
+        .single();
 
-      if (updateLibraryError) {
-        console.error('Failed to update asset library:', updateLibraryError);
-        
-        // If no existing library entry found, create a new one with proper title format
-        console.log('No existing library entry found, creating new one');
+      if (findLibraryError) {
+        console.log('No existing library entry found, creating new one:', findLibraryError);
         
         // Try to get product info for title formatting
         let productData = null;
@@ -79,7 +79,7 @@ serve(async (req) => {
           const { data: generatedAsset } = await supabase
             .from('generated_assets')
             .select('inventory_id')
-            .eq('id', callback_id || video_id)
+            .eq('id', trackingId)
             .single();
             
           if (generatedAsset?.inventory_id) {
@@ -90,6 +90,7 @@ serve(async (req) => {
               .single();
             if (product) {
               productData = product;
+              console.log('Found product data for new library entry:', productData);
             }
           }
         } catch (productError) {
@@ -97,24 +98,21 @@ serve(async (req) => {
         }
         
         // Format title with character limit for HeyGen compatibility
-        const maxTitleLength = 50; // Conservative limit for HeyGen
+        const maxTitleLength = 50;
         let shortTitle = '';
         
         if (productData?.name) {
-          // Truncate product name if too long
           let productName = productData.name;
           if (productName.length > 30) {
             productName = productName.substring(0, 30) + '...';
           }
           
           const priceText = productData?.price ? `$${productData.price}` : '';
-          const orientation = 'landscape'; // Default
+          const orientation = 'landscape';
           
-          // Build title: "Short Name + $Price + orientation"
           const parts = [productName, priceText, orientation].filter(Boolean);
           shortTitle = parts.join(' + ');
           
-          // Final length check and truncation if needed
           if (shortTitle.length > maxTitleLength) {
             shortTitle = shortTitle.substring(0, maxTitleLength - 3) + '...';
           }
@@ -122,7 +120,9 @@ serve(async (req) => {
           shortTitle = `HeyGen Video - ${video_id}`;
         }
         
-        const { error: insertLibraryError } = await supabase
+        console.log('Creating new library entry with title:', shortTitle);
+        
+        const { data: newLibraryEntry, error: insertLibraryError } = await supabase
           .from('asset_library')
           .insert({
             title: shortTitle,
@@ -131,26 +131,46 @@ serve(async (req) => {
             gif_url: gif_download_url,
             source_system: 'heygen',
             instruction: 'Video generated via HeyGen webhook',
-            original_asset_id: callback_id || video_id,
-            description: `Generated HeyGen video completed (ID: ${video_id})${productData?.name ? ` (Product: ${productData.name})` : ''}`
-          });
+            original_asset_id: trackingId,
+            description: `Generated HeyGen video completed (ID: ${video_id})${productData?.name ? ` (Product: ${productData.name})` : ''} | Callback: ${callback_id || 'none'}`
+          })
+          .select()
+          .single();
           
         if (insertLibraryError) {
           console.error('Failed to insert new asset library entry:', insertLibraryError);
         } else {
-          console.log('Created new asset library entry from webhook');
+          console.log('Created new asset library entry from webhook:', newLibraryEntry);
         }
       } else {
-        console.log('Successfully updated asset library with video and GIF URLs');
+        console.log('Found existing library entry, updating with video URLs:', existingLibraryEntry);
+        
+        const { error: updateLibraryError } = await supabase
+          .from('asset_library')
+          .update({
+            asset_url: video_url,
+            gif_url: gif_download_url,
+            description: `${existingLibraryEntry.description || ''} | Completed: ${new Date().toISOString()}`
+          })
+          .eq('id', existingLibraryEntry.id);
+
+        if (updateLibraryError) {
+          console.error('Failed to update existing library entry:', updateLibraryError);
+        } else {
+          console.log('Successfully updated existing asset library entry');
+        }
       }
 
     } else if (event_type === 'avatar_video.fail') {
-      const { video_id, error: generation_error } = event_data;
+      const { video_id, error: generation_error, callback_id } = event_data;
       
       console.log('Processing failed video generation:', {
         video_id,
-        error: generation_error
+        error: generation_error,
+        callback_id
       });
+
+      const trackingId = callback_id || video_id;
 
       // Update the status to indicate failure
       const { error: updateError } = await supabase
@@ -159,10 +179,12 @@ serve(async (req) => {
           url: 'failed',
           approved: false
         })
-        .eq('id', video_id);
+        .eq('id', trackingId);
 
       if (updateError) {
         console.error('Failed to update failed generation:', updateError);
+      } else {
+        console.log('Updated generated_assets for failed generation');
       }
 
       // Update asset library as well
@@ -170,18 +192,24 @@ serve(async (req) => {
         .from('asset_library')
         .update({
           asset_url: 'failed',
-          description: `Failed HeyGen video generation: ${generation_error}`
+          description: `Failed HeyGen video generation: ${generation_error} | Callback: ${callback_id || 'none'}`
         })
-        .eq('original_asset_id', video_id);
+        .eq('original_asset_id', trackingId);
 
       if (libraryUpdateError) {
         console.error('Failed to update library for failed generation:', libraryUpdateError);
+      } else {
+        console.log('Updated asset library for failed generation');
       }
+    } else {
+      console.log('Received unknown event type:', event_type);
     }
 
     return new Response(JSON.stringify({ 
       success: true,
-      message: 'Webhook processed successfully'
+      message: 'Webhook processed successfully',
+      event_type,
+      processed_at: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -190,7 +218,8 @@ serve(async (req) => {
     console.error('Error processing HeyGen webhook:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message 
+      error: error.message,
+      timestamp: new Date().toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

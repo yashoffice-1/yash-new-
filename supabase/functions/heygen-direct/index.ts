@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.1';
@@ -102,10 +103,15 @@ serve(async (req) => {
       }
     }
 
+    // Generate a unique callback ID for tracking
+    const callbackId = `feedgen_${templateId}_${productId || 'noproduct'}_${Date.now()}`;
+    console.log('Generated callback ID:', callbackId);
+
     console.log('Creating video with template variables:', {
       templateId,
       variablesFormatted: Object.keys(variables).length,
-      variableCount: allKeys.length
+      variableCount: allKeys.length,
+      callbackId
     });
 
     // Call HeyGen API to generate video using template with correct format
@@ -122,7 +128,7 @@ serve(async (req) => {
         variables: variables,
         include_gif: true,
         test: false,
-        callback_id: `feedgen_${templateId}_${Date.now()}`,
+        callback_id: callbackId,
       }),
     });
 
@@ -145,10 +151,14 @@ serve(async (req) => {
     // Store the generation request in database and asset library
     console.log('Storing asset in database and library...');
     let assetId = null;
+    let libraryId = null;
+    
     try {
+      // First, store in generated_assets table
       const { data: asset, error: dbError } = await supabase
         .from('generated_assets')
         .insert({
+          id: callbackId, // Use callback ID as the asset ID for easier tracking
           channel: 'youtube',
           format: 'mp4',
           source_system: 'heygen',
@@ -162,48 +172,48 @@ serve(async (req) => {
         .single();
 
       if (dbError) {
-        console.error('Database error:', dbError);
-        // Don't throw here - video was created successfully in HeyGen
-        console.log('Video created in HeyGen but database storage failed:', dbError.message);
+        console.error('Database error storing generated asset:', dbError);
+        throw new Error(`Failed to store generated asset: ${dbError.message}`);
       } else {
         console.log('Video generation request stored in database with ID:', asset.id);
         assetId = asset.id;
         
-        // Also create entry in asset library for immediate tracking
+        // Now create entry in asset library for immediate tracking
         try {
-          // First get product info for title formatting
+          // Get product info for title formatting
           let productData = null;
           if (productId) {
+            console.log('Fetching product data for ID:', productId);
             const { data: product, error: productError } = await supabase
               .from('inventory')
               .select('name, price')
               .eq('id', productId)
               .single();
-            if (!productError && product) {
+              
+            if (productError) {
+              console.log('Product fetch error (non-fatal):', productError);
+            } else {
               productData = product;
+              console.log('Product data fetched:', productData);
             }
           }
           
           // Format title with character limit for HeyGen compatibility
-          // HeyGen has title length limits, so we need to truncate
-          const maxTitleLength = 50; // Conservative limit for HeyGen
+          const maxTitleLength = 50;
           let shortTitle = '';
           
           if (productData?.name) {
-            // Truncate product name if too long
             let productName = productData.name;
             if (productName.length > 30) {
               productName = productName.substring(0, 30) + '...';
             }
             
             const priceText = productData?.price ? `$${productData.price}` : '';
-            const orientation = 'landscape'; // Default
+            const orientation = 'landscape';
             
-            // Build title: "Short Name + $Price + orientation"
             const parts = [productName, priceText, orientation].filter(Boolean);
             shortTitle = parts.join(' + ');
             
-            // Final length check and truncation if needed
             if (shortTitle.length > maxTitleLength) {
               shortTitle = shortTitle.substring(0, maxTitleLength - 3) + '...';
             }
@@ -211,7 +221,9 @@ serve(async (req) => {
             shortTitle = `HeyGen Video - ${productId || 'Product'}`;
           }
           
-          const { error: libraryError } = await supabase
+          console.log('Creating asset library entry with title:', shortTitle);
+          
+          const { data: libraryEntry, error: libraryError } = await supabase
             .from('asset_library')
             .insert({
               title: shortTitle,
@@ -219,29 +231,36 @@ serve(async (req) => {
               asset_url: 'processing',
               source_system: 'heygen',
               instruction: instruction || 'Direct HeyGen API video generation',
-              original_asset_id: asset.id,
-              description: `Video: ${productData?.name || 'Product'} | Template: ${templateId}`
-            });
+              original_asset_id: callbackId,
+              description: `Video: ${productData?.name || 'Product'} | Template: ${templateId} | Callback: ${callbackId}`
+            })
+            .select()
+            .single();
             
           if (libraryError) {
             console.error('Failed to create asset library entry:', libraryError);
+            throw new Error(`Failed to create library entry: ${libraryError.message}`);
           } else {
-            console.log('Asset library entry created for video generation');
+            libraryId = libraryEntry.id;
+            console.log('Asset library entry created successfully with ID:', libraryId);
           }
         } catch (libraryInsertError) {
-          console.error('Asset library creation error (non-fatal):', libraryInsertError);
+          console.error('Asset library creation error:', libraryInsertError);
+          throw libraryInsertError;
         }
       }
     } catch (dbStoreError) {
-      console.error('Database storage error (non-fatal):', dbStoreError);
-      // Continue execution - video was created in HeyGen successfully
+      console.error('Database storage error:', dbStoreError);
+      throw dbStoreError;
     }
 
     const responseData = { 
       success: true, 
-      video_id: heygenData.data?.video_id,
+      video_id: heygenData.data?.video_id || callbackId,
       video_url: heygenData.data?.video_url || 'processing',
       asset_id: assetId,
+      library_id: libraryId,
+      callback_id: callbackId,
       type: 'video',
       message: 'Video generation started via HeyGen Direct API. Processing may take a few minutes.',
       template_id: templateId,
