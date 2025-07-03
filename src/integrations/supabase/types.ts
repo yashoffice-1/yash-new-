@@ -41,6 +41,7 @@ export type Database = {
           created_at: string
           description: string | null
           favorited: boolean | null
+          gif_url: string | null
           id: string
           instruction: string
           original_asset_id: string | null
@@ -56,6 +57,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           favorited?: boolean | null
+          gif_url?: string | null
           id?: string
           instruction: string
           original_asset_id?: string | null
@@ -71,6 +73,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           favorited?: boolean | null
+          gif_url?: string | null
           id?: string
           instruction?: string
           original_asset_id?: string | null

@@ -53,6 +53,8 @@ serve(async (req) => {
 
       if (updateAssetError) {
         console.error('Failed to update generated asset:', updateAssetError);
+      } else {
+        console.log('Successfully updated generated_assets table');
       }
 
       // Update asset_library table with both video URL and GIF URL
@@ -61,15 +63,35 @@ serve(async (req) => {
         .update({
           asset_url: video_url,
           gif_url: gif_download_url,
-          description: `Generated HeyGen video (ID: ${video_id})`
+          description: `Generated HeyGen video completed (ID: ${video_id})`
         })
         .eq('original_asset_id', callback_id || video_id);
 
       if (updateLibraryError) {
         console.error('Failed to update asset library:', updateLibraryError);
+        
+        // If no existing library entry found, create a new one
+        const { error: insertLibraryError } = await supabase
+          .from('asset_library')
+          .insert({
+            title: `HeyGen Video - ${video_id}`,
+            asset_type: 'video',
+            asset_url: video_url,
+            gif_url: gif_download_url,
+            source_system: 'heygen',
+            instruction: 'Video generated via HeyGen webhook',
+            original_asset_id: callback_id || video_id,
+            description: `Generated HeyGen video (ID: ${video_id})`
+          });
+          
+        if (insertLibraryError) {
+          console.error('Failed to insert new asset library entry:', insertLibraryError);
+        } else {
+          console.log('Created new asset library entry from webhook');
+        }
+      } else {
+        console.log('Successfully updated asset library with video and GIF URLs');
       }
-
-      console.log('Successfully updated database with video and GIF URLs');
 
     } else if (event_type === 'avatar_video.fail') {
       const { video_id, error: generation_error } = event_data;
