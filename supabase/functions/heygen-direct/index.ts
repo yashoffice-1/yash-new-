@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.1';
@@ -24,31 +23,48 @@ interface HeyGenDirectRequest {
 }
 
 serve(async (req) => {
+  console.log('HeyGen Direct function called with method:', req.method);
+  
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('Starting HeyGen Direct function execution');
+    
     if (!heygenApiKey) {
+      console.error('HeyGen API key missing');
       throw new Error('HeyGen API key not configured. Please add HEYGEN_API_KEY to Supabase secrets.');
     }
 
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Supabase configuration missing');
       throw new Error('Supabase configuration missing');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { templateId, templateData, instruction, productId }: HeyGenDirectRequest = await req.json();
+    console.log('Environment variables OK, parsing request body...');
+    const requestBody = await req.json();
+    console.log('Request body received:', JSON.stringify(requestBody, null, 2));
+    
+    const { templateId, templateData, instruction, productId }: HeyGenDirectRequest = requestBody;
 
-    console.log('Starting direct HeyGen API integration');
-    console.log('Template ID:', templateId);
-    console.log('Product ID:', productId);
+    console.log('Parsed request data:', {
+      templateId,
+      productId,
+      hasTemplateData: !!templateData,
+      instruction: instruction?.substring(0, 100) + '...'
+    });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Prepare variables for HeyGen template - variables should be a string according to API docs
     const variablesObject: Record<string, any> = {};
     
     // Use user improved data first, then AI suggested, then extracted as fallback
     const allKeys = Object.keys(templateData.userImproved || {});
+    console.log('Template variable keys found:', allKeys);
+    
     allKeys.forEach(key => {
       const content = templateData.userImproved[key] || 
                      templateData.aiSuggested[key] || 
@@ -75,6 +91,7 @@ serve(async (req) => {
       });
 
       if (missingVariables.length > 0) {
+        console.error('Missing required variables:', missingVariables);
         throw new Error(`Missing required variables: ${missingVariables.join(', ')}`);
       }
     }
@@ -86,6 +103,7 @@ serve(async (req) => {
     });
 
     // Call HeyGen API to generate video using template with correct format
+    console.log('Making request to HeyGen API...');
     const heygenResponse = await fetch(`https://api.heygen.com/v2/template/${templateId}/generate`, {
       method: 'POST',
       headers: {
@@ -101,6 +119,8 @@ serve(async (req) => {
       }),
     });
 
+    console.log('HeyGen API response status:', heygenResponse.status);
+
     if (!heygenResponse.ok) {
       const errorText = await heygenResponse.text();
       console.error('HeyGen API error:', {
@@ -113,9 +133,10 @@ serve(async (req) => {
     }
 
     const heygenData = await heygenResponse.json();
-    console.log('HeyGen API response:', heygenData);
+    console.log('HeyGen API response data:', heygenData);
 
     // Store the generation request in database
+    console.log('Storing asset in database...');
     const { data: asset, error: dbError } = await supabase
       .from('generated_assets')
       .insert({
@@ -136,9 +157,9 @@ serve(async (req) => {
       throw new Error(`Database error: ${dbError.message}`);
     }
 
-    console.log('Video generation request stored in database');
+    console.log('Video generation request stored in database with ID:', asset.id);
 
-    return new Response(JSON.stringify({ 
+    const responseData = { 
       success: true, 
       video_id: heygenData.data?.video_id,
       video_url: heygenData.data?.video_url || 'processing',
@@ -147,7 +168,11 @@ serve(async (req) => {
       message: 'Video generation started via HeyGen Direct API. Processing may take a few minutes.',
       template_id: templateId,
       heygen_response: heygenData
-    }), {
+    };
+
+    console.log('Returning success response:', responseData);
+
+    return new Response(JSON.stringify(responseData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
@@ -155,14 +180,20 @@ serve(async (req) => {
     console.error('Error in heygen-direct function:', {
       message: error.message,
       stack: error.stack,
-      templateId,
-      productId
+      name: error.name,
+      cause: error.cause
     });
-    return new Response(JSON.stringify({ 
+    
+    const errorResponse = { 
       success: false, 
       error: error.message,
-      details: 'Check function logs for more information'
-    }), {
+      details: 'Check function logs for more information',
+      timestamp: new Date().toISOString()
+    };
+
+    console.log('Returning error response:', errorResponse);
+
+    return new Response(JSON.stringify(errorResponse), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -31,11 +31,19 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('HeyGen API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
       throw new Error(`HeyGen API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('Successfully fetched templates from HeyGen');
+    console.log('Successfully fetched templates from HeyGen:', {
+      totalTemplates: data.data?.length || 0,
+      firstTemplate: data.data?.[0]?.name || 'none'
+    });
 
     return new Response(JSON.stringify({ 
       success: true, 
