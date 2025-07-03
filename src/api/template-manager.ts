@@ -218,11 +218,38 @@ class TemplateManager {
 
   async getClientTemplates(clientId: string = 'default'): Promise<TemplateDetail[]> {
     const config = await this.getClientConfig(clientId);
+    
+    // First, try to get template list with names and thumbnails from heygen-templates
+    let templateBasicInfo: Record<string, { name: string; thumbnail: string }> = {};
+    
+    try {
+      console.log('Fetching template list from heygen-templates API...');
+      const { data, error } = await supabase.functions.invoke('heygen-templates');
+      
+      if (!error && data.success && data.templates) {
+        // Build a map of template basic info
+        data.templates.forEach((template: any) => {
+          templateBasicInfo[template.template_id] = {
+            name: template.name,
+            thumbnail: template.thumbnail_image_url
+          };
+        });
+        console.log('Successfully loaded template basic info:', templateBasicInfo);
+      }
+    } catch (error) {
+      console.warn('Failed to fetch template list, will use fallback data:', error);
+    }
+    
     const templates: TemplateDetail[] = [];
     
     for (const templateId of config.assignedTemplateIds) {
       const template = await this.getTemplateDetail(templateId);
       if (template) {
+        // Override with actual name and thumbnail if available
+        if (templateBasicInfo[templateId]) {
+          template.name = templateBasicInfo[templateId].name;
+          template.thumbnail = templateBasicInfo[templateId].thumbnail;
+        }
         templates.push(template);
       }
     }
