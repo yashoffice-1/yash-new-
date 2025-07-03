@@ -142,8 +142,8 @@ serve(async (req) => {
     const heygenData = await heygenResponse.json();
     console.log('HeyGen API response data:', heygenData);
 
-    // Store the generation request in database
-    console.log('Storing asset in database...');
+    // Store the generation request in database and asset library
+    console.log('Storing asset in database and library...');
     let assetId = null;
     try {
       const { data: asset, error: dbError } = await supabase
@@ -168,6 +168,29 @@ serve(async (req) => {
       } else {
         console.log('Video generation request stored in database with ID:', asset.id);
         assetId = asset.id;
+        
+        // Also create entry in asset library for immediate tracking
+        try {
+          const { error: libraryError } = await supabase
+            .from('asset_library')
+            .insert({
+              title: `HeyGen Video - ${productId || 'Product'}`,
+              asset_type: 'video',
+              asset_url: 'processing',
+              source_system: 'heygen',
+              instruction: instruction || 'Direct HeyGen API video generation',
+              original_asset_id: asset.id,
+              description: `Video generation started for template ${templateId}${productId ? ` (Product: ${productId})` : ''}`
+            });
+            
+          if (libraryError) {
+            console.error('Failed to create asset library entry:', libraryError);
+          } else {
+            console.log('Asset library entry created for video generation');
+          }
+        } catch (libraryInsertError) {
+          console.error('Asset library creation error (non-fatal):', libraryInsertError);
+        }
       }
     } catch (dbStoreError) {
       console.error('Database storage error (non-fatal):', dbStoreError);
