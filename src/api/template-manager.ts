@@ -193,13 +193,21 @@ class TemplateManager {
         }
       }
 
+      console.log('HeyGen template API response for duration:', {
+        templateId,
+        rawDuration: data.template.duration,
+        videoDuration: data.template.video_duration,
+        length: data.template.length,
+        fullTemplate: data.template
+      });
+
       const templateDetail: TemplateDetail = {
         id: data.template.templateId || data.template.id || templateId,
         name: data.template.name || `Template ${templateId.slice(-8)}`,
         description: data.template.description || 'HeyGen video template',
         thumbnail: data.template.thumbnail || data.template.preview_url || data.template.cover_image || `https://img.heygen.com/template/${templateId}/thumbnail.jpg`,
         category: data.template.category || 'Custom',
-        duration: data.template.duration || '30s',
+        duration: data.template.duration || data.template.video_duration || data.template.length || '30s',
         variables: variables,
         variableTypes: variableTypes
       };

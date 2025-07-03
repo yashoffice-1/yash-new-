@@ -69,8 +69,17 @@ serve(async (req) => {
                              (templateInfo.template && templateInfo.template.thumbnail) ||
                              `https://img.heygen.com/template/${templateId}/thumbnail.jpg`;
 
+    // Extract duration from multiple possible locations
+    const templateDuration = templateInfo.duration || 
+                            templateInfo.video_duration || 
+                            templateInfo.length ||
+                            templateInfo.video_length ||
+                            (templateInfo.template && templateInfo.template.duration) ||
+                            '30s';
+
     console.log('Extracted template name:', templateName);
     console.log('Extracted template thumbnail:', templateThumbnail);
+    console.log('Extracted template duration:', templateDuration);
 
     // Extract variables from the HeyGen API response
     let extractedVariables: string[] = [];
@@ -97,7 +106,7 @@ serve(async (req) => {
       description: templateInfo.description || 'HeyGen video template',
       thumbnail: templateThumbnail,
       category: templateInfo.category || 'Custom',
-      duration: templateInfo.duration || '30s',
+      duration: templateDuration,
       variables: extractedVariables,
       // Extract variable names and types for easier processing
       variableNames: extractedVariables,
