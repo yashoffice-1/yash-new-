@@ -88,13 +88,98 @@ serve(async (req) => {
     console.log('Video URL:', ourVideo.video_url);
 
     if (ourVideo.status === 'completed' && ourVideo.video_url) {
-      // Update the asset with the real video URL
+      console.log('Video is completed! Downloading and storing...');
+      
+      // Download and store the video to our storage
+      let storedVideoUrl = ourVideo.video_url;
+      let storedGifUrl = ourVideo.gif_url;
+
+      try {
+        // Download video
+        console.log('Fetching video from URL:', ourVideo.video_url);
+        const videoResponse = await fetch(ourVideo.video_url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        console.log('Video response status:', videoResponse.status);
+        
+        if (videoResponse.ok) {
+          const videoBlob = await videoResponse.blob();
+          console.log('Video blob size:', videoBlob.size);
+          
+          const videoFileName = `heygen-video-${callbackId}-${Date.now()}.mp4`;
+          
+          const { data: videoUpload, error: videoUploadError } = await supabase.storage
+            .from('generated-assets')
+            .upload(videoFileName, videoBlob, {
+              contentType: 'video/mp4',
+              upsert: true
+            });
+
+          if (videoUploadError) {
+            console.error('Video upload error:', videoUploadError);
+          } else {
+            const { data: { publicUrl: videoPublicUrl } } = supabase.storage
+              .from('generated-assets')
+              .getPublicUrl(videoUpload.path);
+            storedVideoUrl = videoPublicUrl;
+            console.log('Video stored successfully:', videoPublicUrl);
+          }
+        } else {
+          console.error('Failed to fetch video:', videoResponse.status, videoResponse.statusText);
+        }
+
+        // Download GIF if available
+        if (ourVideo.gif_url) {
+          console.log('Fetching GIF from URL:', ourVideo.gif_url);
+          const gifResponse = await fetch(ourVideo.gif_url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+          
+          console.log('GIF response status:', gifResponse.status);
+          
+          if (gifResponse.ok) {
+            const gifBlob = await gifResponse.blob();
+            console.log('GIF blob size:', gifBlob.size);
+            
+            const gifFileName = `heygen-gif-${callbackId}-${Date.now()}.gif`;
+            
+            const { data: gifUpload, error: gifUploadError } = await supabase.storage
+              .from('generated-assets')
+              .upload(gifFileName, gifBlob, {
+                contentType: 'image/gif',
+                upsert: true
+              });
+
+            if (gifUploadError) {
+              console.error('GIF upload error:', gifUploadError);
+            } else {
+              const { data: { publicUrl: gifPublicUrl } } = supabase.storage
+                .from('generated-assets')
+                .getPublicUrl(gifUpload.path);
+              storedGifUrl = gifPublicUrl;
+              console.log('GIF stored successfully:', gifPublicUrl);
+            }
+          } else {
+            console.error('Failed to fetch GIF:', gifResponse.status, gifResponse.statusText);
+          }
+        }
+      } catch (downloadError) {
+        console.error('Failed to download and store assets:', downloadError);
+        console.log('Using original URLs as fallback');
+      }
+
+      // Update the asset with the stored video URL
       const { error: updateError } = await supabase
         .from('asset_library')
         .update({
-          asset_url: ourVideo.video_url,
-          gif_url: ourVideo.gif_url || null,
-          description: `${asset.description} | Real video retrieved: ${new Date().toISOString()}`
+          asset_url: storedVideoUrl,
+          gif_url: storedGifUrl || null,
+          description: `${asset.description} | Real video retrieved and stored: ${new Date().toISOString()}`
         })
         .eq('id', assetId);
 
@@ -103,13 +188,13 @@ serve(async (req) => {
         throw updateError;
       }
 
-      console.log('Asset updated with real video URL');
+      console.log('Asset updated with stored video');
       
       return new Response(JSON.stringify({ 
         success: true,
-        message: 'Real video retrieved and updated',
-        video_url: ourVideo.video_url,
-        gif_url: ourVideo.gif_url,
+        message: 'Real video downloaded, stored, and updated',
+        video_url: storedVideoUrl,
+        gif_url: storedGifUrl,
         status: 'completed'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
