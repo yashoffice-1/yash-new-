@@ -6,6 +6,7 @@ import { TemplateSelector } from "./video-template/TemplateSelector";
 import { ProductVariableTable } from "./video-template/ProductVariableTable";
 import { VideoCreationControls } from "./video-template/VideoCreationControls";
 import { templateManager, type TemplateDetail } from "@/api/template-manager";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   InventoryItem, 
   ProductVariableState
@@ -257,12 +258,8 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         finalData[variable] = varData.aiSuggested || varData.extracted || "";
       });
 
-      const response = await fetch('/functions/v1/heygen-direct', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('heygen-direct', {
+        body: {
           templateId: selectedTemplate,
           productId: selectedProduct.id,
           templateData: {
@@ -271,12 +268,14 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
             userImproved: finalData
           },
           instruction: `Create video using template ${selectedTemplate} with product: ${selectedProduct.name}`
-        }),
+        }
       });
 
-      const result = await response.json();
+      if (error) {
+        throw new Error(error.message || 'Failed to invoke function');
+      }
       
-      if (result.success) {
+      if (data?.success) {
         const templateName = templates.find(t => t.id === selectedTemplate)?.name || 'Selected Template';
         
         toast({
@@ -289,7 +288,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         setTemplateVariables([]);
         setProductVariables({});
       } else {
-        throw new Error(result.error || 'Failed to create video');
+        throw new Error(data?.error || 'Failed to create video');
       }
     } catch (error) {
       console.error('Error creating video:', error);
