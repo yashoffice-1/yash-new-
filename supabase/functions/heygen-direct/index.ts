@@ -58,8 +58,8 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Prepare variables for HeyGen template - variables should be a string according to API docs
-    const variablesObject: Record<string, any> = {};
+    // Prepare variables for HeyGen template according to API documentation
+    const variables: Record<string, any> = {};
     
     // Use user improved data first, then AI suggested, then extracted as fallback
     const allKeys = Object.keys(templateData.userImproved || {});
@@ -70,13 +70,19 @@ serve(async (req) => {
                      templateData.aiSuggested[key] || 
                      templateData.extracted[key] || '';
       
-      // Store variables as key-value pairs
-      variablesObject[key] = content;
+      // Format variables according to HeyGen API documentation
+      variables[key] = {
+        name: key,
+        type: key.toLowerCase().includes('image') ? 'image' : 'text',
+        properties: key.toLowerCase().includes('image') ? {
+          url: content
+        } : {
+          content: content
+        }
+      };
     });
 
-    // Convert variables object to JSON string as expected by HeyGen API
-    const variables = JSON.stringify(variablesObject);
-    console.log('Template variables prepared as JSON string:', variables);
+    console.log('Template variables prepared in HeyGen API format:', JSON.stringify(variables, null, 2));
 
     // If no variables provided, this might be a template that doesn't need variables
     if (allKeys.length === 0) {
@@ -98,7 +104,7 @@ serve(async (req) => {
 
     console.log('Creating video with template variables:', {
       templateId,
-      variables,
+      variablesFormatted: Object.keys(variables).length,
       variableCount: allKeys.length
     });
 
@@ -114,6 +120,7 @@ serve(async (req) => {
         caption: false,
         title: `Video for ${productId || 'Product'}`,
         variables: variables,
+        include_gif: true,
         test: false,
         callback_id: `feedgen_${templateId}_${Date.now()}`,
       }),
