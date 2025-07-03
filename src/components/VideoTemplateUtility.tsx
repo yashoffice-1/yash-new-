@@ -255,24 +255,46 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         finalData[variable] = varData.aiSuggested || varData.extracted || "";
       });
 
-      const { data, error } = await supabase.functions.invoke('heygen-direct', {
-        body: {
+      let functionData: any = null;
+      
+      try {
+        console.log('Invoking heygen-direct function with payload:', {
           templateId: selectedTemplate,
           productId: selectedProduct.id,
-          templateData: {
-            extracted: {},
-            aiSuggested: {},
-            userImproved: finalData
-          },
-          instruction: `Create video using template ${selectedTemplate} with product: ${selectedProduct.name}`
-        }
-      });
+          finalData
+        });
 
-      if (error) {
-        throw new Error(error.message || 'Failed to invoke function');
+        const { data, error } = await supabase.functions.invoke('heygen-direct', {
+          body: {
+            templateId: selectedTemplate,
+            productId: selectedProduct.id,
+            templateData: {
+              extracted: {},
+              aiSuggested: {},
+              userImproved: finalData
+            },
+            instruction: `Create video using template ${selectedTemplate} with product: ${selectedProduct.name}`
+          }
+        });
+
+        console.log('Supabase function response:', { data, error });
+
+        if (error) {
+          console.error('Supabase function error details:', error);
+          throw new Error(`Function invocation failed: ${JSON.stringify(error)}`);
+        }
+
+        if (!data) {
+          throw new Error('No response data received from function');
+        }
+        
+        functionData = data;
+      } catch (networkError) {
+        console.error('Network/Function error:', networkError);
+        throw new Error(`Video generation service unavailable: ${networkError.message}`);
       }
       
-      if (data?.success) {
+      if (functionData?.success) {
         const templateName = templates.find(t => t.id === selectedTemplate)?.name || 'Selected Template';
         
         toast({
@@ -285,7 +307,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         setTemplateVariables([]);
         setProductVariables({});
       } else {
-        throw new Error(data?.error || 'Failed to create video');
+        throw new Error(functionData?.error || 'Failed to create video');
       }
     } catch (error) {
       console.error('Error creating video:', error);
