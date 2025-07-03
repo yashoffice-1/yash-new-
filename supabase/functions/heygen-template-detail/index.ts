@@ -153,35 +153,61 @@ serve(async (req) => {
       extractedVariables = [...new Set(sceneVariables)];
     }
     
-    // Strategy 6: Comprehensive string parsing for ALL variable patterns
+    // Strategy 6: Enhanced parsing for HeyGen's actual API response structure
     if (extractedVariables.length === 0) {
-      console.log('No structured variables found, attempting comprehensive string parsing');
+      console.log('No structured variables found, attempting enhanced HeyGen API parsing');
       const jsonString = JSON.stringify(templateInfo);
+      
+      // Enhanced patterns specifically for HeyGen's API structure
       const variablePatterns = [
-        /\{\{([^}]+)\}\}/g,  // {{variable_name}}
-        /\{([^}]+)\}/g,      // {variable_name}
-        /"variable_name":\s*"([^"]+)"/g,  // "variable_name": "name"
-        /"placeholder":\s*"([^"]+)"/g,    // "placeholder": "name"
-        /"name":\s*"([^"]+)"[^}]*"type":\s*"variable"/g,  // name with type variable
-        /"text":\s*"\{([^}]+)\}"/g,      // "text": "{variable}"
-        /\$\{([^}]+)\}/g,    // ${variable_name}
-        /"content":\s*"[^"]*\{([^}]+)\}[^"]*"/g, // content with variables
-        /"value":\s*"[^"]*\{([^}]+)\}[^"]*"/g    // value with variables
+        // HeyGen specific patterns based on actual API response
+        /"name":\s*"([^"]*(?:text|image|video|audio)[^"]*)"[^}]*"type":\s*"(?:text|image|video|audio)"/g,
+        /"variable_name":\s*"([^"]+)"/g,
+        /"placeholder":\s*"([^"]+)"/g,
+        /"key":\s*"([^"]+)"/g,
+        /"id":\s*"([^"]*(?:text|image|video)[^"]*)"[^}]*"type":\s*"(?:text|image|video)"/g,
+        // Pattern for text.variable_name.content structure
+        /text\.([^.]+)\.content/g,
+        // Pattern for image.variable_name.url structure  
+        /image\.([^.]+)\.url/g,
+        // Pattern for video_name.variable_name.content structure
+        /video_name\.([^.]+)\.content/g,
+        // Pattern for audio.variable_name.url structure
+        /audio\.([^.]+)\.url/g,
+        // Generic variable patterns
+        /\{\{([^}]+)\}\}/g,
+        /\{([^}]+)\}/g,
+        /"content":\s*"[^"]*\{([^}]+)\}[^"]*"/g,
+        /"value":\s*"[^"]*\{([^}]+)\}[^"]*"/g
       ];
       
       const foundVars = new Set<string>();
+      
       variablePatterns.forEach(pattern => {
         let match;
         while ((match = pattern.exec(jsonString)) !== null) {
           if (match[1] && match[1].trim()) {
-            // Clean up variable names
-            const cleanVar = match[1].trim()
-              .replace(/^[\{\}]+/, '')  // Remove leading braces
-              .replace(/[\{\}]+$/, '')  // Remove trailing braces
-              .replace(/['"]/g, '')     // Remove quotes
+            let cleanVar = match[1].trim()
+              .replace(/^[\{\}]+/, '')
+              .replace(/[\{\}]+$/, '')
+              .replace(/['"]/g, '')
               .trim();
             
-            if (cleanVar && cleanVar.length > 0 && !cleanVar.includes(' ') && cleanVar.length < 50) {
+            // For HeyGen patterns, clean up the variable name
+            if (cleanVar && cleanVar.length > 0 && !cleanVar.includes(' ') && cleanVar.length < 100) {
+              // Convert HeyGen patterns to clean variable names
+              if (cleanVar.startsWith('text.') && cleanVar.endsWith('.content')) {
+                cleanVar = cleanVar.replace('text.', '').replace('.content', '');
+              } else if (cleanVar.startsWith('image.') && cleanVar.endsWith('.url')) {
+                cleanVar = cleanVar.replace('image.', '').replace('.url', '');
+              } else if (cleanVar.startsWith('video_name.') && cleanVar.endsWith('.content')) {
+                cleanVar = cleanVar.replace('video_name.', '').replace('.content', '');
+                // Keep the video_name prefix for this special case
+                cleanVar = 'video_name.' + cleanVar;
+              } else if (cleanVar.startsWith('audio.') && cleanVar.endsWith('.url')) {
+                cleanVar = cleanVar.replace('audio.', '').replace('.url', '');
+              }
+              
               foundVars.add(cleanVar);
             }
           }
@@ -189,35 +215,18 @@ serve(async (req) => {
       });
       
       extractedVariables = Array.from(foundVars);
-      console.log('Variables found through comprehensive string parsing:', extractedVariables);
+      console.log('Variables found through enhanced HeyGen API parsing:', extractedVariables);
     }
 
     console.log('Variables extracted from HeyGen API before fallback:', extractedVariables);
     console.log('Variable count before fallback:', extractedVariables.length);
 
-    // SPECIFIC MOBILE TEMPLATE VARIABLES - CORRECT SET FROM HEYGEN
-    if (templateId === '3bb2bf2276754c0ea6b235db9409f508' || templateName.toLowerCase().includes('mobile')) {
-      console.log('Mobile template detected - using correct variable set');
-      
-      const correctMobileVariables = [
-        'product_name',
-        'category_name',
-        'feature_one',
-        'feature_two',
-        'feature_three',
-        'website_description',
-        'product_price',
-        'product_discount',
-        'product_image',
-        'video_name.product_name'
-      ];
-      
-      extractedVariables = correctMobileVariables;
-      console.log('Mobile template variables set to correct 10 variables:', extractedVariables);
-    }
+    // Remove mobile template override - let the enhanced parsing handle it
+    console.log('Variables extracted from HeyGen API:', extractedVariables);
+    console.log('Variable count from API:', extractedVariables.length);
     
     // Generic comprehensive fallback for any template with insufficient variables
-    else if (extractedVariables.length < 15) {
+    if (extractedVariables.length < 5) {
       console.log('Template has insufficient variables, applying comprehensive generic fallback');
       
       const comprehensiveGenericVariables = [
