@@ -26,6 +26,7 @@ interface VideoTemplate {
   status: 'active' | 'pending' | 'draft';
   heygenTemplateId?: string;
   variables?: string[];
+  aspectRatio?: 'landscape' | 'portrait';
 }
 
 export function VideoTemplatesTab() {
@@ -54,7 +55,8 @@ export function VideoTemplatesTab() {
           duration: template.duration,
           status: 'active' as const,
           heygenTemplateId: template.id,
-          variables: template.variables || []
+          variables: template.variables || [],
+          aspectRatio: template.aspectRatio || 'landscape'
         }));
 
         console.log('Successfully fetched templates via template manager:', videoTemplates);

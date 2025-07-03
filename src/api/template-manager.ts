@@ -18,6 +18,7 @@ interface TemplateDetail {
   duration: string;
   variables: string[];
   variableTypes: Record<string, TemplateVariable>;
+  aspectRatio?: 'landscape' | 'portrait';
 }
 
 interface ClientTemplateConfig {
@@ -220,7 +221,7 @@ class TemplateManager {
     const config = await this.getClientConfig(clientId);
     
     // First, try to get template list with names and thumbnails from heygen-templates
-    let templateBasicInfo: Record<string, { name: string; thumbnail: string }> = {};
+    let templateBasicInfo: Record<string, { name: string; thumbnail: string; aspectRatio?: string }> = {};
     
     try {
       console.log('Fetching template list from heygen-templates API...');
@@ -231,7 +232,8 @@ class TemplateManager {
         data.templates.forEach((template: any) => {
           templateBasicInfo[template.template_id] = {
             name: template.name,
-            thumbnail: template.thumbnail_image_url
+            thumbnail: template.thumbnail_image_url,
+            aspectRatio: template.aspect_ratio
           };
         });
         console.log('Successfully loaded template basic info:', templateBasicInfo);
@@ -249,6 +251,8 @@ class TemplateManager {
         if (templateBasicInfo[templateId]) {
           template.name = templateBasicInfo[templateId].name;
           template.thumbnail = templateBasicInfo[templateId].thumbnail;
+          // Add aspect ratio from basic info if available
+          template.aspectRatio = (templateBasicInfo[templateId] as any).aspectRatio;
         }
         templates.push(template);
       }
