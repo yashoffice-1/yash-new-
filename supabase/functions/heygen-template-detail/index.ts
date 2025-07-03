@@ -154,15 +154,20 @@ serve(async (req) => {
       extractedVariables = [...new Set(sceneVariables)];
     }
     
-    // Strategy 6: String parsing for common variable patterns (last resort)
+    // Strategy 6: Comprehensive string parsing for ALL variable patterns
     if (extractedVariables.length === 0) {
-      console.log('No structured variables found, attempting string parsing');
+      console.log('No structured variables found, attempting comprehensive string parsing');
       const jsonString = JSON.stringify(templateInfo);
       const variablePatterns = [
         /\{\{([^}]+)\}\}/g,  // {{variable_name}}
+        /\{([^}]+)\}/g,      // {variable_name}
         /"variable_name":\s*"([^"]+)"/g,  // "variable_name": "name"
         /"placeholder":\s*"([^"]+)"/g,    // "placeholder": "name"
-        /"name":\s*"([^"]+)"[^}]*"type":\s*"variable"/g  // name with type variable
+        /"name":\s*"([^"]+)"[^}]*"type":\s*"variable"/g,  // name with type variable
+        /"text":\s*"\{([^}]+)\}"/g,      // "text": "{variable}"
+        /\$\{([^}]+)\}/g,    // ${variable_name}
+        /"content":\s*"[^"]*\{([^}]+)\}[^"]*"/g, // content with variables
+        /"value":\s*"[^"]*\{([^}]+)\}[^"]*"/g    // value with variables
       ];
       
       const foundVars = new Set<string>();
@@ -170,33 +175,100 @@ serve(async (req) => {
         let match;
         while ((match = pattern.exec(jsonString)) !== null) {
           if (match[1] && match[1].trim()) {
-            foundVars.add(match[1].trim());
+            // Clean up variable names
+            const cleanVar = match[1].trim()
+              .replace(/^[\{\}]+/, '')  // Remove leading braces
+              .replace(/[\{\}]+$/, '')  // Remove trailing braces
+              .replace(/['"]/g, '')     // Remove quotes
+              .trim();
+            
+            if (cleanVar && cleanVar.length > 0 && !cleanVar.includes(' ') && cleanVar.length < 50) {
+              foundVars.add(cleanVar);
+            }
           }
         }
       });
       
       extractedVariables = Array.from(foundVars);
-      console.log('Variables found through string parsing:', extractedVariables);
+      console.log('Variables found through comprehensive string parsing:', extractedVariables);
     }
 
-    console.log('Final extracted variables from HeyGen API:', extractedVariables);
-    console.log('Total variable count:', extractedVariables.length);
+    console.log('Variables extracted from HeyGen API before fallback:', extractedVariables);
+    console.log('Variable count before fallback:', extractedVariables.length);
 
-    // If still no variables found, create common fallback variables for mobile templates
-    if (extractedVariables.length === 0 && templateName.toLowerCase().includes('mobile')) {
-      console.log('No variables detected for mobile template, using fallback variables');
-      extractedVariables = [
+    // Strategy 7: Enhanced mobile template fallback with comprehensive variable set
+    if (extractedVariables.length < 10 && (templateName.toLowerCase().includes('mobile') || templateId === 'bccf8cfb2b1e422dbc425755f1b7dc67')) {
+      console.log('Mobile template detected with insufficient variables, applying comprehensive fallback');
+      
+      // Comprehensive mobile template variable set based on common patterns
+      const mobileTemplateVariables = [
         'product_name',
         'brand_name', 
+        'product_price',
+        'price',
+        'discount',
+        'discount_percent',
+        'discount_amount',
+        'original_price',
+        'sale_price',
+        'product_discount',
+        'main_feature',
+        'feature_one',
+        'feature_two', 
+        'feature_three',
+        'benefit_one',
+        'benefit_two',
+        'description',
+        'product_description',
+        'short_description',
+        'category_name',
+        'call_to_action',
+        'cta_text',
+        'website_url',
+        'phone_number',
+        'contact_info',
+        'urgency_text',
+        'guarantee_text',
+        'website_description',
+        'product_image',
+        'logo_image',
+        'background_image'
+      ];
+      
+      // Merge with any variables we found, removing duplicates
+      const allVariables = [...new Set([...extractedVariables, ...mobileTemplateVariables])];
+      extractedVariables = allVariables;
+      
+      console.log('Applied comprehensive mobile template fallback variables:', extractedVariables);
+      console.log('Total variable count after mobile fallback:', extractedVariables.length);
+    }
+    
+    // Strategy 8: Generic comprehensive fallback for any template with insufficient variables
+    else if (extractedVariables.length < 5) {
+      console.log('Template has insufficient variables, applying generic comprehensive fallback');
+      
+      const genericVariables = [
+        'product_name',
+        'brand_name', 
+        'product_price',
         'price',
         'discount',
         'description',
+        'main_feature',
         'call_to_action',
         'website_url',
         'product_image'
       ];
-      console.log('Applied fallback mobile template variables:', extractedVariables);
+      
+      // Merge with any variables we found
+      const allVariables = [...new Set([...extractedVariables, ...genericVariables])];
+      extractedVariables = allVariables;
+      
+      console.log('Applied generic comprehensive fallback:', extractedVariables);
     }
+
+    console.log('Final extracted variables from HeyGen API:', extractedVariables);
+    console.log('Total variable count:', extractedVariables.length);
 
     // Transform the response to extract variables with metadata
     const templateDetail = {
@@ -213,15 +285,19 @@ serve(async (req) => {
         let varType = 'text';
         let charLimit = 500;
         
-        if (varName.toLowerCase().includes('image') || varName.toLowerCase().includes('photo')) {
+        if (varName.toLowerCase().includes('image') || varName.toLowerCase().includes('photo') || varName.toLowerCase().includes('logo')) {
           varType = 'image';
           charLimit = 2000; // URL length
-        } else if (varName.toLowerCase().includes('price') || varName.toLowerCase().includes('discount')) {
+        } else if (varName.toLowerCase().includes('price') || varName.toLowerCase().includes('discount') || varName.toLowerCase().includes('amount')) {
           charLimit = 20; // Short text for prices
-        } else if (varName.toLowerCase().includes('name') || varName.toLowerCase().includes('title')) {
+        } else if (varName.toLowerCase().includes('name') || varName.toLowerCase().includes('title') || varName.toLowerCase().includes('brand')) {
           charLimit = 100; // Medium length for names
-        } else if (varName.toLowerCase().includes('description')) {
+        } else if (varName.toLowerCase().includes('description') || varName.toLowerCase().includes('feature') || varName.toLowerCase().includes('benefit')) {
           charLimit = 300; // Longer for descriptions
+        } else if (varName.toLowerCase().includes('url') || varName.toLowerCase().includes('website') || varName.toLowerCase().includes('link')) {
+          charLimit = 500; // URLs
+        } else if (varName.toLowerCase().includes('phone') || varName.toLowerCase().includes('contact')) {
+          charLimit = 50; // Contact info
         }
         
         acc[varName] = {
