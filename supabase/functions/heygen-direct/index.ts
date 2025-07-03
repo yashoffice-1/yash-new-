@@ -184,23 +184,43 @@ serve(async (req) => {
             }
           }
           
-          // Format title: "product name + price + landscape/portrait"  
-          const titleParts = [];
-          if (productData?.name) titleParts.push(productData.name);
-          if (productData?.price) titleParts.push(`$${productData.price}`);
-          titleParts.push('landscape'); // Default to landscape, template should specify actual orientation
-          const videoTitle = titleParts.length > 0 ? titleParts.join(' + ') : `HeyGen Video - ${productId || 'Product'}`;
+          // Format title with character limit for HeyGen compatibility
+          // HeyGen has title length limits, so we need to truncate
+          const maxTitleLength = 50; // Conservative limit for HeyGen
+          let shortTitle = '';
+          
+          if (productData?.name) {
+            // Truncate product name if too long
+            let productName = productData.name;
+            if (productName.length > 30) {
+              productName = productName.substring(0, 30) + '...';
+            }
+            
+            const priceText = productData?.price ? `$${productData.price}` : '';
+            const orientation = 'landscape'; // Default
+            
+            // Build title: "Short Name + $Price + orientation"
+            const parts = [productName, priceText, orientation].filter(Boolean);
+            shortTitle = parts.join(' + ');
+            
+            // Final length check and truncation if needed
+            if (shortTitle.length > maxTitleLength) {
+              shortTitle = shortTitle.substring(0, maxTitleLength - 3) + '...';
+            }
+          } else {
+            shortTitle = `HeyGen Video - ${productId || 'Product'}`;
+          }
           
           const { error: libraryError } = await supabase
             .from('asset_library')
             .insert({
-              title: videoTitle,
+              title: shortTitle,
               asset_type: 'video',
               asset_url: 'processing',
               source_system: 'heygen',
               instruction: instruction || 'Direct HeyGen API video generation',
               original_asset_id: asset.id,
-              description: `Video generation started for template ${templateId}${productData?.name ? ` (Product: ${productData.name})` : ''}`
+              description: `Video: ${productData?.name || 'Product'} | Template: ${templateId}`
             });
             
           if (libraryError) {

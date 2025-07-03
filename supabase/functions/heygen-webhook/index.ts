@@ -96,17 +96,36 @@ serve(async (req) => {
           console.log('Could not fetch product data for title formatting:', productError);
         }
         
-        // Format title: "product name + price + landscape/portrait"
-        const titleParts = [];
-        if (productData?.name) titleParts.push(productData.name);
-        if (productData?.price) titleParts.push(`$${productData.price}`);
-        titleParts.push('landscape'); // Default to landscape, should get actual orientation from template
-        const videoTitle = titleParts.length > 0 ? titleParts.join(' + ') : `HeyGen Video - ${video_id}`;
+        // Format title with character limit for HeyGen compatibility
+        const maxTitleLength = 50; // Conservative limit for HeyGen
+        let shortTitle = '';
+        
+        if (productData?.name) {
+          // Truncate product name if too long
+          let productName = productData.name;
+          if (productName.length > 30) {
+            productName = productName.substring(0, 30) + '...';
+          }
+          
+          const priceText = productData?.price ? `$${productData.price}` : '';
+          const orientation = 'landscape'; // Default
+          
+          // Build title: "Short Name + $Price + orientation"
+          const parts = [productName, priceText, orientation].filter(Boolean);
+          shortTitle = parts.join(' + ');
+          
+          // Final length check and truncation if needed
+          if (shortTitle.length > maxTitleLength) {
+            shortTitle = shortTitle.substring(0, maxTitleLength - 3) + '...';
+          }
+        } else {
+          shortTitle = `HeyGen Video - ${video_id}`;
+        }
         
         const { error: insertLibraryError } = await supabase
           .from('asset_library')
           .insert({
-            title: videoTitle,
+            title: shortTitle,
             asset_type: 'video',
             asset_url: video_url,
             gif_url: gif_download_url,
