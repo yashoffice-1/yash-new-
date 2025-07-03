@@ -15,23 +15,53 @@ export const extractProductData = (variable: string, selectedProduct: InventoryI
       return selectedProduct.description || "";
     case "product_image":
       return selectedProduct.images?.[0] || "";
+    // Additional mappings for better extraction
+    case "product_discount":
+      return ""; // Will be filled by AI suggestion
+    case "feature_one":
+    case "feature_two": 
+    case "feature_three":
+      // Try to extract features from description
+      const description = selectedProduct.description || "";
+      if (description) {
+        const features = description.match(/[A-Z][^.!?]*[.!?]/g) || [];
+        const index = variable === "feature_one" ? 0 : variable === "feature_two" ? 1 : 2;
+        return features[index]?.trim().replace(/[.!?]$/, '') || "";
+      }
+      return "";
     default:
       return "";
   }
 };
 
-export const generateAISuggestion = (variable: string, extractedValue: string): string => {
+export const generateAISuggestion = (variable: string, extractedValue: string, selectedProduct?: InventoryItem): string => {
+  // Use extracted value if available, otherwise generate smart suggestions
+  if (extractedValue && extractedValue.trim() !== "") {
+    switch (variable) {
+      case "product_name":
+        return extractedValue.includes("Professional") ? extractedValue : `Professional ${extractedValue}`;
+      case "product_price":
+      case "product_image":
+        return extractedValue;
+      case "website_description":
+        return extractedValue.length > 200 ? extractedValue.substring(0, 200) + "..." : extractedValue;
+      default:
+        return extractedValue;
+    }
+  }
+
+  // Fallback suggestions based on variable type and product info
   switch (variable) {
     case "product_name":
-      return extractedValue ? `Professional ${extractedValue}` : "";
+      return selectedProduct?.name ? `Professional ${selectedProduct.name}` : "Premium Product";
     case "product_price":
-      return extractedValue || "$1,155";
+      return selectedProduct?.price ? `$${selectedProduct.price}` : "$1,155";
     case "product_discount":
-      return "15% Off Limited Time";
+      return "19% Off Limited Time";
     case "category_name":
-      return extractedValue || "Premium Tools";
+      return selectedProduct?.category || "Premium Tools";
     case "brand_name":
-      return extractedValue || "Premium Brand";
+      return selectedProduct?.brand || "Premium Brand";
     case "feature_one":
       return "Universal Compatibility";
     case "feature_two":
@@ -53,15 +83,21 @@ export const generateAISuggestion = (variable: string, extractedValue: string): 
     case "customer_testimonial":
       return "This product transformed our business operations";
     case "website_description":
-      return extractedValue ? 
-        `Complete ${extractedValue || "professional"} solution combining advanced technologies.` : 
+      return selectedProduct?.description ? 
+        `Complete ${selectedProduct.name || "professional"} solution combining advanced technologies.` : 
         "Professional solution for your needs";
     case "product_image":
-      return extractedValue || "https://example.com/product-image.jpg";
+      return selectedProduct?.images?.[0] || "https://example.com/product-image.jpg";
     case "website_url":
       return "https://yourwebsite.com";
+    case "urgency_text":
+      return "Limited Time Only";
+    case "cta_text":
+      return "Shop Now";
+    case "discount_percent":
+      return "19%";
     default:
-      return "";
+      return `Enter ${variable.replace(/_/g, ' ')}`;
   }
 };
 
@@ -77,7 +113,7 @@ export const initializeProductVariables = (
   const productVariables: Record<string, ProductVariableState> = {};
   variables.forEach(variable => {
     const extractedValue = extractProductData(variable, selectedProduct);
-    const aiSuggested = aiSuggestions?.[variable] || generateAISuggestion(variable, extractedValue);
+    const aiSuggested = aiSuggestions?.[variable] || generateAISuggestion(variable, extractedValue, selectedProduct);
     productVariables[variable] = {
       extracted: extractedValue,
       aiSuggested: aiSuggested,

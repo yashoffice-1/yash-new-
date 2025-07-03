@@ -21,31 +21,45 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Create a prompt for generating variable suggestions
+    // Create a more detailed prompt for generating variable suggestions
     const prompt = `
-You are helping create video marketing content. Based on the product information below, generate appropriate values for the video template variables.
+You are a professional marketing copywriter creating video content for e-commerce products. Based on the product information below, generate compelling, marketing-friendly values for each video template variable.
 
 Product Information:
 - Name: ${product.name}
 - Brand: ${product.brand || 'Unknown'}
-- Category: ${product.category || 'Unknown'}
+- Category: ${product.category || 'Unknown'}  
 - Price: ${product.price ? `$${product.price}` : 'Unknown'}
 - Description: ${product.description || 'No description available'}
+- Images: ${product.images ? product.images.slice(0, 1).join(', ') : 'No images'}
 
 Template Variables to fill:
 ${templateVariables.map((variable: string) => `- ${variable}`).join('\n')}
 
-Please provide concise, marketing-friendly values for each variable. Keep values under 50 characters each.
-Return your response as a JSON object with variable names as keys and suggested values as values.
+Guidelines:
+- For product_name: Use a compelling, marketing version of the product name
+- For product_price: Format as currency (e.g., "$199.99")  
+- For product_discount: Create attractive discount text (e.g., "20% Off Limited Time")
+- For category_name: Use market-friendly category names
+- For features: Extract key benefits and features from the description
+- For website_description: Create a compelling product description for video
+- For product_image: Use the first product image URL if available
 
-Example format:
+Keep each value concise but compelling (under 100 characters for most fields, longer for descriptions).
+Return ONLY a valid JSON object with variable names as keys and suggested values as values.
+
+Example:
 {
-  "product_name": "Premium Locksmith Tool Bundle",
-  "brand_name": "Original Lishi",
-  "product_price": "$199.00",
-  "category_name": "Professional Tools"
-}
-`;
+  "product_name": "Professional Grade Security Lock Set",
+  "product_price": "$348.99",
+  "product_discount": "19% Off Limited Time",
+  "category_name": "Security & Access Control",
+  "feature_one": "Grade 1 Commercial Security",
+  "feature_two": "Satin Chrome Finish",
+  "feature_three": "Keypad Entry System",
+  "website_description": "Premium trilogy keypad lever set with commercial-grade security and elegant satin chrome finish",
+  "product_image": "${product.images?.[0] || ''}"
+}`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
