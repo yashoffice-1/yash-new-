@@ -69,9 +69,19 @@ serve(async (req) => {
 
       try {
         // Download video
-        const videoResponse = await fetch(video_url);
+        console.log('Fetching video from URL:', video_url);
+        const videoResponse = await fetch(video_url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        console.log('Video response status:', videoResponse.status);
+        
         if (videoResponse.ok) {
           const videoBlob = await videoResponse.blob();
+          console.log('Video blob size:', videoBlob.size);
+          
           const videoFileName = `heygen-video-${video_id}-${Date.now()}.mp4`;
           
           const { data: videoUpload, error: videoUploadError } = await supabase.storage
@@ -81,20 +91,34 @@ serve(async (req) => {
               upsert: true
             });
 
-          if (!videoUploadError) {
+          if (videoUploadError) {
+            console.error('Video upload error:', videoUploadError);
+          } else {
             const { data: { publicUrl: videoPublicUrl } } = supabase.storage
               .from('generated-assets')
               .getPublicUrl(videoUpload.path);
             storedVideoUrl = videoPublicUrl;
             console.log('Video stored successfully:', videoPublicUrl);
           }
+        } else {
+          console.error('Failed to fetch video:', videoResponse.status, videoResponse.statusText);
         }
 
         // Download GIF if available
         if (gif_download_url) {
-          const gifResponse = await fetch(gif_download_url);
+          console.log('Fetching GIF from URL:', gif_download_url);
+          const gifResponse = await fetch(gif_download_url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+          
+          console.log('GIF response status:', gifResponse.status);
+          
           if (gifResponse.ok) {
             const gifBlob = await gifResponse.blob();
+            console.log('GIF blob size:', gifBlob.size);
+            
             const gifFileName = `heygen-gif-${video_id}-${Date.now()}.gif`;
             
             const { data: gifUpload, error: gifUploadError } = await supabase.storage
@@ -104,17 +128,22 @@ serve(async (req) => {
                 upsert: true
               });
 
-            if (!gifUploadError) {
+            if (gifUploadError) {
+              console.error('GIF upload error:', gifUploadError);
+            } else {
               const { data: { publicUrl: gifPublicUrl } } = supabase.storage
                 .from('generated-assets')
                 .getPublicUrl(gifUpload.path);
               storedGifUrl = gifPublicUrl;
               console.log('GIF stored successfully:', gifPublicUrl);
             }
+          } else {
+            console.error('Failed to fetch GIF:', gifResponse.status, gifResponse.statusText);
           }
         }
       } catch (downloadError) {
-        console.warn('Failed to download and store assets, using original URLs:', downloadError);
+        console.error('Failed to download and store assets:', downloadError);
+        console.log('Using original URLs as fallback');
       }
 
       // Update asset_library table with stored URLs
