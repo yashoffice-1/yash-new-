@@ -158,24 +158,19 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
         return;
       }
       
-      const response = await fetch('/functions/v1/openai-variable-suggestions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('openai-variable-suggestions', {
+        body: {
           product: selectedProduct,
           templateVariables: variables
-        }),
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
+      if (error) {
+        throw new Error(`Function invocation failed: ${error.message}`);
       }
 
-      const data = await response.json();
       
-      if (data.suggestions) {
+      if (data?.suggestions) {
         console.log('AI suggestions received:', data.suggestions);
         
         // Initialize product variables with AI suggestions
@@ -214,7 +209,9 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
   };
 
   const areAllVariablesChecked = () => {
-    return templateVariables.length > 0 && templateVariables.every(variable => 
+    // If no variables, consider it as "all checked"
+    if (templateVariables.length === 0) return true;
+    return templateVariables.every(variable => 
       productVariables[variable]?.checked === true
     );
   };
@@ -233,7 +230,7 @@ export function VideoTemplateUtility({ selectedProduct }: VideoTemplateUtilityPr
       return;
     }
 
-    if (!areAllVariablesChecked()) {
+    if (!areAllVariablesChecked() && templateVariables.length > 0) {
       toast({
         title: "Complete All Variables",
         description: "Please check all variables before creating the video.",

@@ -48,7 +48,8 @@ serve(async (req) => {
     const variables: Record<string, string> = {};
     
     // Use user improved data first, then AI suggested, then extracted as fallback
-    Object.keys(templateData.userImproved || {}).forEach(key => {
+    const allKeys = Object.keys(templateData.userImproved || {});
+    allKeys.forEach(key => {
       variables[key] = templateData.userImproved[key] || 
                      templateData.aiSuggested[key] || 
                      templateData.extracted[key] || '';
@@ -56,19 +57,24 @@ serve(async (req) => {
 
     console.log('Template variables prepared:', variables);
 
-    // Validate required variables
-    const missingVariables = Object.keys(templateData.userImproved || {}).filter(key => 
-      !variables[key] || variables[key].trim() === ''
-    );
+    // If no variables provided, this might be a template that doesn't need variables
+    if (allKeys.length === 0) {
+      console.log('No template variables provided - template may not require variables');
+    } else {
+      // Validate required variables only if we have variables to check
+      const missingVariables = allKeys.filter(key => 
+        !variables[key] || variables[key].trim() === ''
+      );
 
-    if (missingVariables.length > 0) {
-      throw new Error(`Missing required variables: ${missingVariables.join(', ')}`);
+      if (missingVariables.length > 0) {
+        throw new Error(`Missing required variables: ${missingVariables.join(', ')}`);
+      }
     }
 
     console.log('Creating video with template variables:', {
       templateId,
       variables,
-      missingCount: missingVariables.length
+      variableCount: allKeys.length
     });
 
     // Call HeyGen API to generate video using template
