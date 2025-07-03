@@ -62,7 +62,62 @@ serve(async (req) => {
         console.log('Successfully updated generated_assets table');
       }
 
-      // Update asset_library table with both video URL and GIF URL
+      // Download and store the video to our storage before updating library
+      console.log('Downloading video for storage...');
+      let storedVideoUrl = video_url;
+      let storedGifUrl = gif_download_url;
+
+      try {
+        // Download video
+        const videoResponse = await fetch(video_url);
+        if (videoResponse.ok) {
+          const videoBlob = await videoResponse.blob();
+          const videoFileName = `heygen-video-${video_id}-${Date.now()}.mp4`;
+          
+          const { data: videoUpload, error: videoUploadError } = await supabase.storage
+            .from('generated-assets')
+            .upload(videoFileName, videoBlob, {
+              contentType: 'video/mp4',
+              upsert: true
+            });
+
+          if (!videoUploadError) {
+            const { data: { publicUrl: videoPublicUrl } } = supabase.storage
+              .from('generated-assets')
+              .getPublicUrl(videoUpload.path);
+            storedVideoUrl = videoPublicUrl;
+            console.log('Video stored successfully:', videoPublicUrl);
+          }
+        }
+
+        // Download GIF if available
+        if (gif_download_url) {
+          const gifResponse = await fetch(gif_download_url);
+          if (gifResponse.ok) {
+            const gifBlob = await gifResponse.blob();
+            const gifFileName = `heygen-gif-${video_id}-${Date.now()}.gif`;
+            
+            const { data: gifUpload, error: gifUploadError } = await supabase.storage
+              .from('generated-assets')
+              .upload(gifFileName, gifBlob, {
+                contentType: 'image/gif',
+                upsert: true
+              });
+
+            if (!gifUploadError) {
+              const { data: { publicUrl: gifPublicUrl } } = supabase.storage
+                .from('generated-assets')
+                .getPublicUrl(gifUpload.path);
+              storedGifUrl = gifPublicUrl;
+              console.log('GIF stored successfully:', gifPublicUrl);
+            }
+          }
+        }
+      } catch (downloadError) {
+        console.warn('Failed to download and store assets, using original URLs:', downloadError);
+      }
+
+      // Update asset_library table with stored URLs
       console.log('Updating asset_library table...');
       const { data: existingLibraryEntry, error: findLibraryError } = await supabase
         .from('asset_library')
@@ -127,8 +182,8 @@ serve(async (req) => {
           .insert({
             title: shortTitle,
             asset_type: 'video',
-            asset_url: video_url,
-            gif_url: gif_download_url,
+            asset_url: storedVideoUrl,
+            gif_url: storedGifUrl,
             source_system: 'heygen',
             instruction: 'Video generated via HeyGen webhook',
             original_asset_id: trackingId,
@@ -148,8 +203,8 @@ serve(async (req) => {
         const { error: updateLibraryError } = await supabase
           .from('asset_library')
           .update({
-            asset_url: video_url,
-            gif_url: gif_download_url,
+            asset_url: storedVideoUrl,
+            gif_url: storedGifUrl,
             description: `${existingLibraryEntry.description || ''} | Completed: ${new Date().toISOString()}`
           })
           .eq('id', existingLibraryEntry.id);
