@@ -31,7 +31,8 @@ serve(async (req) => {
         gif_download_url,
         video_share_page_url,
         thumbnail_url,
-        callback_id
+        callback_id,
+        folder_id
       } = event_data;
 
       console.log('Processing successful video generation:', {
