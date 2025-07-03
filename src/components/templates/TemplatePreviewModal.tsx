@@ -29,7 +29,12 @@ export function TemplatePreviewModal({
   onOpenChange, 
   onUseTemplate 
 }: TemplatePreviewModalProps) {
-  if (!template) return null;
+  console.log('TemplatePreviewModal render:', { template: template?.id, open, templateExists: !!template });
+  
+  if (!template) {
+    console.log('TemplatePreviewModal: No template provided, returning null');
+    return null;
+  }
 
   const AspectIcon = template.aspectRatio === 'portrait' ? Smartphone : Image;
   const isPortrait = template.aspectRatio === 'portrait';

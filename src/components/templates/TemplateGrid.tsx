@@ -34,8 +34,10 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
   };
 
   const handlePreviewTemplate = (template: VideoTemplate) => {
+    console.log('Preview button clicked for template:', template.id, template.name);
     setSelectedTemplateForPreview(template);
     setPreviewModalOpen(true);
+    console.log('Modal state set:', { template: template.id, open: true });
   };
 
   const getStatusColor = (status: string) => {
