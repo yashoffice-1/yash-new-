@@ -94,10 +94,10 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
 
   const handleCreateVideo = async () => {
     try {
-      // Show generating status immediately
+      // Show immediate feedback that request is being sent
       toast({
-        title: "🎬 Video Generation Starting",
-        description: "Your video is being created with HeyGen. This may take a few minutes...",
+        title: "🚀 Sending Video Request",
+        description: "Sending your video generation request to HeyGen...",
       });
 
       // Create an instruction based on the template and variables
@@ -107,8 +107,8 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
       await generateVideo(instruction, undefined, 'heygen');
       
       toast({
-        title: "✨ Video Generation In Progress",
-        description: `Your video is being generated using template "${template.name}". Check the Asset Library for updates!`,
+        title: "✅ Request Sent Successfully",
+        description: `Video generation request sent to HeyGen using template "${template.name}". Check the Asset Library to monitor progress!`,
       });
       
       // Go back to templates after successful creation
@@ -116,8 +116,8 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
     } catch (error) {
       console.error('Error creating video:', error);
       toast({
-        title: "❌ Creation Failed",
-        description: "Failed to create video. Please try again.",
+        title: "❌ Request Failed",
+        description: "Failed to send video generation request. Please try again.",
         variant: "destructive",
       });
     }

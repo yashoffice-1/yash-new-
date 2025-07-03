@@ -32,9 +32,13 @@ export function LibrarySection() {
         const transformedAssets: LibraryAsset[] = libraryAssets.map(asset => {
           // Determine status based on asset_url
           let status: 'completed' | 'processing' | 'failed' = 'completed';
+          
+          // Debug log to see actual asset_url values
+          console.log('Asset status check:', { id: asset.id, title: asset.title, asset_url: asset.asset_url });
+          
           if (asset.asset_url === 'processing' || asset.asset_url === 'pending') {
             status = 'processing';
-          } else if (asset.asset_url === 'failed' || !asset.asset_url) {
+          } else if (asset.asset_url === 'failed' || !asset.asset_url || asset.asset_url.trim() === '') {
             status = 'failed';
           }
 
