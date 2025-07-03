@@ -149,7 +149,7 @@ serve(async (req) => {
       .insert({
         channel: 'youtube',
         format: 'mp4',
-        source_system: 'heygen_direct_api',
+        source_system: 'heygen',
         asset_type: 'video',
         url: heygenData.data?.video_url || 'pending',
         instruction: instruction || 'Direct HeyGen API video generation',
