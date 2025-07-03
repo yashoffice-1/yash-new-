@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Download, Copy, Trash2, Search, AlertCircle } from 'lucide-react';
+import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAssetLibrary, AssetLibraryItem } from '@/hooks/useAssetLibrary';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,10 +21,19 @@ export function AssetLibrary() {
   const { toast } = useToast();
 
   const loadAssets = async () => {
+    console.log('Loading assets from library...');
     const data = await getLibraryAssets();
     console.log('Loaded assets from library:', data);
     setAssets(data);
     setFilteredAssets(data);
+  };
+
+  const handleManualRefresh = async () => {
+    toast({
+      title: "Refreshing Assets",
+      description: "Loading latest asset updates...",
+    });
+    await loadAssets();
   };
 
   useEffect(() => {
@@ -154,9 +163,20 @@ export function AssetLibrary() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-3xl font-bold">Asset Library</h2>
-        <p className="text-muted-foreground">Manage and organize your saved AI-generated assets</p>
+      <div className="flex justify-between items-center">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-bold">Asset Library</h2>
+          <p className="text-muted-foreground">Manage and organize your saved AI-generated assets</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleManualRefresh}
+          disabled={isLoading}
+          className="flex items-center space-x-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <span>Refresh</span>
+        </Button>
       </div>
 
       {/* Search and Filter Controls */}
