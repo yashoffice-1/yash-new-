@@ -25,6 +25,7 @@ interface VideoTemplate {
   duration: string;
   status: 'active' | 'pending' | 'draft';
   heygenTemplateId?: string;
+  variables?: string[];
 }
 
 export function VideoTemplatesTab() {
@@ -52,7 +53,8 @@ export function VideoTemplatesTab() {
           category: template.category,
           duration: template.duration,
           status: 'active' as const,
-          heygenTemplateId: template.id
+          heygenTemplateId: template.id,
+          variables: template.variables || []
         }));
 
         console.log('Successfully fetched templates via template manager:', videoTemplates);

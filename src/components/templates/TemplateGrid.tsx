@@ -13,6 +13,7 @@ interface VideoTemplate {
   duration: string;
   status: 'active' | 'pending' | 'draft';
   heygenTemplateId?: string;
+  variables?: string[];
 }
 
 interface TemplateGridProps {
@@ -84,30 +85,58 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
           
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">
-              {template.name.includes('Template') ? template.name : `Template: ${template.name}`}
+              {template.name}
             </CardTitle>
-            <CardDescription className="text-sm">
-              {template.description}
+            <CardDescription className="text-sm space-y-1">
+              <div>{template.description}</div>
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>Variables: {template.variables?.length || 0}</span>
+                <span>Duration: {template.duration}</span>
+              </div>
             </CardDescription>
           </CardHeader>
           
-          <CardContent className="pt-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
+          <CardContent className="pt-0 space-y-3">
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <div className="flex items-center space-x-2">
                 <Tag className="h-3 w-3" />
-                <span>ID: {template.heygenTemplateId || template.id.slice(-8)}</span>
+                <span>ID: {template.heygenTemplateId?.slice(-8) || template.id.slice(-8)}</span>
               </div>
-              
-              <Button
-                size="sm"
-                onClick={() => handleUseTemplate(template)}
-                disabled={template.status !== 'active'}
-                className="flex items-center space-x-1"
-              >
-                <Play className="h-3 w-3" />
-                <span>Use Template</span>
-              </Button>
+              <div className="text-right">
+                <div>Category: {template.category}</div>
+              </div>
             </div>
+
+            {template.variables && template.variables.length > 0 && (
+              <div className="text-xs">
+                <div className="font-medium text-gray-700 mb-1">Required Variables:</div>
+                <div className="flex flex-wrap gap-1">
+                  {template.variables.slice(0, 3).map((variable) => (
+                    <span 
+                      key={variable}
+                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs"
+                    >
+                      {variable.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                  {template.variables.length > 3 && (
+                    <span className="text-gray-500 text-xs">
+                      +{template.variables.length - 3} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            <Button
+              size="sm"
+              onClick={() => handleUseTemplate(template)}
+              disabled={template.status !== 'active'}
+              className="w-full flex items-center justify-center space-x-2"
+            >
+              <Play className="h-3 w-3" />
+              <span>Use Template</span>
+            </Button>
           </CardContent>
         </Card>
       ))}
