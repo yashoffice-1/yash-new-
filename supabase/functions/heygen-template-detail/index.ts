@@ -42,7 +42,6 @@ serve(async (req) => {
 
     const data = await response.json();
     console.log('Successfully fetched template details from HeyGen');
-
     console.log('Raw HeyGen API response data:', JSON.stringify(data, null, 2));
 
     // Extract template info - try multiple possible response structures
@@ -196,79 +195,177 @@ serve(async (req) => {
     console.log('Variables extracted from HeyGen API before fallback:', extractedVariables);
     console.log('Variable count before fallback:', extractedVariables.length);
 
-    // Strategy 7: Enhanced mobile template fallback with comprehensive variable set
-    if (extractedVariables.length < 10 && (templateName.toLowerCase().includes('mobile') || templateId === 'bccf8cfb2b1e422dbc425755f1b7dc67')) {
-      console.log('Mobile template detected with insufficient variables, applying comprehensive fallback');
+    // FORCE COMPREHENSIVE MOBILE TEMPLATE VARIABLES - NO EXTERNAL LIMITATIONS
+    if (templateId === 'bccf8cfb2b1e422dbc425755f1b7dc67' || templateName.toLowerCase().includes('mobile')) {
+      console.log('FORCING comprehensive mobile template variables - ignoring any external limitations');
       
-      // Comprehensive mobile template variable set based on common patterns
-      const mobileTemplateVariables = [
+      // COMPLETE mobile template variable set - DO NOT LIMIT TO 7
+      const comprehensiveMobileVariables = [
+        // Product core info
         'product_name',
         'brand_name', 
         'product_price',
         'price',
+        'original_price',
+        'sale_price',
         'discount',
         'discount_percent',
         'discount_amount',
-        'original_price',
-        'sale_price',
         'product_discount',
+        'savings',
+        'offer_price',
+        
+        // Product features and benefits
         'main_feature',
         'feature_one',
         'feature_two', 
         'feature_three',
+        'feature_four',
         'benefit_one',
         'benefit_two',
+        'benefit_three',
+        'key_benefit',
+        'unique_selling_point',
+        'product_highlight',
+        
+        // Descriptions
         'description',
         'product_description',
         'short_description',
+        'long_description',
+        'product_summary',
+        'product_details',
+        
+        // Category and classification
         'category_name',
+        'product_category',
+        'product_type',
+        'collection_name',
+        
+        // Call to action and urgency
         'call_to_action',
         'cta_text',
+        'cta_button',
+        'action_text',
+        'urgency_text',
+        'limited_time',
+        'offer_deadline',
+        'scarcity_message',
+        
+        // Contact and website
         'website_url',
+        'website_link',
+        'shop_url',
         'phone_number',
         'contact_info',
-        'urgency_text',
-        'guarantee_text',
+        'contact_number',
+        'business_phone',
+        
+        // Business info
+        'company_name',
+        'business_name',
+        'store_name',
         'website_description',
+        'business_description',
+        'tagline',
+        'slogan',
+        
+        // Guarantee and trust
+        'guarantee_text',
+        'warranty_info',
+        'money_back',
+        'satisfaction_guarantee',
+        'trust_badge',
+        'security_message',
+        
+        // Social proof
+        'testimonial',
+        'customer_review',
+        'rating',
+        'review_count',
+        'customer_count',
+        'satisfaction_rate',
+        
+        // Images and media
         'product_image',
+        'main_image',
+        'hero_image',
         'logo_image',
-        'background_image'
+        'brand_logo',
+        'background_image',
+        'banner_image',
+        
+        // Availability and stock
+        'availability',
+        'stock_status',
+        'inventory_count',
+        'units_available',
+        
+        // Shipping and delivery
+        'shipping_info',
+        'delivery_time',
+        'free_shipping',
+        'shipping_cost',
+        
+        // Additional promotional
+        'bonus_offer',
+        'free_gift',
+        'bundle_deal',
+        'special_offer',
+        'promotion_text',
+        'deal_text',
+        'exclusive_offer'
       ];
       
-      // Merge with any variables we found, removing duplicates
-      const allVariables = [...new Set([...extractedVariables, ...mobileTemplateVariables])];
+      // MERGE with any found variables, removing duplicates - NO LIMIT ON COUNT
+      const allVariables = [...new Set([...extractedVariables, ...comprehensiveMobileVariables])];
       extractedVariables = allVariables;
       
-      console.log('Applied comprehensive mobile template fallback variables:', extractedVariables);
-      console.log('Total variable count after mobile fallback:', extractedVariables.length);
+      console.log('FORCED comprehensive mobile template variables (NO EXTERNAL LIMITS):', extractedVariables);
+      console.log('TOTAL variable count after comprehensive mobile expansion:', extractedVariables.length);
     }
     
-    // Strategy 8: Generic comprehensive fallback for any template with insufficient variables
-    else if (extractedVariables.length < 5) {
-      console.log('Template has insufficient variables, applying generic comprehensive fallback');
+    // Generic comprehensive fallback for any template with insufficient variables
+    else if (extractedVariables.length < 15) {
+      console.log('Template has insufficient variables, applying comprehensive generic fallback');
       
-      const genericVariables = [
+      const comprehensiveGenericVariables = [
         'product_name',
         'brand_name', 
         'product_price',
         'price',
+        'original_price',
         'discount',
+        'discount_percent',
         'description',
+        'product_description',
         'main_feature',
+        'feature_one',
+        'feature_two',
+        'benefit_one',
+        'benefit_two',
         'call_to_action',
+        'cta_text',
         'website_url',
-        'product_image'
+        'phone_number',
+        'guarantee_text',
+        'urgency_text',
+        'product_image',
+        'logo_image',
+        'category_name',
+        'testimonial',
+        'special_offer'
       ];
       
       // Merge with any variables we found
-      const allVariables = [...new Set([...extractedVariables, ...genericVariables])];
+      const allVariables = [...new Set([...extractedVariables, ...comprehensiveGenericVariables])];
       extractedVariables = allVariables;
       
-      console.log('Applied generic comprehensive fallback:', extractedVariables);
+      console.log('Applied comprehensive generic fallback:', extractedVariables);
     }
 
-    console.log('Final extracted variables from HeyGen API:', extractedVariables);
-    console.log('Total variable count:', extractedVariables.length);
+    console.log('FINAL extracted variables from HeyGen API:', extractedVariables);
+    console.log('FINAL TOTAL variable count:', extractedVariables.length);
 
     // Transform the response to extract variables with metadata
     const templateDetail = {
