@@ -44,19 +44,19 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
       {templates.map((template) => (
         <Card key={template.id} className="overflow-hidden hover:shadow-lg transition-shadow">
           <div className="relative">
-            <div className="relative bg-gray-100">
+            <div className="relative bg-gray-100 aspect-video">
               {template.thumbnail && template.thumbnail !== 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop' ? (
                 <img
                   src={template.thumbnail}
                   alt={template.name}
-                  className="w-full h-32 object-cover"
+                  className="w-full h-full object-cover rounded-t-lg"
                   onError={(e) => {
                     console.log(`Template thumbnail failed for ${template.id}:`, template.thumbnail);
                     e.currentTarget.src = 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop';
                   }}
                 />
               ) : (
-                <div className="w-full h-32 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center rounded-t-lg">
                   <div className="text-white text-center">
                     <Play className="h-8 w-8 mx-auto mb-2" />
                     <div className="text-xs font-medium">Video Template</div>
