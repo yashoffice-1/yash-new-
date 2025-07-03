@@ -41,14 +41,14 @@ serve(async (req) => {
 
     const data = await response.json();
     console.log('Successfully fetched templates from HeyGen:', {
-      totalTemplates: data.data?.length || 0,
-      firstTemplate: data.data?.[0]?.name || 'none'
+      totalTemplates: data.data?.templates?.length || 0,
+      firstTemplate: data.data?.templates?.[0]?.name || 'none'
     });
 
     return new Response(JSON.stringify({ 
       success: true, 
-      templates: data.data || data.templates || data,
-      total: data.total || (data.data?.length) || 0
+      templates: data.data?.templates || [],
+      total: data.data?.templates?.length || 0
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
