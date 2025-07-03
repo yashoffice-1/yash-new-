@@ -44,27 +44,37 @@ serve(async (req) => {
     console.log('Template ID:', templateId);
     console.log('Product ID:', productId);
 
-    // Prepare variables for HeyGen template
-    const variables: Record<string, string> = {};
+    // Prepare variables for HeyGen template in the correct format
+    const variables: Record<string, any> = {};
     
     // Use user improved data first, then AI suggested, then extracted as fallback
     const allKeys = Object.keys(templateData.userImproved || {});
     allKeys.forEach(key => {
-      variables[key] = templateData.userImproved[key] || 
+      const content = templateData.userImproved[key] || 
                      templateData.aiSuggested[key] || 
                      templateData.extracted[key] || '';
+      
+      // Format variables according to HeyGen API specification
+      variables[key] = {
+        name: key,
+        type: key.includes('image') ? 'image_url' : 'text',
+        properties: {
+          content: content
+        }
+      };
     });
 
-    console.log('Template variables prepared:', variables);
+    console.log('Template variables prepared in HeyGen format:', variables);
 
     // If no variables provided, this might be a template that doesn't need variables
     if (allKeys.length === 0) {
       console.log('No template variables provided - template may not require variables');
     } else {
       // Validate required variables only if we have variables to check
-      const missingVariables = allKeys.filter(key => 
-        !variables[key] || variables[key].trim() === ''
-      );
+      const missingVariables = allKeys.filter(key => {
+        const content = variables[key]?.properties?.content;
+        return !content || content.toString().trim() === '';
+      });
 
       if (missingVariables.length > 0) {
         throw new Error(`Missing required variables: ${missingVariables.join(', ')}`);
@@ -77,17 +87,18 @@ serve(async (req) => {
       variableCount: allKeys.length
     });
 
-    // Call HeyGen API to generate video using template
+    // Call HeyGen API to generate video using template with correct format
     const heygenResponse = await fetch(`https://api.heygen.com/v2/template/${templateId}/generate`, {
       method: 'POST',
       headers: {
-        'X-API-KEY': heygenApiKey,
+        'X-Api-Key': heygenApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        caption: false,
+        title: `Video for ${productId || 'Product'}`,
         variables: variables,
         test: false,
-        caption: false,
         callback_id: `feedgen_${templateId}_${Date.now()}`,
       }),
     });
