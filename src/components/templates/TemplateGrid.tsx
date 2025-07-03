@@ -109,11 +109,27 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
                     </CardTitle>
                   </CardHeader>
                   
-                  <CardContent className="pt-0 space-y-2">
-                    <div className="text-xs text-gray-500">
-                      <div>Variables: {template.variables?.length || 0}</div>
-                    </div>
-                    
+                   <CardContent className="pt-0 space-y-2">
+                     <div className="text-xs text-gray-500">
+                       <div>Variables: {template.variables?.length || 0}</div>
+                     </div>
+
+                     {template.variables && template.variables.length > 0 && (
+                       <div className="text-xs">
+                         <div className="font-medium text-gray-700 mb-1">Required Variables:</div>
+                         <div className="flex flex-wrap gap-1">
+                           {template.variables.map((variable) => (
+                             <span 
+                               key={variable}
+                               className="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-xs"
+                             >
+                               {variable.replace(/_/g, ' ')}
+                             </span>
+                           ))}
+                         </div>
+                       </div>
+                     )}
+                     
                     <Button
                       size="sm"
                       onClick={() => handleUseTemplate(template)}
@@ -211,7 +227,7 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
                       <div className="text-xs">
                         <div className="font-medium text-gray-700 mb-1">Required Variables:</div>
                         <div className="flex flex-wrap gap-1">
-                          {template.variables.slice(0, 3).map((variable) => (
+                          {template.variables.map((variable) => (
                             <span 
                               key={variable}
                               className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs"
@@ -219,11 +235,6 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
                               {variable.replace(/_/g, ' ')}
                             </span>
                           ))}
-                          {template.variables.length > 3 && (
-                            <span className="text-gray-500 text-xs">
-                              +{template.variables.length - 3} more
-                            </span>
-                          )}
                         </div>
                       </div>
                     )}
