@@ -232,13 +232,47 @@ export function AssetLibrary() {
                     )}
 
                     {asset.asset_type === 'video' && asset.asset_url && (
-                      <div className="aspect-video bg-black rounded overflow-hidden">
+                      <div className="aspect-video bg-black rounded overflow-hidden relative">
                         <video 
                           src={asset.asset_url} 
                           className="w-full h-full object-contain"
                           controls
                           onError={(e) => {
                             console.error('Video failed to load:', asset.asset_url);
+                            const target = e.target as HTMLVideoElement;
+                            target.style.display = 'none';
+                            // Show error message
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-sm p-4';
+                            errorDiv.innerHTML = `
+                              <div class="text-center">
+                                <div class="flex items-center justify-center mb-2">
+                                  <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                </div>
+                                <p class="font-medium">Video unavailable</p>
+                                <p class="text-xs mt-1">HeyGen video may require authentication</p>
+                                ${asset.gif_url ? '<p class="text-xs mt-1 text-blue-600">Trying GIF preview...</p>' : ''}
+                              </div>
+                            `;
+                            target.parentElement?.appendChild(errorDiv);
+                            
+                            // If there's a GIF URL, try to show that instead
+                            if (asset.gif_url) {
+                              setTimeout(() => {
+                                const img = document.createElement('img');
+                                img.src = asset.gif_url!;
+                                img.className = 'w-full h-full object-contain';
+                                img.onload = () => {
+                                  errorDiv.remove();
+                                  target.parentElement?.appendChild(img);
+                                };
+                                img.onerror = () => {
+                                  errorDiv.querySelector('.text-blue-600')!.textContent = 'GIF preview also unavailable';
+                                };
+                              }, 1000);
+                            }
                           }}
                         />
                       </div>

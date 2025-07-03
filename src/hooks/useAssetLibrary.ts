@@ -11,6 +11,7 @@ export interface AssetLibraryItem {
   tags?: string[];
   asset_type: 'image' | 'video' | 'content' | 'formats' | 'ad';
   asset_url: string;
+  gif_url?: string;
   content?: string;
   instruction: string;
   source_system: 'runway' | 'heygen' | 'openai';
