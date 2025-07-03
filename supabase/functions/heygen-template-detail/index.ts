@@ -153,13 +153,15 @@ serve(async (req) => {
       extractedVariables = [...new Set(sceneVariables)];
     }
     
-    // Strategy 6: Enhanced parsing for HeyGen's actual API response structure
+    // Strategy 6: Enhanced parsing for HeyGen's actual API response structure with cleanup
     if (extractedVariables.length === 0) {
       console.log('No structured variables found, attempting enhanced HeyGen API parsing');
       const jsonString = JSON.stringify(templateInfo);
       
       // Enhanced patterns specifically for HeyGen's API structure
       const variablePatterns = [
+        // Pattern to extract clean variable names from HeyGen's JSON structure
+        /name:([a-zA-Z_][a-zA-Z0-9_]*),type:text,properties:\{content:/g,
         // HeyGen specific patterns based on actual API response
         /"name":\s*"([^"]*(?:text|image|video|audio)[^"]*)"[^}]*"type":\s*"(?:text|image|video|audio)"/g,
         /"variable_name":\s*"([^"]+)"/g,
@@ -217,6 +219,42 @@ serve(async (req) => {
       extractedVariables = Array.from(foundVars);
       console.log('Variables found through enhanced HeyGen API parsing:', extractedVariables);
     }
+
+    console.log('Variables extracted from HeyGen API before post-processing:', extractedVariables);
+    console.log('Variable count before post-processing:', extractedVariables.length);
+
+    // Post-process to clean up malformed variable names
+    extractedVariables = extractedVariables.map(variable => {
+      // Clean up malformed variable names that contain JSON structure
+      if (variable.includes('{') || variable.includes(':') || variable.includes(',')) {
+        // Extract the actual variable name from malformed strings
+        const nameMatch = variable.match(/name:([a-zA-Z_][a-zA-Z0-9_]*)/);
+        if (nameMatch) {
+          return nameMatch[1];
+        }
+        
+        // If it starts with "variables:" extract the variable name
+        if (variable.startsWith('variables:')) {
+          const varMatch = variable.match(/variables:\{([^:]+):/);
+          if (varMatch) {
+            return varMatch[1];
+          }
+        }
+        
+        // If it starts with "name:" extract the variable name
+        if (variable.startsWith('name:')) {
+          const nameMatch = variable.match(/name:([^,\}]+)/);
+          if (nameMatch) {
+            return nameMatch[1];
+          }
+        }
+        
+        // Skip this malformed variable if we can't extract a clean name
+        return null;
+      }
+      
+      return variable;
+    }).filter(Boolean); // Remove null values
 
     console.log('Variables extracted from HeyGen API before fallback:', extractedVariables);
     console.log('Variable count before fallback:', extractedVariables.length);
