@@ -392,18 +392,24 @@ export function AssetLibrary() {
                         {new Date(asset.created_at).toLocaleDateString()}
                       </span>
                       
-                       <div className="flex space-x-1">
-                         {/* Show refresh button for processing videos */}
-                         {(asset.asset_url === "processing" || asset.asset_url === "pending") && asset.source_system === "heygen" && (
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => handleRefreshVideo(asset.id)}
-                             className="text-blue-600 hover:text-blue-700"
-                           >
-                             🔄
-                           </Button>
-                         )}
+                        <div className="flex space-x-1">
+                          {/* Show refresh button for HeyGen videos that need real URLs */}
+                          {asset.source_system === "heygen" && (
+                            asset.asset_url === "processing" || 
+                            asset.asset_url === "pending" || 
+                            asset.asset_url.includes("storage.googleapis.com") || 
+                            asset.asset_url.includes("BigBuckBunny")
+                          ) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRefreshVideo(asset.id)}
+                              className="text-blue-600 hover:text-blue-700"
+                              title="Get real HeyGen video URL"
+                            >
+                              🔄
+                            </Button>
+                          )}
                          
                          {asset.asset_type === 'content' && asset.content ? (
                            <Button
