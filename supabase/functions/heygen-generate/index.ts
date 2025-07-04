@@ -39,6 +39,24 @@ serve(async (req) => {
     // This will be processed by Zapier automation
     console.log('Preparing HeyGen template generation request...');
     
+    // Get product name for title if productId provided
+    let productName = 'Product';
+    if (productId) {
+      console.log('Fetching product name for title, productId:', productId);
+      const { data: product, error: productError } = await supabase
+        .from('inventory')
+        .select('name')
+        .eq('id', productId)
+        .single();
+        
+      if (productError) {
+        console.log('Product fetch error (non-fatal):', productError);
+      } else if (product?.name) {
+        productName = product.name;
+        console.log('Product name fetched for title:', productName);
+      }
+    }
+
     // Store the generation request in the database
     const { data: assetData, error: insertError } = await supabase
       .from('generated_assets')
@@ -63,13 +81,13 @@ serve(async (req) => {
     const { error: libraryError } = await supabase
       .from('asset_library')
       .insert({
-        title: `HeyGen Video - ${templateId}`,
+        title: `HeyGen Video - ${productName}`, // Use product name instead of templateId
         asset_type: 'video',
         asset_url: 'pending',
         gif_url: null, // Will be updated when webhook provides GIF URL
         instruction: instruction,
         source_system: 'heygen_zapier',
-        description: `Generated using HeyGen template ${templateId}`,
+        description: `Generated using HeyGen template ${templateId} for product: ${productName}`,
         original_asset_id: assetData.id
       });
 

@@ -107,11 +107,30 @@ serve(async (req) => {
     const callbackId = `feedgen_${templateId}_${productId || 'noproduct'}_${Date.now()}`;
     console.log('Generated callback ID:', callbackId);
 
+    // Get product name for title if productId provided
+    let productName = 'Product';
+    if (productId) {
+      console.log('Fetching product name for title, productId:', productId);
+      const { data: product, error: productError } = await supabase
+        .from('inventory')
+        .select('name')
+        .eq('id', productId)
+        .single();
+        
+      if (productError) {
+        console.log('Product fetch error (non-fatal):', productError);
+      } else if (product?.name) {
+        productName = product.name;
+        console.log('Product name fetched for title:', productName);
+      }
+    }
+
     console.log('Creating video with template variables:', {
       templateId,
       variablesFormatted: Object.keys(variables).length,
       variableCount: allKeys.length,
-      callbackId
+      callbackId,
+      productName
     });
 
     // Call HeyGen API to generate video using template with correct format
@@ -124,7 +143,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         caption: false,
-        title: `Video for ${productId || 'Product'}`,
+        title: productName, // Use actual product name instead of productId
         variables: variables,
         include_gif: true,
         test: false,
