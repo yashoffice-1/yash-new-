@@ -41,40 +41,88 @@ serve(async (req) => {
     console.log('Asset found:', asset.title);
     console.log('Asset description:', asset.description);
 
-    // Parse the video ID from the description
-    let videoId = null;
-    if (asset.description) {
-      console.log('Parsing video ID from description:', asset.description);
+    // Since the original video IDs were overwritten, we need to find videos by other means
+    // Let's extract the template ID and product info to help identify the video
+    let templateId = null;
+    let productInfo = null;
+    
+    if (asset.instruction) {
+      const templateMatch = asset.instruction.match(/template\s+([a-f0-9]+)/i);
+      if (templateMatch) {
+        templateId = templateMatch[1];
+      }
       
-      // Try to find video ID in different formats
-      const videoIdMatch = asset.description.match(/video_id[:\s]+([a-f0-9]{32})/i) || 
-                          asset.description.match(/Video ID[:\s]+([a-f0-9]{32})/i) ||
-                          asset.description.match(/ID[:\s]+([a-f0-9]{32})/i) ||
-                          asset.description.match(/([a-f0-9]{32})/); // 32 char hex string without prefix
-                          
-      if (videoIdMatch) {
-        videoId = videoIdMatch[1];
-        console.log('Found video ID from description:', videoId);
-      } else {
-        // Try to extract from callback ID
-        const callbackMatch = asset.description.match(/Callback: feedgen_[^_]+_[^_]+_(\d+)/);
-        if (callbackMatch) {
-          // This might be a timestamp, not video ID - let's look for the actual video ID pattern
-          const callbackIdMatch = asset.description.match(/Callback: (feedgen_[^|\s]+)/);
-          if (callbackIdMatch) {
-            console.log('Found callback ID, will need to look up video ID:', callbackIdMatch[1]);
-            // For now, we can't use callback ID to get video ID without additional API calls
-            // We need the actual video ID from the description
-          }
+      const productMatch = asset.instruction.match(/with product:\s*(.+)$/i);
+      if (productMatch) {
+        productInfo = productMatch[1];
+      }
+    }
+    
+    console.log('Template ID:', templateId);
+    console.log('Product info:', productInfo);
+    console.log('Asset created at:', asset.created_at);
+    
+    // Use HeyGen List Videos API to find our video
+    console.log('Searching for video using HeyGen List Videos API...');
+    
+    const listResponse = await fetch('https://api.heygen.com/v1/video.list', {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json',
+        'x-api-key': heygenApiKey
+      }
+    });
+    
+    if (!listResponse.ok) {
+      const errorText = await listResponse.text();
+      console.error('List API error:', listResponse.status, errorText);
+      throw new Error(`List API error: ${listResponse.status} - ${errorText}`);
+    }
+    
+    const listData = await listResponse.json();
+    console.log('Found videos:', listData.data?.videos?.length || 0);
+    
+    if (!listData.data?.videos) {
+      throw new Error('No videos found in HeyGen account');
+    }
+    
+    // Try to find our video by matching criteria
+    const assetCreatedTime = new Date(asset.created_at).getTime();
+    const timeThreshold = 10 * 60 * 1000; // 10 minutes threshold
+    
+    let matchedVideo = null;
+    
+    // First, try to find by callback ID pattern if it exists
+    for (const video of listData.data.videos) {
+      if (video.callback_id && templateId) {
+        if (video.callback_id.includes(templateId)) {
+          console.log('Found video by template ID in callback:', video.video_id);
+          matchedVideo = video;
+          break;
         }
       }
     }
-
-    // If no video ID found, we cannot proceed
-    if (!videoId) {
-      console.error('No video ID found in asset description. Description:', asset.description);
-      throw new Error('No video ID found in asset description. Cannot retrieve video status without video ID.');
+    
+    // If not found by template, try to find by creation time proximity
+    if (!matchedVideo) {
+      for (const video of listData.data.videos) {
+        const videoCreatedTime = video.created_at * 1000; // HeyGen uses Unix timestamp
+        const timeDiff = Math.abs(videoCreatedTime - assetCreatedTime);
+        
+        if (timeDiff < timeThreshold) {
+          console.log('Found video by creation time proximity:', video.video_id);
+          matchedVideo = video;
+          break;
+        }
+      }
     }
+    
+    if (!matchedVideo) {
+      throw new Error(`No matching video found for asset "${asset.title}". Template: ${templateId}, Created: ${asset.created_at}`);
+    }
+    
+    const videoId = matchedVideo.video_id;
+    console.log('Using matched video ID:', videoId);
 
     // Use HeyGen video_status.get API
     console.log('Getting video status for video ID:', videoId);
