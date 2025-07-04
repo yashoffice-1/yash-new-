@@ -168,15 +168,41 @@ export function AssetLibrary() {
           <h2 className="text-3xl font-bold">Asset Library</h2>
           <p className="text-muted-foreground">Manage and organize your saved AI-generated assets</p>
         </div>
-        <Button
-          variant="outline"
-          onClick={handleManualRefresh}
-          disabled={isLoading}
-          className="flex items-center space-x-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </Button>
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            onClick={handleManualRefresh}
+            disabled={isLoading}
+            className="flex items-center space-x-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                const { data, error } = await supabase.functions.invoke('test-heygen-status');
+                if (error) throw error;
+                console.log('Test result:', data);
+                toast({
+                  title: data.success ? "✅ API Test Success" : "❌ API Test Failed",
+                  description: data.success ? "HeyGen API is working!" : data.error,
+                });
+              } catch (error) {
+                console.error('Test failed:', error);
+                toast({
+                  title: "❌ Test Failed",
+                  description: error.message,
+                  variant: "destructive",
+                });
+              }
+            }}
+            className="flex items-center space-x-2"
+          >
+            <span>Test API</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filter Controls */}
@@ -398,7 +424,8 @@ export function AssetLibrary() {
                             asset.asset_url === "processing" || 
                             asset.asset_url === "pending" || 
                             asset.asset_url.includes("storage.googleapis.com") || 
-                            asset.asset_url.includes("BigBuckBunny")
+                            asset.asset_url.includes("BigBuckBunny") ||
+                            asset.asset_url.includes("app.heygen.com/share")
                           ) && (
                             <Button
                               variant="outline"
