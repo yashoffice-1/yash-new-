@@ -38,10 +38,7 @@ export function AssetLibrary() {
 
   useEffect(() => {
     loadAssets();
-    
-    // Auto-refresh every 10 seconds to check for processing updates
-    const interval = setInterval(loadAssets, 10000);
-    return () => clearInterval(interval);
+    // Removed auto-refresh interval to prevent interrupting video playback
   }, []);
 
   useEffect(() => {

@@ -103,10 +103,81 @@ serve(async (req) => {
       };
 
       if (videoData.status === 'completed' && videoData.video_url) {
-        updateData.asset_url = videoData.video_url;
-        updateData.gif_url = videoData.gif_url || null;
-        updateData.description = `${asset.description} | Completed video URL retrieved: ${new Date().toISOString()}`;
-        console.log('Video is completed, updating with real URL');
+        console.log('Video is completed, downloading and storing...');
+        
+        try {
+          // Download the video file
+          const videoResponse = await fetch(videoData.video_url);
+          if (!videoResponse.ok) {
+            throw new Error(`Failed to download video: ${videoResponse.status}`);
+          }
+          
+          const videoBlob = await videoResponse.arrayBuffer();
+          const fileName = `heygen-video-${videoId}-${Date.now()}.mp4`;
+          
+          // Store in Supabase storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('generated-assets')
+            .upload(fileName, videoBlob, {
+              contentType: 'video/mp4',
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('Storage upload error:', uploadError);
+            throw uploadError;
+          }
+
+          console.log('Video uploaded to storage:', uploadData.path);
+          
+          // Get public URL
+          const { data: publicUrlData } = supabase.storage
+            .from('generated-assets')
+            .getPublicUrl(uploadData.path);
+
+          const storedVideoUrl = publicUrlData.publicUrl;
+          console.log('Stored video URL:', storedVideoUrl);
+          
+          // Also download and store GIF if available
+          let storedGifUrl = videoData.gif_url;
+          if (videoData.gif_url) {
+            try {
+              const gifResponse = await fetch(videoData.gif_url);
+              if (gifResponse.ok) {
+                const gifBlob = await gifResponse.arrayBuffer();
+                const gifFileName = `heygen-gif-${videoId}-${Date.now()}.gif`;
+                
+                const { data: gifUploadData, error: gifUploadError } = await supabase.storage
+                  .from('generated-assets')
+                  .upload(gifFileName, gifBlob, {
+                    contentType: 'image/gif',
+                    upsert: false
+                  });
+
+                if (!gifUploadError) {
+                  const { data: gifPublicUrlData } = supabase.storage
+                    .from('generated-assets')
+                    .getPublicUrl(gifUploadData.path);
+                  storedGifUrl = gifPublicUrlData.publicUrl;
+                  console.log('Stored GIF URL:', storedGifUrl);
+                }
+              }
+            } catch (gifError) {
+              console.warn('Failed to download GIF, using original URL:', gifError);
+            }
+          }
+
+          updateData.asset_url = storedVideoUrl;
+          updateData.gif_url = storedGifUrl;
+          updateData.description = `${asset.description} | Video stored permanently: ${new Date().toISOString()}`;
+          
+        } catch (downloadError) {
+          console.error('Failed to download/store video:', downloadError);
+          // Fallback to original URL if download fails
+          updateData.asset_url = videoData.video_url;
+          updateData.gif_url = videoData.gif_url || null;
+          updateData.description = `${asset.description} | Using temporary HeyGen URL (expires in 7 days): ${new Date().toISOString()}`;
+        }
       } else if (videoData.status === 'failed') {
         updateData.asset_url = 'failed';
         updateData.description = `${asset.description} | Video failed: ${new Date().toISOString()}`;
