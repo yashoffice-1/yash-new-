@@ -120,12 +120,12 @@ export function AssetLibrary() {
 
   const handleRefreshVideo = async (assetId: string) => {
     toast({
-      title: "Getting Real Video",
-      description: "Retrieving actual video from HeyGen...",
+      title: "Checking Video Status",
+      description: "Getting latest video status from HeyGen...",
     });
     
     try {
-      const { data, error } = await supabase.functions.invoke('heygen-share-video', {
+      const { data, error } = await supabase.functions.invoke('heygen-video-status', {
         body: { assetId }
       });
 
@@ -135,20 +135,20 @@ export function AssetLibrary() {
 
       if (data.success) {
         toast({
-          title: "✅ Real Video Retrieved",
-          description: "Successfully loaded the actual HeyGen video!",
+          title: "✅ Video Status Updated",
+          description: `Video status: ${data.status}${data.video_url ? ' - Real video loaded!' : ''}`,
         });
         
-        // Reload assets to show the real video
+        // Reload assets to show the updated status
         await loadAssets();
       } else {
-        throw new Error(data.error || 'Failed to get real video');
+        throw new Error(data.error || 'Failed to get video status');
       }
     } catch (error) {
-      console.error('Error getting real video:', error);
+      console.error('Error getting video status:', error);
       toast({
-        title: "Failed to Get Real Video", 
-        description: error.message || "Could not retrieve the actual video from HeyGen.",
+        title: "Failed to Get Video Status", 
+        description: error.message || "Could not retrieve video status from HeyGen.",
         variant: "destructive",
       });
     }
