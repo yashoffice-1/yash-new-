@@ -83,19 +83,36 @@ export function AssetLibrary() {
     }
   };
 
-  const handleDownload = (asset: AssetLibraryItem) => {
+  const handleDownload = async (asset: AssetLibraryItem) => {
     if (asset.asset_url && asset.asset_type !== 'content') {
-      const link = document.createElement('a');
-      link.href = asset.asset_url;
-      link.download = `${asset.title}-${asset.asset_type}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Download Started",
-        description: `Downloading ${asset.title}...`,
-      });
+      try {
+        // For Supabase storage URLs, add download parameter to force download
+        let downloadUrl = asset.asset_url;
+        if (asset.asset_url.includes('supabase.co/storage')) {
+          // Add download parameter to Supabase URLs to force download
+          downloadUrl = `${asset.asset_url}?download=${encodeURIComponent(asset.title)}.${asset.asset_type === 'image' ? 'png' : 'mp4'}`;
+        }
+        
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `${asset.title}-${asset.asset_type}`;
+        link.target = '_blank'; // Fallback in case download doesn't work
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: "Download Started",
+          description: `Downloading ${asset.title}...`,
+        });
+      } catch (error) {
+        console.error('Download error:', error);
+        toast({
+          title: "Download Failed",
+          description: "Failed to download the asset. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
