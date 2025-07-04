@@ -44,29 +44,36 @@ serve(async (req) => {
     // Parse the video ID from the description
     let videoId = null;
     if (asset.description) {
+      console.log('Parsing video ID from description:', asset.description);
+      
       // Try to find video ID in different formats
-      const videoIdMatch = asset.description.match(/video_id[:\s]+([a-f0-9-]+)/i) || 
-                          asset.description.match(/Video ID[:\s]+([a-f0-9-]+)/i) ||
-                          asset.description.match(/ID[:\s]+([a-f0-9-]+)/i) ||
-                          asset.description.match(/([a-f0-9]{32})/i); // 32 char hex string
+      const videoIdMatch = asset.description.match(/video_id[:\s]+([a-f0-9]{32})/i) || 
+                          asset.description.match(/Video ID[:\s]+([a-f0-9]{32})/i) ||
+                          asset.description.match(/ID[:\s]+([a-f0-9]{32})/i) ||
+                          asset.description.match(/([a-f0-9]{32})/); // 32 char hex string without prefix
+                          
       if (videoIdMatch) {
         videoId = videoIdMatch[1];
         console.log('Found video ID from description:', videoId);
+      } else {
+        // Try to extract from callback ID
+        const callbackMatch = asset.description.match(/Callback: feedgen_[^_]+_[^_]+_(\d+)/);
+        if (callbackMatch) {
+          // This might be a timestamp, not video ID - let's look for the actual video ID pattern
+          const callbackIdMatch = asset.description.match(/Callback: (feedgen_[^|\s]+)/);
+          if (callbackIdMatch) {
+            console.log('Found callback ID, will need to look up video ID:', callbackIdMatch[1]);
+            // For now, we can't use callback ID to get video ID without additional API calls
+            // We need the actual video ID from the description
+          }
+        }
       }
     }
 
-    // If no video ID found in description, try callback ID or use placeholder
+    // If no video ID found, we cannot proceed
     if (!videoId) {
-      // Look for callback ID pattern
-      const callbackMatch = asset.description?.match(/Callback: (feedgen_[^|\s]+)/);
-      if (callbackMatch) {
-        videoId = callbackMatch[1];
-        console.log('Using callback ID as video ID:', videoId);
-      } else {
-        // For testing, use a known working video ID
-        videoId = "c96041171feb416fa4b08803c2b1833b";
-        console.log('Using test video ID:', videoId);
-      }
+      console.error('No video ID found in asset description. Description:', asset.description);
+      throw new Error('No video ID found in asset description. Cannot retrieve video status without video ID.');
     }
 
     // Use HeyGen video_status.get API
