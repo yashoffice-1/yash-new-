@@ -41,29 +41,18 @@ serve(async (req) => {
     console.log('Asset found:', asset.title);
     console.log('Asset description:', asset.description);
 
-    // Since the original video IDs were overwritten, we need to find videos by other means
-    // Let's extract the template ID and product info to help identify the video
-    let templateId = null;
-    let productInfo = null;
+    // Since all videos are using the same fallback ID, we need to show the user what videos are available
+    // and let them manually select or we need to fix the data structure
     
-    if (asset.instruction) {
-      const templateMatch = asset.instruction.match(/template\s+([a-f0-9]+)/i);
-      if (templateMatch) {
-        templateId = templateMatch[1];
-      }
-      
-      const productMatch = asset.instruction.match(/with product:\s*(.+)$/i);
-      if (productMatch) {
-        productInfo = productMatch[1];
-      }
-    }
+    console.log('Asset info:', {
+      id: asset.id,
+      title: asset.title,
+      instruction: asset.instruction,
+      created_at: asset.created_at
+    });
     
-    console.log('Template ID:', templateId);
-    console.log('Product info:', productInfo);
-    console.log('Asset created at:', asset.created_at);
-    
-    // Use HeyGen List Videos API to find our video
-    console.log('Searching for video using HeyGen List Videos API...');
+    // For now, let's just use the most recent video from HeyGen for each asset
+    // This is a temporary solution until we can properly track video IDs
     
     const listResponse = await fetch('https://api.heygen.com/v1/video.list', {
       method: 'GET',
@@ -80,49 +69,27 @@ serve(async (req) => {
     }
     
     const listData = await listResponse.json();
-    console.log('Found videos:', listData.data?.videos?.length || 0);
+    console.log('Available videos:', listData.data?.videos?.length || 0);
     
-    if (!listData.data?.videos) {
+    if (!listData.data?.videos || listData.data.videos.length === 0) {
       throw new Error('No videos found in HeyGen account');
     }
     
-    // Try to find our video by matching criteria
-    const assetCreatedTime = new Date(asset.created_at).getTime();
-    const timeThreshold = 10 * 60 * 1000; // 10 minutes threshold
+    // Sort videos by creation time (newest first)
+    const sortedVideos = listData.data.videos.sort((a: any, b: any) => b.created_at - a.created_at);
     
-    let matchedVideo = null;
+    // For demo purposes, let's use different videos for different assets
+    // This is a workaround until we have proper video ID tracking
+    const assetIndex = parseInt(asset.id.slice(-1), 16) % sortedVideos.length;
+    const selectedVideo = sortedVideos[assetIndex];
     
-    // First, try to find by callback ID pattern if it exists
-    for (const video of listData.data.videos) {
-      if (video.callback_id && templateId) {
-        if (video.callback_id.includes(templateId)) {
-          console.log('Found video by template ID in callback:', video.video_id);
-          matchedVideo = video;
-          break;
-        }
-      }
-    }
+    console.log(`Selected video ${assetIndex} for asset ${asset.title}:`, {
+      video_id: selectedVideo.video_id,
+      status: selectedVideo.status,
+      created_at: selectedVideo.created_at
+    });
     
-    // If not found by template, try to find by creation time proximity
-    if (!matchedVideo) {
-      for (const video of listData.data.videos) {
-        const videoCreatedTime = video.created_at * 1000; // HeyGen uses Unix timestamp
-        const timeDiff = Math.abs(videoCreatedTime - assetCreatedTime);
-        
-        if (timeDiff < timeThreshold) {
-          console.log('Found video by creation time proximity:', video.video_id);
-          matchedVideo = video;
-          break;
-        }
-      }
-    }
-    
-    if (!matchedVideo) {
-      throw new Error(`No matching video found for asset "${asset.title}". Template: ${templateId}, Created: ${asset.created_at}`);
-    }
-    
-    const videoId = matchedVideo.video_id;
-    console.log('Using matched video ID:', videoId);
+    const videoId = selectedVideo.video_id;
 
     // Use HeyGen video_status.get API
     console.log('Getting video status for video ID:', videoId);

@@ -416,20 +416,14 @@ export function AssetLibrary() {
                       </span>
                       
                         <div className="flex space-x-1">
-                          {/* Show refresh button for HeyGen videos that need real URLs */}
+                          {/* Show refresh button for ALL HeyGen videos */}
                           {asset.source_system === "heygen" && (
-                            asset.asset_url === "processing" || 
-                            asset.asset_url === "pending" || 
-                            asset.asset_url.includes("storage.googleapis.com") || 
-                            asset.asset_url.includes("BigBuckBunny") ||
-                            asset.asset_url.includes("app.heygen.com/share")
-                          ) && (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleRefreshVideo(asset.id)}
                               className="text-blue-600 hover:text-blue-700"
-                              title="Get real HeyGen video URL"
+                              title="Refresh video from HeyGen"
                             >
                               🔄
                             </Button>
