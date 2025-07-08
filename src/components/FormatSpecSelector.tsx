@@ -38,6 +38,14 @@ const INSTAGRAM_RATIOS = {
   'Vertical': { value: '4:5', label: 'Vertical (4:5)', width: 1080, height: 1350 }
 };
 
+// Facebook-specific aspect ratios based on post type
+const FACEBOOK_RATIOS = {
+  'Feed Post': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
+  'Story': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
+  'Carousel': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
+  'Cover Photo': { value: '2.63:1', label: 'Landscape (2.63:1)', width: 1125, height: 432 }
+};
+
 const ASPECT_RATIOS = {
   image: [
     { value: '16:9', label: '16:9', width: 1920, height: 1080 },
@@ -68,8 +76,9 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
     initialSpecs?.duration || '5'
   );
 
-  // Use Instagram-specific ratios if channel is Instagram and format is specified
+  // Use channel-specific ratios if channel and format are specified
   const useInstagramRatios = channel === 'instagram' && format && INSTAGRAM_RATIOS[format];
+  const useFacebookRatios = channel === 'facebook' && format && FACEBOOK_RATIOS[format];
   const isInstagramFeedPost = channel === 'instagram' && (format === 'Feed Post' || format === 'Feed Ad');
   
   let aspectRatios;
@@ -90,6 +99,11 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
       aspectRatios = [instagramRatio];
       selectedRatio = instagramRatio;
     }
+  } else if (useFacebookRatios) {
+    // For Facebook formats, use the predefined ratio for each format
+    const facebookRatio = FACEBOOK_RATIOS[format];
+    aspectRatios = [facebookRatio];
+    selectedRatio = facebookRatio;
   } else {
     // For other channels, use the default aspect ratios
     aspectRatios = ASPECT_RATIOS[assetType];
@@ -109,6 +123,9 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
         // For other Instagram formats, use the predefined ratio
         ratioData = INSTAGRAM_RATIOS[format];
       }
+    } else if (useFacebookRatios) {
+      // For Facebook formats, use the predefined ratio
+      ratioData = FACEBOOK_RATIOS[format];
     } else {
       ratioData = aspectRatios.find(r => r.value === ratio) || aspectRatios[0];
     }
@@ -186,6 +203,22 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
             </div>
           )}
         </div>
+      ) : useFacebookRatios ? (
+        // Facebook-specific format display
+        <div className="space-y-3">
+          <Label className="text-sm font-medium text-gray-700">Facebook Format</Label>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <Label className="text-sm font-medium text-blue-800">
+                {selectedRatio.label} - {selectedRatio.width}x{selectedRatio.height}px
+              </Label>
+            </div>
+            <p className="text-xs text-blue-600 mt-1">
+              Optimized for Facebook {format}
+            </p>
+          </div>
+        </div>
       ) : (
         // Standard aspect ratio selector for other channels
         <div className="space-y-3">
@@ -234,6 +267,11 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
         {useInstagramRatios && (
           <div className="text-blue-600 font-medium mt-1">
             ✅ Instagram {format} optimized
+          </div>
+        )}
+        {useFacebookRatios && (
+          <div className="text-blue-600 font-medium mt-1">
+            ✅ Facebook {format} optimized
           </div>
         )}
       </div>
