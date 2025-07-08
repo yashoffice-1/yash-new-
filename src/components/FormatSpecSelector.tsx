@@ -46,6 +46,53 @@ const FACEBOOK_RATIOS = {
   'Cover Photo': { value: '2.63:1', label: 'Landscape (2.63:1)', width: 1125, height: 432 }
 };
 
+// Google Ads-specific aspect ratios
+const GOOGLE_ADS_RATIOS = {
+  'Responsive Display (Landscape)': { value: '1.91:1', label: 'Landscape (1.91:1)', width: 1200, height: 628 },
+  'Responsive Display (Square)': { value: '1:1', label: 'Square (1:1)', width: 1200, height: 1200 },
+  'Portrait': { value: '4:5', label: 'Portrait (4:5)', width: 960, height: 1200 },
+  'Logo (Square)': { value: '1:1', label: 'Logo Square (1:1)', width: 1200, height: 1200 }
+};
+
+// LinkedIn-specific aspect ratios
+const LINKEDIN_RATIOS = {
+  'Feed Image Post': { value: '1.91:1', label: 'Landscape (1.91:1)', width: 1200, height: 627 },
+  'Story': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
+  'Carousel': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
+  'Company Banner': { value: '4:1', label: 'Banner (4:1)', width: 1536, height: 396 }
+};
+
+// Twitter/X-specific aspect ratios
+const TWITTER_RATIOS = {
+  'Single Image Tweet': { value: '16:9', label: 'Landscape (16:9)', width: 1200, height: 675 },
+  'Multiple Images (Square)': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
+  'Multiple Images (Portrait)': { value: '4:5', label: 'Portrait (4:5)', width: 1080, height: 1350 },
+  'Header Banner': { value: '3:1', label: 'Banner (3:1)', width: 1500, height: 500 }
+};
+
+// TikTok-specific aspect ratios
+const TIKTOK_RATIOS = {
+  'Video Post': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
+  'Ad Creative (Vertical)': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
+  'Ad Creative (Square)': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 }
+};
+
+// YouTube-specific aspect ratios
+const YOUTUBE_RATIOS = {
+  'Thumbnail': { value: '16:9', label: 'Thumbnail (16:9)', width: 1280, height: 720 },
+  'Video (Standard)': { value: '16:9', label: 'Standard (16:9)', width: 1920, height: 1080 },
+  'Shorts': { value: '9:16', label: 'Shorts (9:16)', width: 1080, height: 1920 },
+  'Channel Banner': { value: '6.2:1', label: 'Banner (6.2:1)', width: 2560, height: 423 }
+};
+
+// Pinterest-specific aspect ratios
+const PINTEREST_RATIOS = {
+  'Standard Pin': { value: '2:3', label: 'Standard (2:3)', width: 1000, height: 1500 },
+  'Square Pin': { value: '1:1', label: 'Square (1:1)', width: 1000, height: 1000 },
+  'Story / Idea Pin': { value: '9:16', label: 'Story (9:16)', width: 1080, height: 1920 },
+  'Long Pin': { value: '1:2.1', label: 'Long (1:2.1)', width: 1000, height: 2100 }
+};
+
 const ASPECT_RATIOS = {
   image: [
     { value: '16:9', label: '16:9', width: 1920, height: 1080 },
@@ -79,6 +126,12 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
   // Use channel-specific ratios if channel and format are specified
   const useInstagramRatios = channel === 'instagram' && format && INSTAGRAM_RATIOS[format];
   const useFacebookRatios = channel === 'facebook' && format && FACEBOOK_RATIOS[format];
+  const useGoogleAdsRatios = channel === 'google-ads' && format && GOOGLE_ADS_RATIOS[format];
+  const useLinkedInRatios = channel === 'linkedin' && format && LINKEDIN_RATIOS[format];
+  const useTwitterRatios = channel === 'twitter' && format && TWITTER_RATIOS[format];
+  const useTikTokRatios = channel === 'tiktok' && format && TIKTOK_RATIOS[format];
+  const useYouTubeRatios = channel === 'youtube' && format && YOUTUBE_RATIOS[format];
+  const usePinterestRatios = channel === 'pinterest' && format && PINTEREST_RATIOS[format];
   const isInstagramFeedPost = channel === 'instagram' && (format === 'Feed Post' || format === 'Feed Ad');
   
   let aspectRatios;
@@ -100,10 +153,33 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
       selectedRatio = instagramRatio;
     }
   } else if (useFacebookRatios) {
-    // For Facebook formats, use the predefined ratio for each format
     const facebookRatio = FACEBOOK_RATIOS[format];
     aspectRatios = [facebookRatio];
     selectedRatio = facebookRatio;
+  } else if (useGoogleAdsRatios) {
+    const googleAdsRatio = GOOGLE_ADS_RATIOS[format];
+    aspectRatios = [googleAdsRatio];
+    selectedRatio = googleAdsRatio;
+  } else if (useLinkedInRatios) {
+    const linkedInRatio = LINKEDIN_RATIOS[format];
+    aspectRatios = [linkedInRatio];
+    selectedRatio = linkedInRatio;
+  } else if (useTwitterRatios) {
+    const twitterRatio = TWITTER_RATIOS[format];
+    aspectRatios = [twitterRatio];
+    selectedRatio = twitterRatio;
+  } else if (useTikTokRatios) {
+    const tikTokRatio = TIKTOK_RATIOS[format];
+    aspectRatios = [tikTokRatio];
+    selectedRatio = tikTokRatio;
+  } else if (useYouTubeRatios) {
+    const youTubeRatio = YOUTUBE_RATIOS[format];
+    aspectRatios = [youTubeRatio];
+    selectedRatio = youTubeRatio;
+  } else if (usePinterestRatios) {
+    const pinterestRatio = PINTEREST_RATIOS[format];
+    aspectRatios = [pinterestRatio];
+    selectedRatio = pinterestRatio;
   } else {
     // For other channels, use the default aspect ratios
     aspectRatios = ASPECT_RATIOS[assetType];
@@ -124,8 +200,19 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
         ratioData = INSTAGRAM_RATIOS[format];
       }
     } else if (useFacebookRatios) {
-      // For Facebook formats, use the predefined ratio
       ratioData = FACEBOOK_RATIOS[format];
+    } else if (useGoogleAdsRatios) {
+      ratioData = GOOGLE_ADS_RATIOS[format];
+    } else if (useLinkedInRatios) {
+      ratioData = LINKEDIN_RATIOS[format];
+    } else if (useTwitterRatios) {
+      ratioData = TWITTER_RATIOS[format];
+    } else if (useTikTokRatios) {
+      ratioData = TIKTOK_RATIOS[format];
+    } else if (useYouTubeRatios) {
+      ratioData = YOUTUBE_RATIOS[format];
+    } else if (usePinterestRatios) {
+      ratioData = PINTEREST_RATIOS[format];
     } else {
       ratioData = aspectRatios.find(r => r.value === ratio) || aspectRatios[0];
     }
@@ -203,10 +290,18 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
             </div>
           )}
         </div>
-      ) : useFacebookRatios ? (
-        // Facebook-specific format display
+      ) : useFacebookRatios || useGoogleAdsRatios || useLinkedInRatios || useTwitterRatios || useTikTokRatios || useYouTubeRatios || usePinterestRatios ? (
+        // Channel-specific format display
         <div className="space-y-3">
-          <Label className="text-sm font-medium text-gray-700">Facebook Format</Label>
+          <Label className="text-sm font-medium text-gray-700">
+            {useFacebookRatios && 'Facebook Format'}
+            {useGoogleAdsRatios && 'Google Ads Format'}
+            {useLinkedInRatios && 'LinkedIn Format'}
+            {useTwitterRatios && 'Twitter/X Format'}
+            {useTikTokRatios && 'TikTok Format'}
+            {useYouTubeRatios && 'YouTube Format'}
+            {usePinterestRatios && 'Pinterest Format'}
+          </Label>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
@@ -215,7 +310,7 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
               </Label>
             </div>
             <p className="text-xs text-blue-600 mt-1">
-              Optimized for Facebook {format}
+              Optimized for {channel?.charAt(0).toUpperCase() + channel?.slice(1)} {format}
             </p>
           </div>
         </div>
@@ -269,9 +364,9 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
             ✅ Instagram {format} optimized
           </div>
         )}
-        {useFacebookRatios && (
+        {(useFacebookRatios || useGoogleAdsRatios || useLinkedInRatios || useTwitterRatios || useTikTokRatios || useYouTubeRatios || usePinterestRatios) && (
           <div className="text-blue-600 font-medium mt-1">
-            ✅ Facebook {format} optimized
+            ✅ {channel?.charAt(0).toUpperCase() + channel?.slice(1)} {format} optimized
           </div>
         )}
       </div>
