@@ -340,6 +340,8 @@ function ProductConfig({
             assetType={getFormatSpecType(config.asset_type)}
             onSpecChange={(specs) => handleFormatSpecChange(configKey, specs)}
             initialSpecs={formatSpecs[configKey]}
+            channel={config.channel}
+            format={config.type}
           />
         </div>
       )}
