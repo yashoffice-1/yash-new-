@@ -6,9 +6,10 @@ import { AssetLibrary } from "./AssetLibrary";
 import { InventoryDisplay } from "./inventory/InventoryDisplay";
 import { VideoTemplatesTab } from "./VideoTemplatesTab";
 import { UserModule } from "./user/UserModule";
+import { SocialProfiles } from "./SocialProfiles";
 import { useState } from "react";
 import { Button } from "./ui/button";
-import { Library, Package, Video, User } from "lucide-react";
+import { Library, Package, Video, User, Share2 } from "lucide-react";
 
 export function MainContent() {
   const { isAdmin, activeTab, setActiveTab } = useView();
@@ -49,6 +50,15 @@ export function MainContent() {
         </Button>
 
         <Button 
+          variant={activeTab === 'social' ? 'default' : 'ghost'} 
+          onClick={() => setActiveTab('social')}
+          className="rounded-b-none flex items-center space-x-2"
+        >
+          <Share2 className="h-4 w-4" />
+          <span>Social Profiles</span>
+        </Button>
+
+        <Button 
           variant={activeTab === 'user' ? 'default' : 'ghost'} 
           onClick={() => setActiveTab('user')}
           className="rounded-b-none flex items-center space-x-2"
@@ -62,6 +72,7 @@ export function MainContent() {
       {activeTab === 'inventory' && <InventoryDisplay />}
       {activeTab === 'library' && <AssetLibrary />}
       {activeTab === 'templates' && <VideoTemplatesTab />}
+      {activeTab === 'social' && <SocialProfiles />}
       {activeTab === 'user' && <UserModule />}
     </div>
   );
