@@ -267,11 +267,14 @@ export function UserDashboard({ selectedProduct }: UserDashboardProps) {
         isGenerating={isGenerating}
       />
 
-      <SocialMediaAutoPost 
-        imageUrl={generatedAssets.find(asset => asset.type === 'image')?.url || ''}
-        instruction={approvedInstruction || ''}
-        isVisible={generatedAssets.some(asset => asset.type === 'image')}
-      />
+      {/* Show social media auto-post when we have an approved instruction and at least one image asset */}
+      {(approvedInstruction && generatedAssets.some(asset => asset.type === 'image')) && (
+        <SocialMediaAutoPost 
+          imageUrl={generatedAssets.find(asset => asset.type === 'image')?.url || ''}
+          instruction={approvedInstruction}
+          isVisible={true}
+        />
+      )}
     </div>
   );
 }
