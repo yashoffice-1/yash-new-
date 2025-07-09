@@ -237,14 +237,15 @@ export function SocialMediaAutoPost({ imageUrl, instruction, isVisible, selected
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Platform Content Editors - Only show platforms that have content */}
+        {/* Platform Content Editors - Only show selected platforms that have content */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {Object.entries(platforms).map(([key, platform]) => {
             const IconComponent = platform.icon;
             const content = platformContent[key];
             
-            // Only show platforms that have generated content
-            if (!content) return null;
+            // Only show platforms that are selected AND have generated content
+            const isSelected = selectedChannels.length > 0 ? selectedChannels.includes(key) : true;
+            if (!content || !isSelected) return null;
 
             return (
               <Card key={key} className="relative">
