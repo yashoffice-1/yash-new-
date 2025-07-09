@@ -97,10 +97,38 @@ serve(async (req) => {
 
     if (type === 'image') {
       // Use correct image generation endpoint and structure with format specs
+      // Map aspect ratios to RunwayML supported formats
+      let runwayRatio;
+      switch (aspectRatio) {
+        case '1:1':
+          runwayRatio = '1280:1280';
+          break;
+        case '16:9':
+          runwayRatio = '1920:1080';
+          break;
+        case '9:16':
+          runwayRatio = '1080:1920';
+          break;
+        case '4:5':
+          runwayRatio = '1080:1350';
+          break;
+        case '3:2':
+          runwayRatio = '1500:1000';
+          break;
+        case '2:3':
+          runwayRatio = '1000:1500';
+          break;
+        case '1.91:1':
+          runwayRatio = '1200:628';
+          break;
+        default:
+          runwayRatio = '1280:1280'; // Default to square
+      }
+      
       requestBody = {
         promptText: concisePrompt,
         model: "gen4_image",
-        ratio: aspectRatio === '1:1' ? '1920:1080' : aspectRatio // Map common ratios
+        ratio: runwayRatio
       };
       
       // Add reference image if provided
@@ -115,9 +143,30 @@ serve(async (req) => {
       apiEndpoint = 'https://api.dev.runwayml.com/v1/text_to_image';
     } else {
       // Use correct video generation endpoint and structure with format specs
-      const videoRatio = aspectRatio === '9:16' ? '1280:720' : 
-                        aspectRatio === '16:9' ? '1920:1080' : 
-                        aspectRatio === '1:1' ? '1280:720' : '1280:720';
+      // Map aspect ratios to RunwayML supported video formats
+      let runwayVideoRatio;
+      switch (aspectRatio) {
+        case '9:16':
+          runwayVideoRatio = '1080:1920';
+          break;
+        case '16:9':
+          runwayVideoRatio = '1920:1080';
+          break;
+        case '1:1':
+          runwayVideoRatio = '1280:1280';
+          break;
+        case '4:5':
+          runwayVideoRatio = '1080:1350';
+          break;
+        case '3:2':
+          runwayVideoRatio = '1500:1000';
+          break;
+        case '2:3':
+          runwayVideoRatio = '1000:1500';
+          break;
+        default:
+          runwayVideoRatio = '1280:1280'; // Default to square
+      }
       
       if (imageUrl) {
         // Image-to-video generation
@@ -125,7 +174,7 @@ serve(async (req) => {
           model: 'gen4_turbo',
           promptImage: imageUrl,
           promptText: concisePrompt,
-          ratio: videoRatio,
+          ratio: runwayVideoRatio,
           duration: Math.min(Math.max(duration, 5), 10) // Clamp between 5-10 seconds
         };
         apiEndpoint = 'https://api.dev.runwayml.com/v1/image_to_video';
@@ -134,7 +183,7 @@ serve(async (req) => {
         requestBody = {
           model: 'gen4_turbo',
           promptText: concisePrompt,
-          ratio: videoRatio,
+          ratio: runwayVideoRatio,
           duration: Math.min(Math.max(duration, 5), 10) // Clamp between 5-10 seconds
         };
         apiEndpoint = 'https://api.dev.runwayml.com/v1/text_to_video';
