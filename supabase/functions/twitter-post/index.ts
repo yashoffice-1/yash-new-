@@ -1,8 +1,123 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.1'
+import { createHmac } from "node:crypto";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Twitter API v1.1 credentials from environment
+const API_KEY = Deno.env.get("TWITTER_API_KEY")?.trim();
+const API_SECRET = Deno.env.get("TWITTER_API_SECRET")?.trim();
+const ACCESS_TOKEN = Deno.env.get("TWITTER_ACCESS_TOKEN")?.trim();
+const ACCESS_TOKEN_SECRET = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET")?.trim();
+
+function validateEnvironmentVariables() {
+  if (!API_KEY) {
+    throw new Error("Missing TWITTER_API_KEY environment variable");
+  }
+  if (!API_SECRET) {
+    throw new Error("Missing TWITTER_API_SECRET environment variable");
+  }
+  if (!ACCESS_TOKEN) {
+    throw new Error("Missing TWITTER_ACCESS_TOKEN environment variable");
+  }
+  if (!ACCESS_TOKEN_SECRET) {
+    throw new Error("Missing TWITTER_ACCESS_TOKEN_SECRET environment variable");
+  }
+}
+
+// Generate OAuth signature for Twitter API v1.1
+function generateOAuthSignature(
+  method: string,
+  url: string,
+  params: Record<string, string>,
+  consumerSecret: string,
+  tokenSecret: string
+): string {
+  const signatureBaseString = `${method}&${encodeURIComponent(
+    url
+  )}&${encodeURIComponent(
+    Object.entries(params)
+      .sort()
+      .map(([k, v]) => `${k}=${v}`)
+      .join("&")
+  )}`;
+  const signingKey = `${encodeURIComponent(
+    consumerSecret
+  )}&${encodeURIComponent(tokenSecret)}`;
+  const hmacSha1 = createHmac("sha1", signingKey);
+  const signature = hmacSha1.update(signatureBaseString).digest("base64");
+
+  console.log("Signature Base String:", signatureBaseString);
+  console.log("Signing Key:", signingKey);
+  console.log("Generated Signature:", signature);
+
+  return signature;
+}
+
+function generateOAuthHeader(method: string, url: string): string {
+  const oauthParams = {
+    oauth_consumer_key: API_KEY!,
+    oauth_nonce: Math.random().toString(36).substring(2),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: ACCESS_TOKEN!,
+    oauth_version: "1.0",
+  };
+
+  const signature = generateOAuthSignature(
+    method,
+    url,
+    oauthParams,
+    API_SECRET!,
+    ACCESS_TOKEN_SECRET!
+  );
+
+  const signedOAuthParams = {
+    ...oauthParams,
+    oauth_signature: signature,
+  };
+
+  const entries = Object.entries(signedOAuthParams).sort((a, b) =>
+    a[0].localeCompare(b[0])
+  );
+
+  return (
+    "OAuth " +
+    entries
+      .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
+      .join(", ")
+  );
+}
+
+async function sendTweet(tweetText: string): Promise<any> {
+  const url = "https://api.x.com/2/tweets";
+  const method = "POST";
+  const params = { text: tweetText };
+
+  const oauthHeader = generateOAuthHeader(method, url);
+  console.log("OAuth Header:", oauthHeader);
+
+  const response = await fetch(url, {
+    method: method,
+    headers: {
+      Authorization: oauthHeader,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+
+  const responseText = await response.text();
+  console.log("Response Body:", responseText);
+
+  if (!response.ok) {
+    throw new Error(
+      `HTTP error! status: ${response.status}, body: ${responseText}`
+    );
+  }
+
+  return JSON.parse(responseText);
 }
 
 Deno.serve(async (req) => {
@@ -11,142 +126,25 @@ Deno.serve(async (req) => {
   }
 
   try {
+    validateEnvironmentVariables();
+    
     const { text, mediaUrl } = await req.json()
 
     if (!text) {
       throw new Error('Tweet text is required')
     }
 
-    // Get user from auth header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('No authorization header')
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseKey)
-
-    const userResponse = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-    if (userResponse.error || !userResponse.data.user) {
-      throw new Error('Invalid user token')
-    }
-
-    const userId = userResponse.data.user.id
-
-    // Get Twitter connection
-    const { data: connection, error: connectionError } = await supabase
-      .from('user_social_connections')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('platform', 'twitter')
-      .single()
-
-    if (connectionError || !connection) {
-      throw new Error('Twitter not connected')
-    }
-
-    // Check if token is expired and refresh if needed
-    const now = new Date()
-    const expiresAt = new Date(connection.token_expires_at)
+    console.log("Attempting to send tweet:", text);
     
-    let accessToken = connection.access_token
-
-    if (now >= expiresAt && connection.refresh_token) {
-      // Refresh token
-      const refreshResponse = await fetch('https://api.twitter.com/2/oauth2/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: connection.refresh_token,
-          client_id: 'MFJlSGdVR3ZRQy11N3VyME01cGE6MTpjaQ',
-        }).toString(),
-      })
-
-      if (refreshResponse.ok) {
-        const refreshData = await refreshResponse.json()
-        accessToken = refreshData.access_token
-
-        // Update stored tokens
-        const newExpiresAt = new Date()
-        newExpiresAt.setSeconds(newExpiresAt.getSeconds() + refreshData.expires_in)
-
-        await supabase
-          .from('user_social_connections')
-          .update({
-            access_token: refreshData.access_token,
-            refresh_token: refreshData.refresh_token || connection.refresh_token,
-            token_expires_at: newExpiresAt.toISOString(),
-          })
-          .eq('id', connection.id)
-      } else {
-        throw new Error('Failed to refresh Twitter token')
-      }
-    }
-
-    // Prepare tweet data
-    const tweetData: any = { text }
-
-    // If media is provided, upload it first
-    if (mediaUrl) {
-      try {
-        // Download the image
-        const imageResponse = await fetch(mediaUrl)
-        if (!imageResponse.ok) {
-          throw new Error('Failed to download image')
-        }
-
-        const imageBlob = await imageResponse.blob()
-        const imageBuffer = await imageBlob.arrayBuffer()
-
-        // Upload media to Twitter
-        const formData = new FormData()
-        formData.append('media', new Blob([imageBuffer]), 'image.jpg')
-
-        const mediaResponse = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: formData,
-        })
-
-        if (mediaResponse.ok) {
-          const mediaData = await mediaResponse.json()
-          tweetData.media = { media_ids: [mediaData.media_id_string] }
-        }
-      } catch (mediaError) {
-        console.error('Media upload failed:', mediaError)
-        // Continue without media if upload fails
-      }
-    }
-
-    // Post tweet
-    const tweetResponse = await fetch('https://api.twitter.com/2/tweets', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(tweetData),
-    })
-
-    if (!tweetResponse.ok) {
-      const errorText = await tweetResponse.text()
-      console.error('Tweet posting failed:', errorText)
-      throw new Error(`Tweet posting failed: ${errorText}`)
-    }
-
-    const tweetResult = await tweetResponse.json()
-
+    // Send tweet using direct API credentials
+    const result = await sendTweet(text);
+    
     return new Response(
       JSON.stringify({ 
         success: true,
-        tweetId: tweetResult.data.id,
-        tweetUrl: `https://twitter.com/${connection.platform_username}/status/${tweetResult.data.id}`
+        tweetId: result.data.id,
+        tweetUrl: `https://twitter.com/i/web/status/${result.data.id}`,
+        message: "Tweet posted successfully!"
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
