@@ -140,9 +140,6 @@ export function Auth() {
         <Card>
           <CardHeader className="text-center">
             <CardTitle>Welcome to FeedGenerator</CardTitle>
-            <CardDescription>
-              Sign in to your account or create a new one to get started
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="signin" className="w-full">
