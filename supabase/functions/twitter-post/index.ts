@@ -91,21 +91,56 @@ function generateOAuthHeader(method: string, url: string): string {
   );
 }
 
-async function sendTweet(tweetText: string): Promise<any> {
-  const url = "https://api.x.com/2/tweets";
+async function sendTweet(tweetText: string, userAccessToken?: string, userAccessTokenSecret?: string): Promise<any> {
+  const url = "https://api.twitter.com/1.1/statuses/update.json";
   const method = "POST";
-  const params = { text: tweetText };
 
-  const oauthHeader = generateOAuthHeader(method, url);
+  // Use user tokens if provided, otherwise use app tokens
+  const accessToken = userAccessToken || ACCESS_TOKEN!;
+  const accessTokenSecret = userAccessTokenSecret || ACCESS_TOKEN_SECRET!;
+
+  const oauthParams = {
+    oauth_consumer_key: API_KEY!,
+    oauth_nonce: Math.random().toString(36).substring(2),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: accessToken,
+    oauth_version: "1.0",
+  };
+
+  const signature = generateOAuthSignature(
+    method,
+    url,
+    oauthParams,
+    API_SECRET!,
+    accessTokenSecret
+  );
+
+  const signedOAuthParams = {
+    ...oauthParams,
+    oauth_signature: signature,
+  };
+
+  const entries = Object.entries(signedOAuthParams).sort((a, b) =>
+    a[0].localeCompare(b[0])
+  );
+
+  const oauthHeader = (
+    "OAuth " +
+    entries
+      .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
+      .join(", ")
+  );
+
   console.log("OAuth Header:", oauthHeader);
 
   const response = await fetch(url, {
     method: method,
     headers: {
       Authorization: oauthHeader,
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify(params),
+    body: `status=${encodeURIComponent(tweetText)}`,
   });
 
   const responseText = await response.text();
@@ -128,7 +163,7 @@ Deno.serve(async (req) => {
   try {
     validateEnvironmentVariables();
     
-    const { text, mediaUrl } = await req.json()
+    const { text, mediaUrl, userId } = await req.json()
 
     if (!text) {
       throw new Error('Tweet text is required')
@@ -136,14 +171,37 @@ Deno.serve(async (req) => {
 
     console.log("Attempting to send tweet:", text);
     
-    // Send tweet using direct API credentials
-    const result = await sendTweet(text);
+    let userAccessToken: string | undefined;
+    let userAccessTokenSecret: string | undefined;
+
+    // If userId is provided, try to get user's Twitter tokens
+    if (userId) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      const supabase = createClient(supabaseUrl, supabaseKey)
+
+      const { data: connection } = await supabase
+        .from('user_social_connections')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('platform', 'twitter')
+        .single()
+
+      if (connection) {
+        userAccessToken = connection.access_token
+        userAccessTokenSecret = connection.refresh_token // We stored token secret as refresh token
+        console.log("Using user's Twitter tokens for posting")
+      }
+    }
+    
+    // Send tweet using user tokens if available, otherwise app tokens
+    const result = await sendTweet(text, userAccessToken, userAccessTokenSecret);
     
     return new Response(
       JSON.stringify({ 
         success: true,
-        tweetId: result.data.id,
-        tweetUrl: `https://twitter.com/i/web/status/${result.data.id}`,
+        tweetId: result.id_str,
+        tweetUrl: `https://twitter.com/i/web/status/${result.id_str}`,
         message: "Tweet posted successfully!"
       }),
       {

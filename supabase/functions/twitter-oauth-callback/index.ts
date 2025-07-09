@@ -1,8 +1,75 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.1'
+import { createHmac } from "node:crypto"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Twitter OAuth 1.0a credentials
+const CONSUMER_KEY = Deno.env.get("TWITTER_API_KEY")?.trim()
+const CONSUMER_SECRET = Deno.env.get("TWITTER_API_SECRET")?.trim()
+
+function validateEnvironmentVariables() {
+  if (!CONSUMER_KEY) {
+    throw new Error("Missing TWITTER_API_KEY environment variable")
+  }
+  if (!CONSUMER_SECRET) {
+    throw new Error("Missing TWITTER_API_SECRET environment variable")
+  }
+}
+
+// Generate OAuth 1.0a signature
+function generateOAuthSignature(
+  method: string,
+  url: string,
+  params: Record<string, string>,
+  consumerSecret: string,
+  tokenSecret = ''
+): string {
+  const signatureBaseString = `${method}&${encodeURIComponent(
+    url
+  )}&${encodeURIComponent(
+    Object.entries(params)
+      .sort()
+      .map(([k, v]) => `${k}=${v}`)
+      .join("&")
+  )}`
+  
+  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`
+  const hmacSha1 = createHmac("sha1", signingKey)
+  const signature = hmacSha1.update(signatureBaseString).digest("base64")
+  
+  return signature
+}
+
+function generateOAuthHeader(method: string, url: string, additionalParams: Record<string, string> = {}, tokenSecret = ''): string {
+  const oauthParams = {
+    oauth_consumer_key: CONSUMER_KEY!,
+    oauth_nonce: Math.random().toString(36).substring(2),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_version: "1.0",
+    ...additionalParams
+  }
+
+  const signature = generateOAuthSignature(method, url, oauthParams, CONSUMER_SECRET!, tokenSecret)
+
+  const signedOAuthParams = {
+    ...oauthParams,
+    oauth_signature: signature,
+  }
+
+  const entries = Object.entries(signedOAuthParams).sort((a, b) =>
+    a[0].localeCompare(b[0])
+  )
+
+  return (
+    "OAuth " +
+    entries
+      .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
+      .join(", ")
+  )
 }
 
 Deno.serve(async (req) => {
@@ -11,115 +78,107 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url)
-    const code = url.searchParams.get('code')
-    const state = url.searchParams.get('state')
-
-    if (!code || !state) {
-      throw new Error('Missing code or state parameter')
-    }
-
-    const { userId } = await req.json()
-    if (!userId) {
-      throw new Error('Missing userId in request body')
-    }
+    validateEnvironmentVariables()
+    
+    const { userId, code, state } = await req.json()
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Retrieve PKCE parameters
+    // Get stored temporary tokens
     const { data: tempData, error: tempError } = await supabase
       .from('user_social_connections')
-      .select('access_token')
+      .select('*')
       .eq('user_id', userId)
       .eq('platform', 'twitter_temp')
       .single()
 
     if (tempError || !tempData) {
-      throw new Error('PKCE data not found')
+      throw new Error('No temporary OAuth data found')
     }
 
-    const pkceData = JSON.parse(tempData.access_token)
+    const tempTokens = JSON.parse(tempData.access_token || '{}')
+    const oauthToken = tempTokens.oauth_token || code // code is oauth_token from callback
+    const oauthTokenSecret = tempTokens.oauth_token_secret
+    const oauthVerifier = state // state is oauth_verifier from callback
+
+    if (!oauthToken || !oauthTokenSecret || !oauthVerifier) {
+      throw new Error('Missing OAuth parameters')
+    }
+
+    // Step 2: Exchange for access token
+    const accessTokenUrl = 'https://api.twitter.com/oauth/access_token'
     
-    if (pkceData.state !== state) {
-      throw new Error('State mismatch')
+    const accessTokenParams = {
+      oauth_token: oauthToken,
+      oauth_verifier: oauthVerifier
     }
-
-    // Exchange code for access token
-    const CLIENT_ID = 'MFJlSGdVR3ZRQy11N3VyME01cGE6MTpjaQ'
-    const REDIRECT_URI = 'https://preview--feed-genesis.lovable.app/x-manage'
-
-    const tokenResponse = await fetch('https://api.twitter.com/2/oauth2/token', {
+    
+    const accessTokenHeader = generateOAuthHeader('POST', accessTokenUrl, accessTokenParams, oauthTokenSecret)
+    
+    const accessTokenResponse = await fetch(accessTokenUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': accessTokenHeader,
+        'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: REDIRECT_URI,
-        client_id: CLIENT_ID,
-        code_verifier: pkceData.code_verifier,
-      }).toString(),
+      body: `oauth_verifier=${encodeURIComponent(oauthVerifier)}`
     })
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text()
-      console.error('Token exchange failed:', errorText)
-      throw new Error(`Token exchange failed: ${errorText}`)
+    if (!accessTokenResponse.ok) {
+      const errorText = await accessTokenResponse.text()
+      console.error('Access token error:', errorText)
+      throw new Error(`Failed to get access token: ${errorText}`)
     }
 
-    const tokenData = await tokenResponse.json()
-
-    // Get user info from Twitter
-    const userResponse = await fetch('https://api.twitter.com/2/users/me', {
-      headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`,
-      },
-    })
-
-    if (!userResponse.ok) {
-      throw new Error('Failed to get user info from Twitter')
+    const accessTokenText = await accessTokenResponse.text()
+    console.log('Access token response:', accessTokenText)
+    
+    const accessTokenParams_response = new URLSearchParams(accessTokenText)
+    const finalAccessToken = accessTokenParams_response.get('oauth_token')
+    const finalAccessTokenSecret = accessTokenParams_response.get('oauth_token_secret')
+    const screenName = accessTokenParams_response.get('screen_name')
+    const userId_twitter = accessTokenParams_response.get('user_id')
+    
+    if (!finalAccessToken || !finalAccessTokenSecret) {
+      throw new Error('Invalid response from Twitter access token API')
     }
 
-    const userData = await userResponse.json()
-
-    // Calculate token expiry
-    const expiresAt = new Date()
-    expiresAt.setSeconds(expiresAt.getSeconds() + tokenData.expires_in)
-
-    // Store the connection
-    const { error: storeError } = await supabase
-      .from('user_social_connections')
-      .upsert({
-        user_id: userId,
-        platform: 'twitter',
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        token_expires_at: expiresAt.toISOString(),
-        platform_user_id: userData.data.id,
-        platform_username: userData.data.username,
-      }, {
-        onConflict: 'user_id,platform'
-      })
-
-    if (storeError) {
-      console.error('Error storing connection:', storeError)
-      throw storeError
-    }
-
-    // Clean up temp data
-    await supabase
+    // Store final tokens and remove temp data
+    const { error: deleteError } = await supabase
       .from('user_social_connections')
       .delete()
       .eq('user_id', userId)
       .eq('platform', 'twitter_temp')
 
+    if (deleteError) {
+      console.error('Error deleting temp data:', deleteError)
+    }
+
+    const { error: insertError } = await supabase
+      .from('user_social_connections')
+      .upsert({
+        user_id: userId,
+        platform: 'twitter',
+        access_token: finalAccessToken,
+        refresh_token: finalAccessTokenSecret, // Store token secret as refresh token
+        platform_user_id: userId_twitter,
+        platform_username: screenName
+      }, {
+        onConflict: 'user_id,platform'
+      })
+
+    if (insertError) {
+      console.error('Error storing final tokens:', insertError)
+      throw insertError
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
-        username: userData.data.username 
+        username: screenName,
+        message: 'Twitter connected successfully'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

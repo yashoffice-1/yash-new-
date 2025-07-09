@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { TweetComposer } from "./TweetComposer";
 import { 
   Instagram, 
   Facebook, 
@@ -215,6 +216,9 @@ export function SocialProfiles() {
     });
   };
 
+  // Check if Twitter is connected
+  const twitterConnected = channels.find(c => c.id === 'twitter')?.connected;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -293,6 +297,11 @@ export function SocialProfiles() {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Twitter Tweet Composer - Only show if Twitter is connected */}
+      {twitterConnected && (
+        <TweetComposer onTweetSuccess={loadSocialConnections} />
+      )}
     </div>
   );
 }

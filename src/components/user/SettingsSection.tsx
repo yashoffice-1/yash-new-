@@ -5,6 +5,7 @@ import { IntegrationsSettings } from "./settings/IntegrationsSettings";
 import { TemplatesSettings } from "./settings/TemplatesSettings";
 import { BrandSettings } from "./settings/BrandSettings";
 import { SocialMediaSettings } from "./settings/SocialMediaSettings";
+import { SocialProfiles } from "../SocialProfiles";
 import { Plug, FileText, Palette, Share2 } from "lucide-react";
 
 export function SettingsSection() {
@@ -44,7 +45,7 @@ export function SettingsSection() {
       </TabsContent>
 
       <TabsContent value="social" className="space-y-4">
-        <SocialMediaSettings />
+        <SocialProfiles />
       </TabsContent>
     </Tabs>
   );
