@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SaveAssetDialog } from '@/components/SaveAssetDialog';
 import { FormatSpecSelector } from '@/components/FormatSpecSelector';
+import { SocialMediaAutoPost } from '@/components/SocialMediaAutoPost';
 
 interface InventoryItem {
   id: string;
@@ -1120,6 +1121,17 @@ export function UnifiedAssetGenerator({
 
         {/* Action Buttons */}
         {renderAssetActions(productId, asset)}
+
+        {/* Social Media Auto-Post - Show for image and ad assets only */}
+        {(asset.type === 'image' || asset.type === 'ad') && asset.url && asset.instruction && (
+          <div className="mt-4">
+            <SocialMediaAutoPost 
+              imageUrl={asset.url}
+              instruction={asset.instruction}
+              isVisible={true}
+            />
+          </div>
+        )}
       </div>
     );
   };
