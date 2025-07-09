@@ -37,7 +37,7 @@ interface PostingStatus {
 export function SocialMediaAutoPost({ imageUrl, instruction, isVisible }: SocialMediaAutoPostProps) {
   const { toast } = useToast();
   const [platformContent, setPlatformContent] = useState<Record<string, PlatformContent>>({});
-  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
+  const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>(['facebook']); // Mock data
   const [postingStatus, setPostingStatus] = useState<Record<string, PostingStatus>>({});
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
 
@@ -62,31 +62,8 @@ export function SocialMediaAutoPost({ imageUrl, instruction, isVisible }: Social
   useEffect(() => {
     if (isVisible && imageUrl && instruction) {
       generatePlatformContent();
-      loadConnectedPlatforms();
     }
   }, [isVisible, imageUrl, instruction]);
-
-  const loadConnectedPlatforms = async () => {
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) return;
-
-      const { data: connections, error } = await supabase
-        .from('user_social_connections')
-        .select('platform')
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error loading connections:', error);
-        return;
-      }
-
-      const platforms = connections?.map(c => c.platform) || [];
-      setConnectedPlatforms(platforms);
-    } catch (error) {
-      console.error('Error loading connected platforms:', error);
-    }
-  };
 
   const generatePlatformContent = async () => {
     setIsGeneratingContent(true);
@@ -188,47 +165,33 @@ export function SocialMediaAutoPost({ imageUrl, instruction, isVisible }: Social
     }));
 
     try {
-      if (platform === 'twitter') {
-        const content = platformContent[platform];
-        const fullText = `${content.caption}\n\n${content.hashtags}${content.mentions ? '\n' + content.mentions : ''}`;
-
-        const { data, error } = await supabase.functions.invoke('twitter-post', {
-          body: {
-            text: fullText,
-            mediaUrl: imageUrl
-          }
-        });
-
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
+      // Mock API call - replace with actual platform APIs
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const success = Math.random() > 0.3; // 70% success rate for demo
+      
+      if (success) {
         setPostingStatus(prev => ({
           ...prev,
           [platform]: { status: 'success', message: 'Posted successfully!' }
         }));
         
         toast({
-          title: "Posted to Twitter",
-          description: `Successfully posted to Twitter! View: ${data.tweetUrl}`,
+          title: "Posted Successfully",
+          description: `Your content has been posted to ${platforms[platform]?.name}!`,
         });
       } else {
-        // For other platforms, show coming soon message
-        throw new Error(`${platforms[platform]?.name} posting coming soon!`);
+        throw new Error("Failed to post");
       }
-    } catch (error: any) {
+    } catch (error) {
       setPostingStatus(prev => ({
         ...prev,
-        [platform]: { status: 'error', message: error.message || 'Failed to post' }
+        [platform]: { status: 'error', message: 'Failed to post' }
       }));
       
       toast({
         title: "Posting Failed",
-        description: error.message || `Failed to post to ${platforms[platform]?.name}. Please try again.`,
+        description: `Failed to post to ${platforms[platform]?.name}. Please try again.`,
         variant: "destructive",
       });
     }

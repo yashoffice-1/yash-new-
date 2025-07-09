@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { TweetComposer } from "./TweetComposer";
 import { 
   Instagram, 
   Facebook, 
@@ -14,8 +12,7 @@ import {
   CheckCircle,
   Plus,
   Settings,
-  Unlink,
-  Loader2
+  Unlink
 } from "lucide-react";
 
 interface SocialChannel {
@@ -91,122 +88,26 @@ export function SocialProfiles() {
       connected: false
     }
   ]);
-  const [loading, setLoading] = useState<string | null>(null);
 
-  // Load social connections on mount
-  useEffect(() => {
-    loadSocialConnections();
-  }, []);
-
-  const loadSocialConnections = async () => {
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) return;
-
-      const { data: connections, error } = await supabase
-        .from('user_social_connections')
-        .select('*')
-        .eq('user_id', user.id);
-
-      if (error) {
-        console.error('Error loading connections:', error);
-        return;
-      }
-
-      setChannels(prev => prev.map(channel => {
-        const connection = connections?.find(c => c.platform === channel.id);
-        return {
-          ...channel,
-          connected: !!connection,
-          accountName: connection?.platform_username ? `@${connection.platform_username}` : undefined
-        };
-      }));
-    } catch (error) {
-      console.error('Error loading social connections:', error);
-    }
+  const handleConnect = (channelId: string) => {
+    toast({
+      title: "Integration Coming Soon",
+      description: `${channels.find(c => c.id === channelId)?.name} integration will be available soon.`,
+    });
   };
 
-  const handleConnect = async (channelId: string) => {
-    if (channelId === 'twitter') {
-      setLoading(channelId);
-      try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) {
-          throw new Error('Please log in to connect Twitter');
-        }
-
-        const { data, error } = await supabase.functions.invoke('twitter-oauth-start');
-        
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        // Redirect to Twitter authorization
-        window.location.href = data.authUrl;
-      } catch (error: any) {
-        console.error('Twitter connection error:', error);
-        toast({
-          title: "Connection Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(null);
-      }
-    } else {
-      toast({
-        title: "Integration Coming Soon",
-        description: `${channels.find(c => c.id === channelId)?.name} integration will be available soon.`,
-      });
-    }
-  };
-
-  const handleDisconnect = async (channelId: string) => {
-    if (channelId === 'twitter') {
-      try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) return;
-
-        const { error } = await supabase
-          .from('user_social_connections')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('platform', 'twitter');
-
-        if (error) {
-          throw new Error('Failed to disconnect Twitter');
-        }
-
-        await loadSocialConnections();
-        toast({
-          title: "Twitter Disconnected",
-          description: "Successfully disconnected from Twitter.",
-        });
-      } catch (error: any) {
-        console.error('Disconnect error:', error);
-        toast({
-          title: "Disconnect Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    } else {
-      setChannels(prev => 
-        prev.map(channel => 
-          channel.id === channelId 
-            ? { ...channel, connected: false, accountName: undefined }
-            : channel
-        )
-      );
-      toast({
-        title: "Account Disconnected",
-        description: `Successfully disconnected from ${channels.find(c => c.id === channelId)?.name}.`,
-      });
-    }
+  const handleDisconnect = (channelId: string) => {
+    setChannels(prev => 
+      prev.map(channel => 
+        channel.id === channelId 
+          ? { ...channel, connected: false, accountName: undefined }
+          : channel
+      )
+    );
+    toast({
+      title: "Account Disconnected",
+      description: `Successfully disconnected from ${channels.find(c => c.id === channelId)?.name}.`,
+    });
   };
 
   const handleManage = (channelId: string) => {
@@ -215,9 +116,6 @@ export function SocialProfiles() {
       description: `Opening management settings for ${channels.find(c => c.id === channelId)?.name}.`,
     });
   };
-
-  // Check if Twitter is connected
-  const twitterConnected = channels.find(c => c.id === 'twitter')?.connected;
 
   return (
     <div className="space-y-6">
@@ -254,19 +152,14 @@ export function SocialProfiles() {
                       </p>
                     )}
                     
-                     <div className="flex space-x-2">
+                    <div className="flex space-x-2">
                       {!channel.connected ? (
                         <Button 
                           onClick={() => handleConnect(channel.id)}
                           size="sm"
                           className="flex-1"
-                          disabled={loading === channel.id}
                         >
-                          {loading === channel.id ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          ) : (
-                            <Plus className="h-3 w-3 mr-1" />
-                          )}
+                          <Plus className="h-3 w-3 mr-1" />
                           Connect
                         </Button>
                       ) : (
@@ -297,11 +190,6 @@ export function SocialProfiles() {
           </div>
         </CardContent>
       </Card>
-      
-      {/* Twitter Tweet Composer - Only show if Twitter is connected */}
-      {twitterConnected && (
-        <TweetComposer onTweetSuccess={loadSocialConnections} />
-      )}
     </div>
   );
 }
