@@ -101,8 +101,13 @@ export function SocialMediaAutoPost({ imageUrl, instruction, isVisible, selected
           const parsedContent = JSON.parse(data.result);
           Object.keys(parsedContent).forEach(platform => {
             if (platforms[platform] && parsedContent[platform]) {
+              // Clean up the content by removing technical specifications
+              const cleanCaption = parsedContent[platform].caption 
+                ? parsedContent[platform].caption.replace(/#\w+:\s*[^\n#]*/g, '').trim()
+                : instruction.replace(/#\w+:\s*[^\n#]*/g, '').trim();
+              
               generatedContent[platform] = {
-                caption: parsedContent[platform].caption || `${instruction}`,
+                caption: cleanCaption || `${instruction}`,
                 hashtags: parsedContent[platform].hashtags || "#AI #Design #Creative",
                 mentions: parsedContent[platform].mentions || ""
               };
@@ -112,8 +117,9 @@ export function SocialMediaAutoPost({ imageUrl, instruction, isVisible, selected
           // Fallback to old format if JSON parsing fails
           console.log('Using fallback content generation');
           platformsToGenerate.forEach(platform => {
+            const cleanInstruction = instruction.replace(/#\w+:\s*[^\n#]*/g, '').trim();
             generatedContent[platform] = {
-              caption: `${instruction}`,
+              caption: cleanInstruction || instruction,
               hashtags: "#AI #Design #Creative",
               mentions: ""
             };
