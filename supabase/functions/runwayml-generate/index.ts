@@ -97,26 +97,10 @@ serve(async (req) => {
 
     if (type === 'image') {
       // Use correct image generation endpoint and structure with format specs
-      // Map exact aspect ratios to RunwayML supported formats
-      let runwayRatio = aspectRatio;
-      if (aspectRatio === '1:1') runwayRatio = '1024:1024';
-      else if (aspectRatio === '16:9') runwayRatio = '1920:1080';
-      else if (aspectRatio === '9:16') runwayRatio = '1080:1920';
-      else if (aspectRatio === '4:5') runwayRatio = '1080:1350';
-      else if (aspectRatio === '1.91:1') runwayRatio = '1200:628';
-      else if (aspectRatio === '2:3') runwayRatio = '1000:1500';
-      else if (aspectRatio === '3:2') runwayRatio = '1500:1000';
-      else if (aspectRatio === '2.63:1') runwayRatio = '1125:432';
-      else if (aspectRatio === '4:1') runwayRatio = '1536:396';
-      else if (aspectRatio === '3:1') runwayRatio = '1500:500';
-      else if (aspectRatio === '6.2:1') runwayRatio = '2560:423';
-      else if (aspectRatio === '1:2.1') runwayRatio = '1000:2100';
-      else runwayRatio = `${width}:${height}`;
-      
       requestBody = {
         promptText: concisePrompt,
         model: "gen4_image",
-        ratio: runwayRatio
+        ratio: aspectRatio === '1:1' ? '1920:1080' : aspectRatio // Map common ratios
       };
       
       // Add reference image if provided
@@ -131,21 +115,9 @@ serve(async (req) => {
       apiEndpoint = 'https://api.dev.runwayml.com/v1/text_to_image';
     } else {
       // Use correct video generation endpoint and structure with format specs
-      // Map exact aspect ratios to RunwayML supported video formats
-      let videoRatio = aspectRatio;
-      if (aspectRatio === '1:1') videoRatio = '1080:1080';
-      else if (aspectRatio === '16:9') videoRatio = '1920:1080';
-      else if (aspectRatio === '9:16') videoRatio = '1080:1920';
-      else if (aspectRatio === '4:5') videoRatio = '1080:1350';
-      else if (aspectRatio === '1.91:1') videoRatio = '1200:628';
-      else if (aspectRatio === '2:3') videoRatio = '1000:1500';
-      else if (aspectRatio === '3:2') videoRatio = '1500:1000';
-      else if (aspectRatio === '2.63:1') videoRatio = '1125:432';
-      else if (aspectRatio === '4:1') videoRatio = '1536:396';
-      else if (aspectRatio === '3:1') videoRatio = '1500:500';
-      else if (aspectRatio === '6.2:1') videoRatio = '2560:423';
-      else if (aspectRatio === '1:2.1') videoRatio = '1000:2100';
-      else videoRatio = `${width}:${height}`;
+      const videoRatio = aspectRatio === '9:16' ? '1280:720' : 
+                        aspectRatio === '16:9' ? '1920:1080' : 
+                        aspectRatio === '1:1' ? '1280:720' : '1280:720';
       
       if (imageUrl) {
         // Image-to-video generation

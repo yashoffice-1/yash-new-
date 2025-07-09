@@ -139,8 +139,6 @@ export function GeneratorButtons({ approvedInstruction, selectedImage, onGenerat
               <FormatSpecSelector
                 assetType={selectedGenerator as 'image' | 'video'}
                 onSpecChange={setFormatSpecs}
-                channel="general"
-                format="standard"
               />
             )}
             

@@ -43,8 +43,6 @@ export function useImageGeneration({ onSuccess }: UseImageGenerationProps = {}) 
     try {
       console.log('Starting image generation with instruction:', instruction);
       console.log('Format specifications:', formatSpecs);
-      console.log('Expected dimensions:', formatSpecs?.dimensions);
-      console.log('Expected aspect ratio:', formatSpecs?.aspectRatio);
       
       const requestBody = {
         type: 'image',
