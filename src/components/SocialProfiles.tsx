@@ -130,23 +130,9 @@ export function SocialProfiles() {
     if (channelId === 'twitter') {
       setLoading(channelId);
       try {
-        // For dummy authentication, simulate connection
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
-          // If using dummy auth, simulate Twitter connection
-          setChannels(prev => 
-            prev.map(channel => 
-              channel.id === channelId 
-                ? { ...channel, connected: true, accountName: "@test_user" }
-                : channel
-            )
-          );
-          toast({
-            title: "Twitter Connected (Demo)",
-            description: "Twitter connection simulated for testing.",
-          });
-          setLoading(null);
-          return;
+          throw new Error('Please log in to connect Twitter');
         }
 
         const { data, error } = await supabase.functions.invoke('twitter-oauth-start');
