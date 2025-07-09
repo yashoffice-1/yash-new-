@@ -60,9 +60,9 @@ const LINKEDIN_RATIOS = {
 };
 
 const TWITTER_RATIOS = {
-  'Single Image Tweet': { value: '16:9', label: 'Landscape (16:9)', width: 1200, height: 675 },
-  'Multiple Images': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
-  'Header Banner': { value: '3:1', label: 'Landscape (3:1)', width: 1500, height: 500 }
+  'Tweet Image': { value: '16:9', label: 'Landscape (16:9)', width: 1200, height: 675 },
+  'Header Image': { value: '3:1', label: 'Landscape (3:1)', width: 1500, height: 500 },
+  'Multiple Images': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 }
 };
 
 const TIKTOK_RATIOS = {
