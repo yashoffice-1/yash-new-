@@ -4,6 +4,7 @@ import { FakeProduct } from "./FakeProduct";
 import { InstructionModule } from "./InstructionModule";
 import { GeneratorButtons } from "./GeneratorButtons";
 import { AssetDisplay } from "./AssetDisplay";
+import { SocialMediaAutoPost } from "./SocialMediaAutoPost";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { useVideoGeneration } from "@/hooks/useVideoGeneration";
 import { useContentGeneration } from "@/hooks/useContentGeneration";
@@ -264,6 +265,12 @@ export function UserDashboard({ selectedProduct }: UserDashboardProps) {
       <AssetDisplay 
         assets={generatedAssets}
         isGenerating={isGenerating}
+      />
+
+      <SocialMediaAutoPost 
+        imageUrl={generatedAssets.find(asset => asset.type === 'image')?.url || ''}
+        instruction={approvedInstruction || ''}
+        isVisible={generatedAssets.some(asset => asset.type === 'image')}
       />
     </div>
   );
