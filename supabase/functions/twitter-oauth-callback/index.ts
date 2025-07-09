@@ -82,6 +82,9 @@ Deno.serve(async (req) => {
     
     const { userId, code, state } = await req.json()
 
+    // Use the provided userId or default to dummy for testing
+    const actualUserId = userId || 'dummy-user-id'
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
@@ -90,7 +93,7 @@ Deno.serve(async (req) => {
     const { data: tempData, error: tempError } = await supabase
       .from('user_social_connections')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', actualUserId)
       .eq('platform', 'twitter_temp')
       .single()
 
@@ -149,7 +152,7 @@ Deno.serve(async (req) => {
     const { error: deleteError } = await supabase
       .from('user_social_connections')
       .delete()
-      .eq('user_id', userId)
+      .eq('user_id', actualUserId)
       .eq('platform', 'twitter_temp')
 
     if (deleteError) {
@@ -159,7 +162,7 @@ Deno.serve(async (req) => {
     const { error: insertError } = await supabase
       .from('user_social_connections')
       .upsert({
-        user_id: userId,
+        user_id: actualUserId,
         platform: 'twitter',
         access_token: finalAccessToken,
         refresh_token: finalAccessTokenSecret, // Store token secret as refresh token
