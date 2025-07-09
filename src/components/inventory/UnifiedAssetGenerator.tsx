@@ -460,16 +460,35 @@ export function UnifiedAssetGenerator({
           assetType: config.asset_type,
           format: config.type,
           specification: specification,
+          channelFormat: `${config.channel}-${config.type}`, // Specific channel-format combination
           advertisingContext: advertisingContext,
           context: {
+            channel: config.channel,
+            assetType: config.asset_type,
+            format: config.type,
+            specification: specification,
             requirements: advertisingContext
-              ? `Create advertising content optimized for ${config.channel} ${config.type} format. 
+              ? `Create advertising content specifically optimized for ${config.channel} ${config.type} format. 
                  MUST include: compelling call-to-action, relevant emojis, urgency/scarcity elements, 
                  and sales-focused language. Format specifications: ${specification}. 
-                 For Stories/Reels: use informal, engaging tone with visual emphasis.
-                 For Google Ads: focus on search intent and conversion optimization.
-                 For social ads: emphasize social proof and emotional triggers.`
-              : `Create content optimized for ${config.channel} ${config.type} format. Consider the specifications: ${specification}. The content should be tailored for this specific format and platform requirements.`
+                 Channel-specific requirements:
+                 - Facebook Feed Post: Focus on social engagement, community building, storytelling
+                 - Instagram Story: Use vertical format, interactive elements, hashtags
+                 - Google Ads: Emphasize search intent, conversion optimization, clear value proposition
+                 - LinkedIn: Professional tone, industry insights, business value
+                 - TikTok: Trendy, casual, entertainment-focused, viral potential
+                 - Twitter/X: Concise, timely, conversation-starter, trending topics
+                 - Pinterest: Inspirational, how-to focused, keyword-rich descriptions
+                 - YouTube: SEO-friendly titles, engaging descriptions, watch time optimization
+                 - Email: Subject lines, personalization, clear CTAs
+                 - SMS: Ultra-concise, immediate value, urgency`
+              : `Create content specifically tailored for ${config.channel} ${config.type} format. 
+                 Channel: ${config.channel} 
+                 Format: ${config.type}
+                 Specifications: ${specification}
+                 
+                 The content should be optimized for this exact channel-format combination, 
+                 considering platform-specific audience behavior, content preferences, and technical requirements.`
           }
         }
       });
@@ -633,7 +652,8 @@ export function UnifiedAssetGenerator({
             channel: config.channel,
             assetType: config.asset_type,
             format: config.type,
-            specification: config.specification
+            specification: config.specification,
+            channelFormat: `${config.channel}-${config.type}` // Specific combination for better targeting
           }
         }
       });
@@ -682,7 +702,7 @@ export function UnifiedAssetGenerator({
         const { data, error } = await supabase.functions.invoke('openai-generate', {
           body: {
             type: 'marketing-content',
-            instruction: fullInstruction,
+            instruction: `${fullInstruction} - Specifically tailored for ${config.channel} ${config.type} format`,
             productInfo: {
               name: product.name,
               description: product.description,
@@ -690,12 +710,20 @@ export function UnifiedAssetGenerator({
               brand: product.brand,
               price: product.price
             },
+            context: {
+              channel: config.channel,
+              assetType: config.asset_type,
+              format: config.type,
+              specification: specification,
+              channelFormat: `${config.channel}-${config.type}` // Specific targeting
+            },
             formatSpecs: {
               channel: config.channel,
               assetType: config.asset_type,
               format: config.type,
               specification: specification,
               dimensions: specification,
+              platformOptimized: true, // Flag for platform-specific optimization
               ...currentFormatSpecs
             }
           }
