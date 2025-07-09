@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LogIn, UserPlus, Loader2 } from "lucide-react";
 
 export function Auth() {
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, dummySignIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -253,6 +253,16 @@ export function Auth() {
                 </form>
               </TabsContent>
             </Tabs>
+            
+            <div className="mt-4 text-center">
+              <Button
+                variant="outline"
+                onClick={dummySignIn}
+                className="w-full"
+              >
+                Quick Test Login
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

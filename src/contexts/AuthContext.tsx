@@ -9,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, displayName?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  dummySignIn: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,6 +67,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  // Dummy sign in for testing
+  const dummySignIn = () => {
+    const dummyUser = {
+      id: 'dummy-user-id',
+      email: 'test@example.com',
+      aud: 'authenticated',
+      role: 'authenticated',
+      email_confirmed_at: new Date().toISOString(),
+      phone: '',
+      confirmation_sent_at: '',
+      confirmed_at: new Date().toISOString(),
+      recovery_sent_at: '',
+      last_sign_in_at: new Date().toISOString(),
+      app_metadata: {},
+      user_metadata: {},
+      identities: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    } as User;
+
+    const dummySession = {
+      access_token: 'dummy-token',
+      token_type: 'bearer',
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      refresh_token: 'dummy-refresh',
+      user: dummyUser
+    } as Session;
+
+    setSession(dummySession);
+    setUser(dummyUser);
+    setLoading(false);
+  };
+
   const value: AuthContextType = {
     user,
     session,
@@ -73,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signIn,
     signOut,
+    dummySignIn,
   };
 
   return (
