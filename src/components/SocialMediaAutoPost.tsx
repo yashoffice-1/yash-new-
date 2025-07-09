@@ -27,6 +27,8 @@ interface SocialMediaAutoPostProps {
   imageUrl: string;
   instruction: string;
   isVisible: boolean;
+  selectedChannels?: string[];
+  formatSpecs?: any;
 }
 
 interface PostingStatus {
@@ -34,7 +36,7 @@ interface PostingStatus {
   message?: string;
 }
 
-export function SocialMediaAutoPost({ imageUrl, instruction, isVisible }: SocialMediaAutoPostProps) {
+export function SocialMediaAutoPost({ imageUrl, instruction, isVisible, selectedChannels = [], formatSpecs }: SocialMediaAutoPostProps) {
   const { toast } = useToast();
   const [platformContent, setPlatformContent] = useState<Record<string, PlatformContent>>({});
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>(['facebook']); // Mock data
@@ -69,53 +71,64 @@ export function SocialMediaAutoPost({ imageUrl, instruction, isVisible }: Social
     setIsGeneratingContent(true);
     
     try {
+      // Determine which platforms to generate content for
+      const platformsToGenerate = selectedChannels.length > 0 
+        ? selectedChannels.filter(channel => platforms[channel]) 
+        : Object.keys(platforms);
+
       const { data, error } = await supabase.functions.invoke('openai-generate', {
         body: {
           type: 'social_content',
           instruction: instruction,
-          imageUrl: imageUrl
+          imageUrl: imageUrl,
+          selectedPlatforms: platformsToGenerate,
+          formatSpecs: formatSpecs,
+          productInfo: {
+            name: "Product", // This could be passed as prop if needed
+            description: instruction
+          }
         }
       });
 
       if (error) throw error;
 
-      const generatedContent = {
-        instagram: {
-          caption: data.instagram?.caption || `✨ ${instruction}\n\nWhat do you think? 💭`,
-          hashtags: data.instagram?.hashtags || "#AI #design #creative #innovation #art",
-          mentions: data.instagram?.mentions || ""
-        },
-        facebook: {
-          caption: data.facebook?.caption || `Check out this amazing creation! ${instruction}`,
-          hashtags: data.facebook?.hashtags || "#AI #Design #Creative",
-          mentions: data.facebook?.mentions || ""
-        },
-        twitter: {
-          caption: data.twitter?.caption || `🚀 ${instruction.substring(0, 200)}...`,
-          hashtags: data.twitter?.hashtags || "#AI #Design",
-          mentions: data.twitter?.mentions || ""
-        },
-        linkedin: {
-          caption: data.linkedin?.caption || `Excited to share this AI-generated design! ${instruction}\n\nWhat are your thoughts on AI in creative work?`,
-          hashtags: data.linkedin?.hashtags || "#AI #Design #Innovation #Technology",
-          mentions: data.linkedin?.mentions || ""
-        },
-        youtube: {
-          caption: data.youtube?.caption || `New AI-generated content: ${instruction}`,
-          hashtags: data.youtube?.hashtags || "#AI #Creative #Design",
-          mentions: data.youtube?.mentions || ""
-        },
-        pinterest: {
-          caption: data.pinterest?.caption || instruction,
-          hashtags: data.pinterest?.hashtags || "#AI #Design #Creative #Art",
-          mentions: data.pinterest?.mentions || ""
-        },
-        tiktok: {
-          caption: data.tiktok?.caption || `🤖 AI magic! ${instruction} #AI #Creative`,
-          hashtags: data.tiktok?.hashtags || "#AI #Creative #Design #TechTok",
-          mentions: data.tiktok?.mentions || ""
+      // Create content object - only for selected platforms or all if none selected
+      const generatedContent: Record<string, PlatformContent> = {};
+      
+      if (data.success && data.result) {
+        try {
+          // Try to parse as JSON first (new format)
+          const parsedContent = JSON.parse(data.result);
+          Object.keys(parsedContent).forEach(platform => {
+            if (platforms[platform] && parsedContent[platform]) {
+              generatedContent[platform] = {
+                caption: parsedContent[platform].caption || `${instruction}`,
+                hashtags: parsedContent[platform].hashtags || "#AI #Design #Creative",
+                mentions: parsedContent[platform].mentions || ""
+              };
+            }
+          });
+        } catch (parseError) {
+          // Fallback to old format if JSON parsing fails
+          console.log('Using fallback content generation');
+          platformsToGenerate.forEach(platform => {
+            generatedContent[platform] = {
+              caption: `${instruction}`,
+              hashtags: "#AI #Design #Creative",
+              mentions: ""
+            };
+          });
         }
-      };
+      } else {
+        // Fallback content for selected platforms only
+        platformsToGenerate.forEach(platform => {
+          generatedContent[platform] = {
+            caption: `${instruction}`,
+            hashtags: "#AI #Design #Creative", 
+            mentions: ""
+          };
+        });
+      }
 
       setPlatformContent(generatedContent);
 
@@ -220,16 +233,17 @@ export function SocialMediaAutoPost({ imageUrl, instruction, isVisible }: Social
           {isGeneratingContent && <Loader2 className="h-5 w-5 animate-spin" />}
         </CardTitle>
         <CardDescription>
-          Generated content for all platforms. Edit as needed and post to your connected accounts.
+          Generated content for {selectedChannels.length > 0 ? 'selected' : 'all'} platforms. Edit as needed and post to your connected accounts.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Platform Content Editors */}
+        {/* Platform Content Editors - Only show platforms that have content */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {Object.entries(platforms).map(([key, platform]) => {
             const IconComponent = platform.icon;
             const content = platformContent[key];
             
+            // Only show platforms that have generated content
             if (!content) return null;
 
             return (

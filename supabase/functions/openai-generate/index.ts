@@ -128,6 +128,52 @@ Please create properly formatted marketing content with:
 4. HASHTAGS: (3-5 relevant hashtags if appropriate for the platform)
 
 Format your response as clean, readable text with clear sections. Use line breaks between sections for better readability.`;
+
+    } else if (type === 'social_content') {
+      const { selectedPlatforms, formatSpecs } = await req.json();
+      
+      systemPrompt = `You are a social media content specialist. Create platform-specific content that's optimized for each social media platform's unique characteristics, audience, and format requirements.
+
+Platform-Specific Guidelines:
+- Instagram: Visual storytelling, emojis, hashtags, authentic voice
+- Facebook: Community-focused, conversational, longer captions okay
+- Twitter/X: Concise, timely, trending topics, character limits
+- LinkedIn: Professional tone, industry insights, thought leadership
+- TikTok: Trendy, fun, youth-focused, video-first mindset
+- YouTube: Descriptive, SEO-friendly, engaging thumbnails
+- Pinterest: Inspirational, how-to focused, keyword-rich
+- Google Ads: Search intent-focused, benefit-driven, action-oriented
+- Email: Subject + body, personalized, conversion-focused
+- SMS: Ultra-concise, immediate value, clear CTA
+
+Return a JSON object with platform-specific content for each requested platform.`;
+
+      const platforms = selectedPlatforms || ['instagram', 'facebook', 'twitter', 'linkedin'];
+      const specs = formatSpecs || {};
+      
+      userPrompt = `Create platform-specific social media content for these platforms: ${platforms.join(', ')}
+
+Product/Content Details:
+- Name: ${productInfo?.name || 'Content'}
+${productInfo?.brand ? `- Brand: ${productInfo.brand}` : ''}
+${productInfo?.category ? `- Category: ${productInfo.category}` : ''}
+${productInfo?.description ? `- Description: ${productInfo.description}` : ''}
+
+Instruction: "${instruction}"
+
+Format specifications: ${JSON.stringify(specs)}
+
+For each platform, provide:
+- caption: Platform-optimized main text
+- hashtags: Relevant hashtags (formatted as single string)
+- mentions: Suggested mentions if applicable
+
+Return as JSON with this structure:
+{
+  "instagram": { "caption": "...", "hashtags": "...", "mentions": "..." },
+  "facebook": { "caption": "...", "hashtags": "...", "mentions": "..." },
+  // ... for each requested platform
+}`;
     }
 
     console.log(`Sending to OpenAI - Type: ${type}, System: ${systemPrompt.substring(0, 100)}...`);

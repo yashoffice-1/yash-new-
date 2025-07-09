@@ -1129,6 +1129,8 @@ export function UnifiedAssetGenerator({
               imageUrl={asset.url}
               instruction={asset.instruction}
               isVisible={true}
+              selectedChannels={[configs[productId]?.channel].filter(Boolean)}
+              formatSpecs={formatSpecs[productId]}
             />
           </div>
         )}
