@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, CreditCard, Settings, Library } from "lucide-react";
+import { AvatarWithInitials } from "@/components/ui/avatar-with-initials";
+import { useAuth } from "@/contexts/AuthContext";
 import { PersonalInfo } from "./PersonalInfo";
 import { BillingSection } from "./BillingSection";
 import { SettingsSection } from "./SettingsSection";
@@ -10,12 +12,36 @@ import { LibrarySection } from "./LibrarySection";
 
 export function UserModule() {
   const [activeTab, setActiveTab] = useState("personal");
+  const { user } = useAuth();
 
   return (
     <div className="space-y-6">
+      {/* User Profile Summary */}
+      {user && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center space-x-4">
+              <AvatarWithInitials 
+                initials={user.initials} 
+                size="lg"
+              />
+              <div>
+                <CardTitle className="text-xl">{user.displayName}</CardTitle>
+                <CardDescription className="text-base">
+                  {user.email}
+                </CardDescription>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Member since {new Date(user.createdAt || Date.now()).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>User Account</CardTitle>
+          <CardTitle>Account Settings</CardTitle>
           <CardDescription>
             Manage your account settings, billing, and integrations
           </CardDescription>

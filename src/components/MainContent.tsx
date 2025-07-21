@@ -1,5 +1,6 @@
 
 import { useView } from "@/contexts/ViewContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { AdminDashboard } from "./admin/AdminDashboard";
 import { UserDashboard } from "./UserDashboard";
 import { AssetLibrary } from "./AssetLibrary";
@@ -7,21 +8,37 @@ import { InventoryDisplay } from "./inventory/InventoryDisplay";
 import { VideoTemplatesTab } from "./VideoTemplatesTab";
 import { UserModule } from "./user/UserModule";
 import { SocialProfiles } from "./SocialProfiles";
-import { useState } from "react";
 import { Button } from "./ui/button";
+import { Loading } from "./ui/loading";
 import { Library, Package, Video, User, Share2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export function MainContent() {
   const { isAdmin, activeTab, setActiveTab } = useView();
+  const { user, signOut, loading } = useAuth();
+  const navigate = useNavigate();
+
+  // Show loading while checking authentication
+  if (loading) {
+    return <Loading className="min-h-screen" />;
+  }
+
+  // Redirect to sign in if not authenticated
+  if (!user) {
+    navigate('/auth/signin');
+    return null;
+  }
 
   if (isAdmin) {
     return <AdminDashboard />;
   }
 
+
+
   return (
     <div className="space-y-6">
       {/* Tab Navigation for User Mode */}
-      <div className="flex space-x-4 border-b">
+      <div className="flex space-x-1 border-b">
         <Button 
           variant={activeTab === 'inventory' ? 'default' : 'ghost'} 
           onClick={() => setActiveTab('inventory')}

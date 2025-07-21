@@ -105,15 +105,6 @@ model Inventory {
   @@map("inventory")
 }
 
-model Profile {
-  id          String   @id @default(cuid())
-  displayName String?  @map("display_name")
-  avatarUrl   String?  @map("avatar_url")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  @@map("profiles")
-}
 
 model TemplateFallbackVariable {
   id            String   @id @default(cuid())
@@ -125,17 +116,22 @@ model TemplateFallbackVariable {
   @@map("template_fallback_variables")
 }
 
-model UserSocialConnection {
-  id                String   @id @default(cuid())
-  userId            String   @map("user_id")
-  platform          String
-  platformUserId    String?  @map("platform_user_id")
-  platformUsername  String?  @map("platform_username")
-  accessToken       String?  @map("access_token")
-  refreshToken      String?  @map("refresh_token")
-  tokenExpiresAt    DateTime? @map("token_expires_at")
-  connectedAt       DateTime @default(now()) @map("connected_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+enum ProfileStatus {
+  pending
+  verified
+}
 
-  @@map("user_social_connections")
-} 
+model Profile {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  firstName   String   @map("first_name")
+  lastName    String   @map("last_name")
+  displayName String?  @map("display_name")
+  initials    String
+  status      ProfileStatus @default(verified)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("profiles")
+}
