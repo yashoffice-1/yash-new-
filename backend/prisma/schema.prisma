@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ApiKey {
+  id         String   @id @default(cuid())
+  keyValue   String   @map("key_value")
+  provider   String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("api_keys")
+}
+
+model AssetLibrary {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  tags            String[]
+  assetType       String   @map("asset_type")
+  assetUrl        String   @map("asset_url")
+  gifUrl          String?  @map("gif_url")
+  content         String?
+  instruction     String
+  sourceSystem    String   @map("source_system")
+  favorited       Boolean? @default(false)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  originalAsset   GeneratedAsset? @relation("AssetLibraryToGeneratedAsset", fields: [originalAssetId], references: [id])
+  originalAssetId String?         @map("original_asset_id")
+
+  @@map("asset_library")
+}
+
+model ClientConfig {
+  id        String   @id @default(cuid())
+  clientId  String   @unique @map("client_id")
+  clientName String  @map("client_name")
+  createdAt DateTime? @default(now()) @map("created_at")
+  updatedAt DateTime? @updatedAt @map("updated_at")
+
+  // Relations
+  templateAssignments ClientTemplateAssignment[]
+
+  @@map("client_configs")
+}
+
+model ClientTemplateAssignment {
+  id             String   @id @default(cuid())
+  clientConfigId String?  @map("client_config_id")
+  templateId     String   @map("template_id")
+  templateName   String?  @map("template_name")
+  assignedAt     DateTime? @default(now()) @map("assigned_at")
+  isActive       Boolean? @default(true) @map("is_active")
+
+  // Relations
+  clientConfig   ClientConfig? @relation(fields: [clientConfigId], references: [id], onDelete: Cascade)
+
+  @@map("client_template_assignments")
+}
+
+model GeneratedAsset {
+  id           String   @id @default(cuid())
+  inventoryId  String?  @map("inventory_id")
+  channel      String
+  format       String
+  sourceSystem String   @map("source_system")
+  assetType    String   @map("asset_type")
+  url          String
+  instruction  String?
+  approved     Boolean? @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  assetLibraries AssetLibrary[] @relation("AssetLibraryToGeneratedAsset")
+
+  @@map("generated_assets")
+}
+
+model Inventory {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal?
+  sku         String?  @unique
+  category    String?
+  brand       String?
+  images      String[] @default([])
+  metadata    Json?    @default("{}")
+  status      String   @default("active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("inventory")
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("profiles")
+}
+
+model TemplateFallbackVariable {
+  id            String   @id @default(cuid())
+  templateId    String   @map("template_id")
+  variableName  String   @map("variable_name")
+  variableOrder Int?     @default(0) @map("variable_order")
+  createdAt     DateTime? @default(now()) @map("created_at")
+
+  @@map("template_fallback_variables")
+}
+
+model UserSocialConnection {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  platform          String
+  platformUserId    String?  @map("platform_user_id")
+  platformUsername  String?  @map("platform_username")
+  accessToken       String?  @map("access_token")
+  refreshToken      String?  @map("refresh_token")
+  tokenExpiresAt    DateTime? @map("token_expires_at")
+  connectedAt       DateTime @default(now()) @map("connected_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("user_social_connections")
+} 

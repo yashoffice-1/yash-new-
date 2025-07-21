@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { assetsAPI } from '@/api/backend-client';
 import { useToast } from '@/hooks/use-toast';
 import { downloadAndStoreAsset } from '@/utils/assetStorage';
 
@@ -62,16 +62,12 @@ export function useAssetLibrary() {
         }
       }
 
-      const { data, error } = await supabase
-        .from('asset_library')
-        .insert([{
-          ...asset,
-          asset_url: finalAssetUrl
-        }])
-        .select()
-        .single();
+      const response = await assetsAPI.create({
+        ...asset,
+        asset_url: finalAssetUrl
+      });
 
-      if (error) throw error;
+      const data = response.data.data;
 
       toast({
         title: "Asset Saved",
@@ -98,75 +94,39 @@ export function useAssetLibrary() {
     asset_type?: string;
     favorited?: boolean;
     tags?: string[];
+    source_system?: string;
+    search?: string;
   }) => {
-    setIsLoading(true);
     try {
-      let query = supabase
-        .from('asset_library')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const params: any = {};
+      
+      if (filters?.asset_type) params.assetType = filters.asset_type;
+      if (filters?.favorited !== undefined) params.favorited = filters.favorited;
+      if (filters?.source_system) params.sourceSystem = filters.source_system;
+      if (filters?.search) params.search = filters.search;
+      if (filters?.tags) params.tags = filters.tags.join(',');
 
-      if (filters?.asset_type) {
-        query = query.eq('asset_type', filters.asset_type);
-      }
-
-      if (filters?.favorited !== undefined) {
-        query = query.eq('favorited', filters.favorited);
-      }
-
-      if (filters?.tags && filters.tags.length > 0) {
-        query = query.overlaps('tags', filters.tags);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as AssetLibraryItem[];
+      const response = await assetsAPI.getAll(params);
+      return response.data.data;
     } catch (error) {
       console.error('Error fetching library assets:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load library assets.",
-        variant: "destructive",
-      });
-      return [];
-    } finally {
-      setIsLoading(false);
+      throw error;
     }
   };
 
   const toggleFavorite = async (id: string, favorited: boolean) => {
     try {
-      const { error } = await supabase
-        .from('asset_library')
-        .update({ favorited, updated_at: new Date().toISOString() })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast({
-        title: favorited ? "Added to Favorites" : "Removed from Favorites",
-        description: `Asset ${favorited ? 'added to' : 'removed from'} favorites.`,
-      });
+      const response = await assetsAPI.toggleFavorite(id);
+      return response.data.data;
     } catch (error) {
       console.error('Error toggling favorite:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update favorite status.",
-        variant: "destructive",
-      });
+      throw error;
     }
   };
 
   const deleteFromLibrary = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('asset_library')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await assetsAPI.delete(id);
       toast({
         title: "Asset Deleted",
         description: "Asset has been removed from your library.",
@@ -178,6 +138,7 @@ export function useAssetLibrary() {
         description: "Failed to delete asset from library.",
         variant: "destructive",
       });
+      throw error;
     }
   };
 
