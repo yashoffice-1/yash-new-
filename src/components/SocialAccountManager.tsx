@@ -2,9 +2,6 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +11,6 @@ import {
   Settings,
   ExternalLink,
   Calendar,
-  Clock,
   Users,
   BarChart3,
   AlertTriangle,
@@ -43,55 +39,48 @@ interface AccountStats {
   videos?: number;
 }
 
-interface AccountSettings {
-  autoPost: boolean;
-  postTime: string;
-  contentFilter: string;
-  hashtagLimit: number;
-}
-
 const platformDetails = {
   instagram: {
     name: "Instagram",
     color: "bg-gradient-to-r from-purple-500 to-pink-500",
     icon: () => <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold">I</div>,
     features: ["Stories", "Reels", "Posts", "IGTV"],
-    limits: { hashtags: 30, caption: 2200 }
+    limits: { caption: 2200 }
   },
   facebook: {
     name: "Facebook",
     color: "bg-blue-600",
     icon: Facebook,
     features: ["Posts", "Stories", "Videos", "Events"],
-    limits: { hashtags: 20, caption: 63206 }
+    limits: { caption: 63206 }
   },
   linkedin: {
     name: "LinkedIn",
     color: "bg-blue-700",
     icon: () => <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center text-white font-bold">L</div>,
     features: ["Posts", "Articles", "Stories", "Videos"],
-    limits: { hashtags: 3, caption: 3000 }
+    limits: { caption: 3000 }
   },
   twitter: {
     name: "Twitter / X",
     color: "bg-black",
     icon: () => <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold">X</div>,
     features: ["Tweets", "Threads", "Spaces", "Communities"],
-    limits: { hashtags: 10, caption: 280 }
+    limits: { caption: 280 }
   },
   youtube: {
     name: "YouTube",
     color: "bg-red-600",
     icon: Youtube,
     features: ["Videos", "Shorts", "Community", "Live"],
-    limits: { hashtags: 15, caption: 5000 }
+    limits: { caption: 5000 }
   },
   tiktok: {
     name: "TikTok",
     color: "bg-black",
     icon: () => <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold">T</div>,
     features: ["Videos", "Live", "Effects", "Sounds"],
-    limits: { hashtags: 20, caption: 2200 }
+    limits: { caption: 2200 }
   }
 };
 
@@ -106,15 +95,9 @@ export function SocialAccountManager() {
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<AccountStats>({});
-  const [settings, setSettings] = useState<AccountSettings>({
-    autoPost: true,
-    postTime: '09:00',
-    contentFilter: 'moderate',
-    hashtagLimit: platformDetails[platform as keyof typeof platformDetails]?.limits.hashtags || 10
-  });
-
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   const platformInfo = platformDetails[platform as keyof typeof platformDetails];
 
@@ -123,10 +106,9 @@ export function SocialAccountManager() {
     fetchConnection();
   }, [platform]);
 
-  // Fetch settings when connection is loaded
+  // Fetch activity when connection is loaded
   useEffect(() => {
     if (connection) {
-      fetchSettings();
       fetchRecentActivity();
     }
   }, [connection]);
@@ -163,26 +145,6 @@ export function SocialAccountManager() {
     }
   };
 
-  const fetchSettings = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/social/${platform}/settings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setSettings(data.settings);
-      }
-    } catch (error) {
-      console.error('Error fetching settings:', error);
-      // Keep default settings if fetch fails
-    }
-  };
-
   const fetchRecentActivity = async () => {
     try {
       setLoadingActivity(true);
@@ -208,9 +170,9 @@ export function SocialAccountManager() {
 
   const fetchPlatformStats = async (conn: SocialConnection) => {
     try {
+      setLoadingStats(true);
       const token = localStorage.getItem('token');
       
-      // This would be a new endpoint to fetch platform-specific stats
       const response = await fetch(`http://localhost:3001/api/social/${platform}/stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -224,8 +186,9 @@ export function SocialAccountManager() {
       }
     } catch (error) {
       console.error('Error fetching platform stats:', error);
-      // Set empty stats on error
       setStats({});
+    } finally {
+      setLoadingStats(false);
     }
   };
 
@@ -399,36 +362,6 @@ export function SocialAccountManager() {
     }
   };
 
-  const handleSaveSettings = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/social/${platform}/settings`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ settings })
-      });
-      
-      if (response.ok) {
-        toast({
-          title: "Settings Saved",
-          description: "Your account settings have been updated successfully.",
-        });
-      } else {
-        throw new Error('Failed to save settings');
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      toast({
-        title: "Settings Save Failed",
-        description: "Failed to save settings. Please try again.",
-        variant: "destructive"
-      });
-    }
-  };
-
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -534,7 +467,7 @@ export function SocialAccountManager() {
                       className="w-full"
                       onClick={() => {
                         const platformUrls = {
-                          youtube: `https://www.youtube.com/channel/${connection?.platformUserId || ''}`,
+                          youtube: `https://www.youtube.com/channel/${connection?.channelId || ''}`,
                           facebook: 'https://www.facebook.com',
                           instagram: 'https://www.instagram.com',
                           twitter: 'https://twitter.com',
@@ -590,62 +523,87 @@ export function SocialAccountManager() {
           </Card>
 
           {/* Account Stats */}
-          {isConnected && Object.keys(stats).length > 0 && (
+          {isConnected && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <BarChart3 className="h-5 w-5" />
-                  <span>Account Statistics</span>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <BarChart3 className="h-5 w-5" />
+                    <span>Account Statistics</span>
+                  </div>
+                  {!loadingStats && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => connection && fetchPlatformStats(connection)}
+                      disabled={loadingStats}
+                    >
+                      <Loader2 className={`h-4 w-4 ${loadingStats ? 'animate-spin' : ''}`} />
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  {platform === 'youtube' ? (
-                    <>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{stats.subscribers?.toLocaleString()}</div>
-                        <div className="text-sm text-muted-foreground">Subscribers</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{stats.videos}</div>
-                        <div className="text-sm text-muted-foreground">Videos</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{stats.views?.toLocaleString()}</div>
-                        <div className="text-sm text-muted-foreground">Total Views</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-medium">{stats.lastPost}</div>
-                        <div className="text-sm text-muted-foreground">Last Upload</div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{stats.followers?.toLocaleString()}</div>
-                        <div className="text-sm text-muted-foreground">Followers</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{stats.posts}</div>
-                        <div className="text-sm text-muted-foreground">Posts</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold">{stats.engagement}%</div>
-                        <div className="text-sm text-muted-foreground">Engagement</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-medium">{stats.lastPost}</div>
-                        <div className="text-sm text-muted-foreground">Last Post</div>
-                      </div>
-                    </>
-                  )}
-                </div>
+                {loadingStats ? (
+                  <div className="flex items-center justify-center h-32">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                ) : Object.keys(stats).length === 0 ? (
+                  <div className="text-center py-8">
+                    <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      No statistics available for this account.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {platform === 'youtube' ? (
+                      <>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{stats.subscribers?.toLocaleString() || '0'}</div>
+                          <div className="text-sm text-muted-foreground">Subscribers</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{stats.videos || '0'}</div>
+                          <div className="text-sm text-muted-foreground">Videos</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{stats.views?.toLocaleString() || '0'}</div>
+                          <div className="text-sm text-muted-foreground">Total Views</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm font-medium">{stats.lastPost || 'N/A'}</div>
+                          <div className="text-sm text-muted-foreground">Last Upload</div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{stats.followers?.toLocaleString() || '0'}</div>
+                          <div className="text-sm text-muted-foreground">Followers</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{stats.posts || '0'}</div>
+                          <div className="text-sm text-muted-foreground">Posts</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold">{stats.engagement || '0'}%</div>
+                          <div className="text-sm text-muted-foreground">Engagement</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-sm font-medium">{stats.lastPost || 'N/A'}</div>
+                          <div className="text-sm text-muted-foreground">Last Post</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
         </div>
 
-        {/* Settings and Configuration */}
+        {/* Platform Features and Activity */}
         <div className="lg:col-span-2 space-y-6">
           {/* Platform Features */}
           <Card>
@@ -666,101 +624,34 @@ export function SocialAccountManager() {
               
               <Separator className="my-4" />
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium">Character Limit</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {platformInfo.limits.caption.toLocaleString()} characters
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Hashtag Limit</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {platformInfo.limits.hashtags} hashtags recommended
-                  </p>
-                </div>
+              <div>
+                <div className="text-sm font-medium">Character Limit</div>
+                <p className="text-sm text-muted-foreground">
+                  {platformInfo.limits.caption.toLocaleString()} characters
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Auto-Posting Settings */}
+          {/* Recent Activity */}
           {isConnected && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Clock className="h-5 w-5" />
-                  <span>Auto-Posting Settings</span>
-                </CardTitle>
-                <CardDescription>
-                  Configure automatic posting behavior for {platformInfo.name}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="auto-post">Enable Auto-Posting</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically post generated content to {platformInfo.name}
-                    </p>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Users className="h-5 w-5" />
+                    <span>Recent Activity</span>
                   </div>
-                  <Switch
-                    id="auto-post"
-                    checked={settings.autoPost}
-                    onCheckedChange={(checked) => 
-                      setSettings({...settings, autoPost: checked})
-                    }
-                  />
-                </div>
-
-                {settings.autoPost && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="post-time">Preferred Posting Time</Label>
-                      <Input
-                        id="post-time"
-                        type="time"
-                        value={settings.postTime}
-                        onChange={(e) => 
-                          setSettings({...settings, postTime: e.target.value})
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="hashtag-limit">Hashtag Limit</Label>
-                      <Input
-                        id="hashtag-limit"
-                        type="number"
-                        min="1"
-                        max={platformInfo.limits.hashtags}
-                        value={settings.hashtagLimit}
-                        onChange={(e) => 
-                          setSettings({...settings, hashtagLimit: parseInt(e.target.value)})
-                        }
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        Maximum {platformInfo.limits.hashtags} hashtags allowed
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                <div className="flex justify-end">
-                  <Button onClick={handleSaveSettings}>
-                    Save Settings
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Content Preview */}
-          {isConnected && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="h-5 w-5" />
-                  <span>Recent Activity</span>
+                  {!loadingActivity && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchRecentActivity}
+                      disabled={loadingActivity}
+                    >
+                      <Loader2 className={`h-4 w-4 ${loadingActivity ? 'animate-spin' : ''}`} />
+                    </Button>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>

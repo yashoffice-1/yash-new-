@@ -144,11 +144,45 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
         const channel = data.items?.[0];
         
         if (channel) {
+          // Fetch recent videos to get last upload time
+          let lastPost = 'N/A';
+          try {
+            const videosResponse = await fetch(
+              `https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=1`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${connection.accessToken}`
+                }
+              }
+            );
+            
+            if (videosResponse.ok) {
+              const videosData = await videosResponse.json();
+              if (videosData.items && videosData.items.length > 0) {
+                const lastVideo = videosData.items[0];
+                const uploadDate = new Date(lastVideo.snippet.publishedAt);
+                const now = new Date();
+                const diffInHours = Math.floor((now.getTime() - uploadDate.getTime()) / (1000 * 60 * 60));
+                
+                if (diffInHours < 1) {
+                  lastPost = 'Just now';
+                } else if (diffInHours < 24) {
+                  lastPost = `${diffInHours} hours ago`;
+                } else {
+                  const diffInDays = Math.floor(diffInHours / 24);
+                  lastPost = `${diffInDays} days ago`;
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error fetching last video:', error);
+          }
+
           const stats = {
             subscribers: parseInt(channel.statistics.subscriberCount) || 0,
             videos: parseInt(channel.statistics.videoCount) || 0,
             views: parseInt(channel.statistics.viewCount) || 0,
-            lastPost: '2 hours ago' // This would need to be fetched from videos endpoint
+            lastPost: lastPost
           };
           
           res.json({ stats });
@@ -156,27 +190,13 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
           res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
         }
       } else {
-        // Return mock data if API call fails
-        res.json({ 
-          stats: { 
-            subscribers: 15420, 
-            videos: 342, 
-            views: 1250000, 
-            lastPost: '2 hours ago' 
-          } 
-        });
+        // Return empty stats if API call fails
+        res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
       }
     } catch (error) {
       console.error('Error fetching YouTube stats:', error);
-      // Return mock data on error
-      res.json({ 
-        stats: { 
-          subscribers: 15420, 
-          videos: 342, 
-          views: 1250000, 
-          lastPost: '2 hours ago' 
-        } 
-      });
+      // Return empty stats on error
+      res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
     }
   } catch (error) {
     console.error('Error getting YouTube stats:', error);
@@ -307,6 +327,48 @@ router.get('/:platform/activity', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error getting platform activity:', error);
     res.status(500).json({ error: 'Failed to get platform activity' });
+  }
+});
+
+// Get platform statistics (generic endpoint)
+router.get('/:platform/stats', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { platform } = req.params;
+    
+    // Get the user's platform connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: platform,
+        isActive: true
+      }
+    });
+
+    if (!connection) {
+      return res.status(404).json({ error: 'Platform connection not found' });
+    }
+
+    // For now, return empty stats for non-YouTube platforms
+    // In the future, this would integrate with each platform's API
+    if (platform !== 'youtube') {
+      res.json({ 
+        stats: { 
+          followers: 0, 
+          posts: 0, 
+          engagement: 0, 
+          lastPost: 'N/A' 
+        } 
+      });
+      return;
+    }
+
+    // For YouTube, use the existing YouTube stats logic
+    // This will be handled by the specific /youtube/stats route
+    res.status(404).json({ error: 'Use /youtube/stats for YouTube statistics' });
+  } catch (error) {
+    console.error('Error getting platform stats:', error);
+    res.status(500).json({ error: 'Failed to get platform stats' });
   }
 });
 
