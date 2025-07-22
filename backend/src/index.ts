@@ -13,6 +13,7 @@ import assetRoutes from './routes/assets';
 import templateRoutes from './routes/templates';
 import aiRoutes from './routes/ai';
 import authRoutes from './routes/auth';
+import socialRoutes from './routes/social';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -82,6 +83,7 @@ app.use('/api/assets', assetRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/social', socialRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);

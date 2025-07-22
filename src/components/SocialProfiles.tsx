@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +12,19 @@ import {
   CheckCircle,
   Plus,
   Settings,
-  Unlink
+  Unlink,
+  Link,
+  AlertCircle
 } from "lucide-react";
+
+interface SocialConnection {
+  id: string;
+  platform: string;
+  platformUsername: string;
+  platformEmail: string;
+  isActive: boolean;
+  createdAt: string;
+}
 
 interface SocialChannel {
   id: string;
@@ -21,41 +32,185 @@ interface SocialChannel {
   icon: React.ElementType;
   connected: boolean;
   accountName?: string;
+  platform: string;
 }
 
 export function SocialProfiles() {
   const { toast } = useToast();
-  const [channels, setChannels] = useState<SocialChannel[]>([
+  const [connections, setConnections] = useState<SocialConnection[]>([]);
+  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
+
+  // Fetch existing connections on component mount
+  useEffect(() => {
+    fetchConnections();
+  }, []);
+
+  const fetchConnections = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3001/api/social/connections', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setConnections(data.connections);
+      }
+    } catch (error) {
+      console.error('Error fetching connections:', error);
+    }
+  };
+
+  const handleConnectYouTube = async () => {
+    setConnectingPlatform('youtube');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3001/api/social/youtube/auth', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Open OAuth popup
+        const popup = window.open(data.authUrl, 'youtube-oauth', 'width=600,height=600');
+        
+        // Listen for OAuth completion
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkClosed);
+            fetchConnections(); // Refresh connections
+            setConnectingPlatform(null);
+          }
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Error starting YouTube OAuth:', error);
+      toast({
+        title: "Connection Failed",
+        description: "Failed to start YouTube connection. Please try again.",
+        variant: "destructive"
+      });
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleConnect = (platform: string) => {
+    switch (platform) {
+      case 'youtube':
+        handleConnectYouTube();
+        break;
+      default:
+        toast({
+          title: "Integration Coming Soon",
+          description: `${getPlatformName(platform)} integration will be available soon.`,
+        });
+    }
+  };
+
+  const handleDisconnect = async (platform: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:3001/api/social/connections/${platform}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Account Disconnected",
+          description: `Your ${getPlatformName(platform)} account has been disconnected.`,
+        });
+        fetchConnections(); // Refresh connections
+      }
+    } catch (error) {
+      console.error('Error disconnecting account:', error);
+      toast({
+        title: "Disconnection Failed",
+        description: "Failed to disconnect account. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleManage = (platform: string) => {
+    toast({
+      title: "Manage Account",
+      description: `Opening management settings for ${getPlatformName(platform)}.`,
+    });
+  };
+
+  const getPlatformName = (platform: string) => {
+    switch (platform) {
+      case 'youtube': return 'YouTube';
+      case 'facebook': return 'Facebook';
+      case 'instagram': return 'Instagram';
+      case 'linkedin': return 'LinkedIn';
+      case 'twitter': return 'Twitter / X';
+      case 'tiktok': return 'TikTok';
+      case 'pinterest': return 'Pinterest';
+      case 'google-ads': return 'Google Ads';
+      default: return platform;
+    }
+  };
+
+  const isConnected = (platform: string) => {
+    return connections.some(conn => conn.platform === platform && conn.isActive);
+  };
+
+  const getConnection = (platform: string) => {
+    return connections.find(conn => conn.platform === platform && conn.isActive);
+  };
+
+  // Define available platforms with their icons and connection status
+  const channels: SocialChannel[] = [
+    {
+      id: "youtube",
+      name: "YouTube",
+      icon: Youtube,
+      connected: isConnected('youtube'),
+      accountName: getConnection('youtube')?.platformUsername,
+      platform: 'youtube'
+    },
     {
       id: "instagram",
       name: "Instagram",
       icon: Instagram,
-      connected: false
+      connected: isConnected('instagram'),
+      accountName: getConnection('instagram')?.platformUsername,
+      platform: 'instagram'
     },
     {
       id: "facebook",
       name: "Facebook",
       icon: Facebook,
-      connected: true,
-      accountName: "@mybrand"
+      connected: isConnected('facebook'),
+      accountName: getConnection('facebook')?.platformUsername,
+      platform: 'facebook'
     },
     {
       id: "linkedin",
       name: "LinkedIn",
       icon: Linkedin,
-      connected: false
+      connected: isConnected('linkedin'),
+      accountName: getConnection('linkedin')?.platformUsername,
+      platform: 'linkedin'
     },
     {
       id: "twitter",
       name: "Twitter / X",
       icon: Twitter,
-      connected: false
-    },
-    {
-      id: "youtube",
-      name: "YouTube",
-      icon: Youtube,
-      connected: false
+      connected: isConnected('twitter'),
+      accountName: getConnection('twitter')?.platformUsername,
+      platform: 'twitter'
     },
     {
       id: "tiktok",
@@ -65,7 +220,9 @@ export function SocialProfiles() {
           <span className="text-xs font-bold text-background">T</span>
         </div>
       ),
-      connected: false
+      connected: isConnected('tiktok'),
+      accountName: getConnection('tiktok')?.platformUsername,
+      platform: 'tiktok'
     },
     {
       id: "pinterest",
@@ -75,7 +232,9 @@ export function SocialProfiles() {
           <span className="text-xs font-bold text-white">P</span>
         </div>
       ),
-      connected: false
+      connected: isConnected('pinterest'),
+      accountName: getConnection('pinterest')?.platformUsername,
+      platform: 'pinterest'
     },
     {
       id: "google-ads",
@@ -85,37 +244,11 @@ export function SocialProfiles() {
           <span className="text-xs font-bold text-white">G</span>
         </div>
       ),
-      connected: false
+      connected: isConnected('google-ads'),
+      accountName: getConnection('google-ads')?.platformUsername,
+      platform: 'google-ads'
     }
-  ]);
-
-  const handleConnect = (channelId: string) => {
-    toast({
-      title: "Integration Coming Soon",
-      description: `${channels.find(c => c.id === channelId)?.name} integration will be available soon.`,
-    });
-  };
-
-  const handleDisconnect = (channelId: string) => {
-    setChannels(prev => 
-      prev.map(channel => 
-        channel.id === channelId 
-          ? { ...channel, connected: false, accountName: undefined }
-          : channel
-      )
-    );
-    toast({
-      title: "Account Disconnected",
-      description: `Successfully disconnected from ${channels.find(c => c.id === channelId)?.name}.`,
-    });
-  };
-
-  const handleManage = (channelId: string) => {
-    toast({
-      title: "Manage Account",
-      description: `Opening management settings for ${channels.find(c => c.id === channelId)?.name}.`,
-    });
-  };
+  ];
 
   return (
     <div className="space-y-6">
@@ -130,6 +263,8 @@ export function SocialProfiles() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {channels.map((channel) => {
               const IconComponent = channel.icon;
+              const isConnecting = connectingPlatform === channel.platform;
+              
               return (
                 <Card key={channel.id} className="relative">
                   <CardContent className="p-4">
@@ -155,17 +290,27 @@ export function SocialProfiles() {
                     <div className="flex space-x-2">
                       {!channel.connected ? (
                         <Button 
-                          onClick={() => handleConnect(channel.id)}
+                          onClick={() => handleConnect(channel.platform)}
                           size="sm"
                           className="flex-1"
+                          disabled={isConnecting}
                         >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Connect
+                          {isConnecting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                              Connecting...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="h-3 w-3 mr-1" />
+                              Connect
+                            </>
+                          )}
                         </Button>
                       ) : (
                         <>
                           <Button 
-                            onClick={() => handleManage(channel.id)}
+                            onClick={() => handleManage(channel.platform)}
                             variant="outline"
                             size="sm"
                             className="flex-1"
@@ -174,7 +319,7 @@ export function SocialProfiles() {
                             Manage
                           </Button>
                           <Button 
-                            onClick={() => handleDisconnect(channel.id)}
+                            onClick={() => handleDisconnect(channel.platform)}
                             variant="outline"
                             size="sm"
                           >
@@ -187,6 +332,36 @@ export function SocialProfiles() {
                 </Card>
               );
             })}
+          </div>
+
+          {/* Info section for connected accounts */}
+          {connections.length > 0 && (
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-blue-900">Connected Accounts</h4>
+                  <p className="text-sm text-blue-800 mt-1">
+                    You can now upload your generated content directly to your connected social media accounts. 
+                    Go to your settings for more detailed management options.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Info section for available integrations */}
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="h-5 w-5 text-gray-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-gray-900">Available Integrations</h4>
+                <p className="text-sm text-gray-700 mt-1">
+                  YouTube integration is fully functional. Other platforms are coming soon. 
+                  Connected accounts will automatically sync with your content generation workflow.
+                </p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

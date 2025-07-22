@@ -133,5 +133,29 @@ model Profile {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  // Relations
+  socialConnections SocialMediaConnection[]
+
   @@map("profiles")
+}
+
+model SocialMediaConnection {
+  id              String   @id @default(cuid())
+  profileId       String   @map("profile_id")
+  platform        String   // 'youtube', 'facebook', 'instagram', 'linkedin', etc.
+  accessToken     String   @map("access_token")
+  refreshToken    String?  @map("refresh_token")
+  tokenExpiresAt  DateTime? @map("token_expires_at")
+  platformUserId  String   @map("platform_user_id")
+  platformUsername String? @map("platform_username")
+  platformEmail   String?  @map("platform_email")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, platform])
+  @@map("social_media_connections")
 }
