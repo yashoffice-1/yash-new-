@@ -4,6 +4,29 @@ import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
 
+// Helper function to check if cache is valid
+const isCacheValid = (cachedData: any) => {
+  if (!cachedData) return false;
+  
+  const now = new Date();
+  const expiresAt = new Date(cachedData.expiresAt);
+  
+  return now < expiresAt;
+};
+
+// Helper function to create cache expiry time (e.g., 1 hour for stats)
+const getCacheExpiry = (dataType: string) => {
+  const now = new Date();
+  switch (dataType) {
+    case 'stats':
+      return new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
+    case 'activity':
+      return new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes
+    default:
+      return new Date(now.getTime() + 60 * 60 * 1000); // 1 hour default
+  }
+};
+
 // Get user's social connections
 router.get('/connections', authenticateToken, async (req, res) => {
   try {
@@ -114,10 +137,11 @@ router.delete('/connections/:platform', authenticateToken, async (req, res) => {
   }
 });
 
-// Get YouTube channel statistics
+// Get YouTube channel statistics with caching
 router.get('/youtube/stats', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
+    const forceRefresh = req.query.refresh === 'true'; // Manual refresh parameter
     
     // Get the user's YouTube connection
     const connection = await prisma.socialMediaConnection.findFirst({
@@ -125,6 +149,13 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
         profileId: userId,
         platform: 'youtube',
         isActive: true
+      },
+      include: {
+        cachedData: {
+          where: {
+            dataType: 'stats'
+          }
+        }
       }
     });
 
@@ -132,7 +163,17 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'YouTube connection not found' });
     }
 
-    // Fetch channel stats from YouTube API
+    // Check if we have valid cached data and user didn't force refresh
+    const cachedStats = connection.cachedData[0];
+    if (!forceRefresh && isCacheValid(cachedStats)) {
+      return res.json({ 
+        stats: cachedStats.data,
+        cached: true,
+        lastUpdated: cachedStats.lastFetchedAt
+      });
+    }
+
+    // Fetch fresh data from YouTube API
     try {
       const response = await fetch(
         `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true`,
@@ -146,7 +187,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
       if (response.ok) {
         const data = await response.json();
         const channel = data.items?.[0];
-        
+
         if (channel) {
           // Fetch recent videos to get last upload time
           let lastPost = 'N/A';
@@ -159,7 +200,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
                 }
               }
             );
-            
+
             if (videosResponse.ok) {
               const videosData = await videosResponse.json();
               if (videosData.items && videosData.items.length > 0) {
@@ -167,7 +208,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
                 const uploadDate = new Date(lastVideo.snippet.publishedAt);
                 const now = new Date();
                 const diffInHours = Math.floor((now.getTime() - uploadDate.getTime()) / (1000 * 60 * 60));
-                
+
                 if (diffInHours < 1) {
                   lastPost = 'Just now';
                 } else if (diffInHours < 24) {
@@ -188,19 +229,62 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
             views: parseInt(channel.statistics.viewCount) || 0,
             lastPost: lastPost
           };
-          
-          res.json({ stats });
+
+          // Cache the data
+          await prisma.socialMediaCachedData.upsert({
+            where: {
+              connectionId_dataType: {
+                connectionId: connection.id,
+                dataType: 'stats'
+              }
+            },
+            update: {
+              data: stats,
+              lastFetchedAt: new Date(),
+              expiresAt: getCacheExpiry('stats')
+            },
+            create: {
+              connectionId: connection.id,
+              dataType: 'stats',
+              data: stats,
+              expiresAt: getCacheExpiry('stats')
+            }
+          });
+
+          res.json({ 
+            stats,
+            cached: false,
+            lastUpdated: new Date()
+          });
         } else {
           res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
         }
       } else {
-        // Return empty stats if API call fails
-        res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
+        // Return cached data if available, even if expired
+        if (cachedStats) {
+          res.json({ 
+            stats: cachedStats.data,
+            cached: true,
+            lastUpdated: cachedStats.lastFetchedAt,
+            note: 'Using cached data due to API error'
+          });
+        } else {
+          res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
+        }
       }
     } catch (error) {
       console.error('Error fetching YouTube stats:', error);
-      // Return empty stats on error
-      res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
+      // Return cached data if available
+      if (cachedStats) {
+        res.json({ 
+          stats: cachedStats.data,
+          cached: true,
+          lastUpdated: cachedStats.lastFetchedAt,
+          note: 'Using cached data due to API error'
+        });
+      } else {
+        res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
+      }
     }
   } catch (error) {
     console.error('Error getting YouTube stats:', error);
@@ -273,23 +357,41 @@ router.post('/:platform/settings', authenticateToken, async (req, res) => {
   }
 });
 
-// Get platform recent activity
+// Get platform recent activity with caching
 router.get('/:platform/activity', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
     const { platform } = req.params;
-    
+    const forceRefresh = req.query.refresh === 'true';
+
     // Get the user's platform connection
     const connection = await prisma.socialMediaConnection.findFirst({
       where: {
         profileId: userId,
         platform: platform,
         isActive: true
+      },
+      include: {
+        cachedData: {
+          where: {
+            dataType: 'activity'
+          }
+        }
       }
     });
 
     if (!connection) {
       return res.status(404).json({ error: 'Platform connection not found' });
+    }
+
+    // Check if we have valid cached data
+    const cachedActivity = connection.cachedData[0];
+    if (!forceRefresh && isCacheValid(cachedActivity)) {
+      return res.json({ 
+        activity: cachedActivity.data,
+        cached: true,
+        lastUpdated: cachedActivity.lastFetchedAt
+      });
     }
 
     // For YouTube, fetch recent videos
@@ -310,19 +412,63 @@ router.get('/:platform/activity', authenticateToken, async (req, res) => {
             timestamp: new Date(item.snippet.publishedAt).toLocaleDateString(),
             message: item.snippet.title,
             metrics: {
-              views: 'N/A', // Would need separate API call for each video
+              views: 'N/A',
               likes: 'N/A',
               comments: 'N/A'
             }
           })) || [];
-          
-          res.json({ activity });
+
+          // Cache the activity data
+          await prisma.socialMediaCachedData.upsert({
+            where: {
+              connectionId_dataType: {
+                connectionId: connection.id,
+                dataType: 'activity'
+              }
+            },
+            update: {
+              data: activity,
+              lastFetchedAt: new Date(),
+              expiresAt: getCacheExpiry('activity')
+            },
+            create: {
+              connectionId: connection.id,
+              dataType: 'activity',
+              data: activity,
+              expiresAt: getCacheExpiry('activity')
+            }
+          });
+
+          res.json({ 
+            activity,
+            cached: false,
+            lastUpdated: new Date()
+          });
         } else {
-          res.json({ activity: [] });
+          // Return cached data if available
+          if (cachedActivity) {
+            res.json({ 
+              activity: cachedActivity.data,
+              cached: true,
+              lastUpdated: cachedActivity.lastFetchedAt,
+              note: 'Using cached data due to API error'
+            });
+          } else {
+            res.json({ activity: [] });
+          }
         }
       } catch (error) {
         console.error('Error fetching YouTube activity:', error);
-        res.json({ activity: [] });
+        if (cachedActivity) {
+          res.json({ 
+            activity: cachedActivity.data,
+            cached: true,
+            lastUpdated: cachedActivity.lastFetchedAt,
+            note: 'Using cached data due to API error'
+          });
+        } else {
+          res.json({ activity: [] });
+        }
       }
     } else {
       // For other platforms, return empty activity for now

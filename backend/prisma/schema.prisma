@@ -156,7 +156,26 @@ model SocialMediaConnection {
 
   // Relations
   profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  cachedData      SocialMediaCachedData[] // New relation
 
   @@unique([profileId, platform])
   @@map("social_media_connections")
+}
+
+// New model for caching social media data
+model SocialMediaCachedData {
+  id                    String   @id @default(cuid())
+  connectionId          String   @map("connection_id")
+  dataType              String   @map("data_type") // 'stats', 'activity', 'settings'
+  data                  Json     // Store the actual data as JSON
+  lastFetchedAt         DateTime @default(now()) @map("last_fetched_at")
+  expiresAt             DateTime @map("expires_at") // When this cache expires
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  connection            SocialMediaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, dataType])
+  @@map("social_media_cached_data")
 }

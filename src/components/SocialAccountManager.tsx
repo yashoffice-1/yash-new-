@@ -40,6 +40,14 @@ interface AccountStats {
   videos?: number;
 }
 
+interface CachedResponse {
+  stats?: AccountStats;
+  activity?: any[];
+  cached: boolean;
+  lastUpdated: string;
+  note?: string;
+}
+
 const platformDetails = {
   instagram: {
     name: "Instagram",
@@ -95,10 +103,18 @@ export function SocialAccountManager() {
   const [isConnected, setIsConnected] = useState(false);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connectionLoading, setConnectionLoading] = useState(true);
   const [stats, setStats] = useState<AccountStats>({});
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [cacheInfo, setCacheInfo] = useState<{
+    stats: { cached: boolean; lastUpdated?: string; note?: string };
+    activity: { cached: boolean; lastUpdated?: string; note?: string };
+  }>({
+    stats: { cached: false },
+    activity: { cached: false }
+  });
 
   const platformInfo = platformDetails[platform as keyof typeof platformDetails];
 
@@ -109,14 +125,16 @@ export function SocialAccountManager() {
 
   // Fetch activity when connection is loaded
   useEffect(() => {
-    if (connection) {
+    if (connection && !connectionLoading) {
       fetchRecentActivity();
     }
-  }, [connection]);
+  }, [connection, connectionLoading]);
 
   const fetchConnection = async () => {
     try {
       setLoading(true);
+      setConnectionLoading(true);
+      
       const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:3001/api/social/connections', {
         headers: {
@@ -134,62 +152,89 @@ export function SocialAccountManager() {
         setConnection(platformConnection || null);
         setIsConnected(!!platformConnection);
         
+        // Only fetch stats if we have a connection
         if (platformConnection) {
-          // Fetch platform-specific stats
-          await fetchPlatformStats(platformConnection);
+          // Fetch stats after connection is set
+          fetchPlatformStats(platformConnection);
         }
       }
     } catch (error) {
       console.error('Error fetching connection:', error);
     } finally {
       setLoading(false);
+      setConnectionLoading(false);
     }
   };
 
-  const fetchRecentActivity = async () => {
-    try {
-      setLoadingActivity(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/social/${platform}/activity`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setRecentActivity(data.activity || []);
-      }
-    } catch (error) {
-      console.error('Error fetching recent activity:', error);
-      setRecentActivity([]);
-    } finally {
-      setLoadingActivity(false);
-    }
-  };
-
-  const fetchPlatformStats = async (conn: SocialConnection) => {
+  const fetchPlatformStats = async (conn: SocialConnection, forceRefresh = false) => {
     try {
       setLoadingStats(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch(`http://localhost:3001/api/social/${platform}/stats`, {
+      const url = forceRefresh 
+        ? `http://localhost:3001/api/social/${platform}/stats?refresh=true`
+        : `http://localhost:3001/api/social/${platform}/stats`;
+        
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
+        const data: CachedResponse = await response.json();
+        setStats(data.stats || {});
+        setCacheInfo(prev => ({
+          ...prev,
+          stats: {
+            cached: data.cached,
+            lastUpdated: data.lastUpdated,
+            note: data.note
+          }
+        }));
       }
     } catch (error) {
       console.error('Error fetching platform stats:', error);
       setStats({});
     } finally {
       setLoadingStats(false);
+    }
+  };
+
+  const fetchRecentActivity = async (forceRefresh = false) => {
+    try {
+      setLoadingActivity(true);
+      const token = localStorage.getItem('token');
+      
+      const url = forceRefresh 
+        ? `http://localhost:3001/api/social/${platform}/activity?refresh=true`
+        : `http://localhost:3001/api/social/${platform}/activity`;
+        
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data: CachedResponse = await response.json();
+        setRecentActivity(data.activity || []);
+        setCacheInfo(prev => ({
+          ...prev,
+          activity: {
+            cached: data.cached,
+            lastUpdated: data.lastUpdated,
+            note: data.note
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      setRecentActivity([]);
+    } finally {
+      setLoadingActivity(false);
     }
   };
 
@@ -257,30 +302,30 @@ export function SocialAccountManager() {
                 await fetchConnection();
               }
             } catch (error) {
-              console.error('Error getting user/channel info:', error);
+              console.error('Error saving YouTube connection:', error);
               toast({
                 title: "Connection Failed",
-                description: "Failed to get channel information.",
+                description: "Failed to save YouTube connection. Please try again.",
                 variant: "destructive"
               });
             }
           } else {
             toast({
-              title: "Connection Failed",
-              description: "Failed to get access token from Google.",
+              title: "Authentication Failed",
+              description: "Failed to authenticate with YouTube. Please try again.",
               variant: "destructive"
             });
           }
           setConnectingPlatform(null);
-        },
+        }
       });
-      
+
       tokenClient.requestAccessToken();
     } catch (error) {
-      console.error('Error starting YouTube OAuth:', error);
+      console.error('Error connecting to YouTube:', error);
       toast({
-        title: "Connection Failed",
-        description: "Failed to start YouTube connection. Please try again.",
+        title: "Connection Error",
+        description: "An error occurred while connecting to YouTube.",
         variant: "destructive"
       });
       setConnectingPlatform(null);
@@ -296,40 +341,29 @@ export function SocialAccountManager() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          accessToken: oauthResult.accessToken,
-          refreshToken: oauthResult.refreshToken,
-          channelId: oauthResult.channelId,
-          channelTitle: oauthResult.channelTitle,
-          platformUserId: oauthResult.platformUserId,
-          platformEmail: oauthResult.platformEmail
-        })
+        body: JSON.stringify(oauthResult)
       });
-      
+
       if (response.ok) {
-        await fetchConnection();
+        const data = await response.json();
+        return data;
+      } else {
+        throw new Error('Failed to save connection');
       }
     } catch (error) {
       console.error('Error saving YouTube connection:', error);
+      throw error;
     }
   };
 
   const handleConnect = () => {
-    switch (platform) {
-      case 'youtube':
-        handleConnectYouTube();
-        break;
-      case 'facebook':
-        toast({
-          title: "Facebook Integration Coming Soon",
-          description: "Facebook integration will be available soon.",
-        });
-        break;
-      default:
-        toast({
-          title: "Integration Coming Soon",
-          description: `${platformInfo?.name} integration will be available soon.`,
-        });
+    if (platform === 'youtube') {
+      handleConnectYouTube();
+    } else {
+      toast({
+        title: "Integration Coming Soon",
+        description: `${platformInfo?.name} integration will be available soon.`,
+      });
     }
   };
 
@@ -343,7 +377,7 @@ export function SocialAccountManager() {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         setIsConnected(false);
         setConnection(null);
@@ -418,7 +452,16 @@ export function SocialAccountManager() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {isConnected && connection ? (
+              {connectionLoading ? (
+                // Show loading state for connection status
+                <div className="text-center space-y-4">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                  <p className="text-sm text-muted-foreground">
+                    Checking connection status...
+                  </p>
+                </div>
+              ) : isConnected && connection ? (
+                // Show connected state
                 <>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -446,7 +489,7 @@ export function SocialAccountManager() {
                       className="w-full"
                       onClick={() => {
                         const platformUrls = {
-                            youtube: `https://studio.youtube.com/channel/${connection?.channelId || ''}`,
+                          youtube: `https://studio.youtube.com/channel/${connection?.channelId || ''}`,
                           facebook: 'https://www.facebook.com',
                           instagram: 'https://www.instagram.com',
                           twitter: 'https://twitter.com',
@@ -496,6 +539,7 @@ export function SocialAccountManager() {
                   </div>
                 </>
               ) : (
+                // Show not connected state
                 <div className="text-center space-y-4">
                   <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto" />
                   <div>
@@ -523,8 +567,8 @@ export function SocialAccountManager() {
             </CardContent>
           </Card>
 
-          {/* Account Stats */}
-          {isConnected && (
+          {/* Account Stats - only show when connected and not loading connection */}
+          {isConnected && !connectionLoading && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -532,17 +576,28 @@ export function SocialAccountManager() {
                     <BarChart3 className="h-5 w-5" />
                     <span>Account Statistics</span>
                   </div>
-                  {!loadingStats && (
+                  <div className="flex items-center space-x-2">
+                    {cacheInfo.stats.cached && (
+                      <Badge variant="secondary" className="text-xs">
+                        Cached
+                      </Badge>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => connection && fetchPlatformStats(connection)}
+                      onClick={() => connection && fetchPlatformStats(connection, true)}
                       disabled={loadingStats}
                     >
                       <Loader2 className={`h-4 w-4 ${loadingStats ? 'animate-spin' : ''}`} />
                     </Button>
-                  )}
+                  </div>
                 </CardTitle>
+                {cacheInfo.stats.lastUpdated && (
+                  <CardDescription>
+                    Last updated: {new Date(cacheInfo.stats.lastUpdated).toLocaleString()}
+                    {cacheInfo.stats.note && ` (${cacheInfo.stats.note})`}
+                  </CardDescription>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 {loadingStats ? (
@@ -622,7 +677,7 @@ export function SocialAccountManager() {
                   </Badge>
                 ))}
               </div>
-              
+
               <Separator className="my-4" />
               
               <div>
@@ -634,8 +689,8 @@ export function SocialAccountManager() {
             </CardContent>
           </Card>
 
-          {/* Recent Activity */}
-          {isConnected && (
+          {/* Recent Activity - only show when connected and not loading connection */}
+          {isConnected && !connectionLoading && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -643,17 +698,28 @@ export function SocialAccountManager() {
                     <Users className="h-5 w-5" />
                     <span>Recent Activity</span>
                   </div>
-                  {!loadingActivity && (
+                  <div className="flex items-center space-x-2">
+                    {cacheInfo.activity.cached && (
+                      <Badge variant="secondary" className="text-xs">
+                        Cached
+                      </Badge>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={fetchRecentActivity}
+                      onClick={() => fetchRecentActivity(true)}
                       disabled={loadingActivity}
                     >
                       <Loader2 className={`h-4 w-4 ${loadingActivity ? 'animate-spin' : ''}`} />
                     </Button>
-                  )}
+                  </div>
                 </CardTitle>
+                {cacheInfo.activity.lastUpdated && (
+                  <CardDescription>
+                    Last updated: {new Date(cacheInfo.activity.lastUpdated).toLocaleString()}
+                    {cacheInfo.activity.note && ` (${cacheInfo.activity.note})`}
+                  </CardDescription>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -692,7 +758,7 @@ export function SocialAccountManager() {
                       </div>
                     ))
                   )}
-                  
+
                   <div className="text-center">
                     <Button variant="outline" size="sm">
                       View All Activity
