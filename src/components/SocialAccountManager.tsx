@@ -25,6 +25,7 @@ interface SocialConnection {
   platform: string;
   platformUsername: string;
   platformEmail: string;
+  channelId?: string; // Added this field
   isActive: boolean;
   createdAt: string;
 }
@@ -445,7 +446,7 @@ export function SocialAccountManager() {
                       className="w-full"
                       onClick={() => {
                         const platformUrls = {
-                          youtube: 'https://studio.youtube.com',
+                            youtube: `https://studio.youtube.com/channel/${connection?.channelId || ''}`,
                           facebook: 'https://www.facebook.com',
                           instagram: 'https://www.instagram.com',
                           twitter: 'https://twitter.com',

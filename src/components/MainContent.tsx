@@ -3,9 +3,8 @@ import { useEffect } from "react";
 import { useView } from "@/contexts/ViewContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminDashboard } from "./admin/AdminDashboard";
-import { UserDashboard } from "./UserDashboard";
-import { AssetLibrary } from "./AssetLibrary";
 import { InventoryDisplay } from "./inventory/InventoryDisplay";
+import { AssetLibrary } from "./AssetLibrary";
 import { VideoTemplatesTab } from "./VideoTemplatesTab";
 import { UserModule } from "./user/UserModule";
 import { SocialProfiles } from "./SocialProfiles";
@@ -15,11 +14,14 @@ import { Loading } from "./ui/loading";
 import { Library, Package, Video, User, Share2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
+// Define the tab type to match ViewContext
+type TabType = 'inventory' | 'library' | 'templates' | 'user' | 'social';
+
 export function MainContent() {
   const { isAdmin, activeTab, setActiveTab } = useView();
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const socialPlatform = searchParams.get('platform');
 
   // Auto-switch to social tab if platform parameter is present
@@ -28,6 +30,18 @@ export function MainContent() {
       setActiveTab('social');
     }
   }, [socialPlatform, activeTab, setActiveTab]);
+
+  // Handle tab switching and clear platform parameter when switching to non-social tabs
+  const handleTabSwitch = (newTab: TabType) => {
+    setActiveTab(newTab);
+    
+    // Clear platform parameter when switching to non-social tabs
+    if (newTab !== 'social' && socialPlatform) {
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('platform');
+      setSearchParams(newSearchParams);
+    }
+  };
 
   // Show loading while checking authentication
   if (loading) {
@@ -44,15 +58,13 @@ export function MainContent() {
     return <AdminDashboard />;
   }
 
-
-
   return (
     <div className="space-y-6">
       {/* Tab Navigation for User Mode */}
       <div className="flex space-x-1 border-b">
         <Button 
           variant={activeTab === 'inventory' ? 'default' : 'ghost'} 
-          onClick={() => setActiveTab('inventory')}
+          onClick={() => handleTabSwitch('inventory')}
           className="rounded-b-none flex items-center space-x-2"
         >
           <Package className="h-4 w-4" />
@@ -61,7 +73,7 @@ export function MainContent() {
         
         <Button 
           variant={activeTab === 'library' ? 'default' : 'ghost'} 
-          onClick={() => setActiveTab('library')}
+          onClick={() => handleTabSwitch('library')}
           className="rounded-b-none flex items-center space-x-2"
         >
           <Library className="h-4 w-4" />
@@ -70,7 +82,7 @@ export function MainContent() {
 
         <Button 
           variant={activeTab === 'templates' ? 'default' : 'ghost'} 
-          onClick={() => setActiveTab('templates')}
+          onClick={() => handleTabSwitch('templates')}
           className="rounded-b-none flex items-center space-x-2"
         >
           <Video className="h-4 w-4" />
@@ -79,7 +91,7 @@ export function MainContent() {
 
         <Button 
           variant={activeTab === 'social' ? 'default' : 'ghost'} 
-          onClick={() => setActiveTab('social')}
+          onClick={() => handleTabSwitch('social')}
           className="rounded-b-none flex items-center space-x-2"
         >
           <Share2 className="h-4 w-4" />
@@ -88,7 +100,7 @@ export function MainContent() {
 
         <Button 
           variant={activeTab === 'user' ? 'default' : 'ghost'} 
-          onClick={() => setActiveTab('user')}
+          onClick={() => handleTabSwitch('user')}
           className="rounded-b-none flex items-center space-x-2"
         >
           <User className="h-4 w-4" />

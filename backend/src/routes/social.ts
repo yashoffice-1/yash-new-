@@ -20,7 +20,8 @@ router.get('/connections', authenticateToken, async (req, res) => {
         platformUsername: true,
         platformEmail: true,
         isActive: true,
-        createdAt: true
+        createdAt: true,
+        channelId: true
       }
     });
 
@@ -55,6 +56,7 @@ router.post('/youtube/connect', authenticateToken, async (req, res) => {
         platformUserId,
         platformUsername: channelTitle,
         platformEmail,
+        channelId, // Added this field
         isActive: true,
         updatedAt: new Date()
       },
@@ -67,6 +69,7 @@ router.post('/youtube/connect', authenticateToken, async (req, res) => {
         platformUserId,
         platformUsername: channelTitle,
         platformEmail,
+        channelId, // Added this field
         isActive: true
       }
     });
@@ -77,6 +80,7 @@ router.post('/youtube/connect', authenticateToken, async (req, res) => {
         id: connection.id,
         platform: connection.platform,
         platformUsername: connection.platformUsername,
+        channelId: connection.channelId, // Return channelId in response
         isActive: connection.isActive
       }
     });
