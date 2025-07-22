@@ -4,6 +4,34 @@ import { authenticateToken } from '../middleware/auth';
 
 const router = express.Router();
 
+// Type definitions for YouTube API responses
+interface YouTubeVideoItem {
+  snippet: {
+    publishedAt: string;
+    title: string;
+    description: string;
+  };
+}
+
+interface YouTubeVideosResponse {
+  items: YouTubeVideoItem[];
+}
+
+interface YouTubeChannelItem {
+  snippet: {
+    title: string;
+  };
+  statistics: {
+    subscriberCount: string;
+    videoCount: string;
+    viewCount: string;
+  };
+}
+
+interface YouTubeChannelsResponse {
+  items: YouTubeChannelItem[];
+}
+
 // Helper function to check if cache is valid
 const isCacheValid = (cachedData: any) => {
   if (!cachedData) return false;
@@ -185,7 +213,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
       );
 
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as YouTubeChannelsResponse;
         const channel = data.items?.[0];
 
         if (channel) {
@@ -202,7 +230,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
             );
 
             if (videosResponse.ok) {
-              const videosData = await videosResponse.json();
+              const videosData = await videosResponse.json() as YouTubeVideosResponse;
               if (videosData.items && videosData.items.length > 0) {
                 const lastVideo = videosData.items[0];
                 const uploadDate = new Date(lastVideo.snippet.publishedAt);
@@ -407,8 +435,8 @@ router.get('/:platform/activity', authenticateToken, async (req, res) => {
         );
 
         if (response.ok) {
-          const data = await response.json();
-          const activity = data.items?.map((item: any) => ({
+          const data = await response.json() as YouTubeVideosResponse;
+          const activity = data.items?.map((item: YouTubeVideoItem) => ({
             timestamp: new Date(item.snippet.publishedAt).toLocaleDateString(),
             message: item.snippet.title,
             metrics: {
