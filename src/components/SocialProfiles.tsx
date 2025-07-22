@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,7 @@ interface SocialChannel {
 }
 
 export function SocialProfiles() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
@@ -231,10 +233,8 @@ export function SocialProfiles() {
   };
 
   const handleManage = (platform: string) => {
-    toast({
-      title: "Manage Account",
-      description: `Opening management settings for ${getPlatformName(platform)}.`,
-    });
+    // Navigate to the social account manager within the same tab
+    navigate(`?platform=${platform}`, { replace: true });
   };
 
   const getPlatformName = (platform: string) => {

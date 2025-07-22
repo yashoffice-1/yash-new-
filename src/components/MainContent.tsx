@@ -1,4 +1,5 @@
 
+import { useEffect } from "react";
 import { useView } from "@/contexts/ViewContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { AdminDashboard } from "./admin/AdminDashboard";
@@ -8,15 +9,25 @@ import { InventoryDisplay } from "./inventory/InventoryDisplay";
 import { VideoTemplatesTab } from "./VideoTemplatesTab";
 import { UserModule } from "./user/UserModule";
 import { SocialProfiles } from "./SocialProfiles";
+import { SocialAccountManager } from "./SocialAccountManager";
 import { Button } from "./ui/button";
 import { Loading } from "./ui/loading";
 import { Library, Package, Video, User, Share2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 export function MainContent() {
   const { isAdmin, activeTab, setActiveTab } = useView();
   const { user, signOut, loading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const socialPlatform = searchParams.get('platform');
+
+  // Auto-switch to social tab if platform parameter is present
+  useEffect(() => {
+    if (socialPlatform && activeTab !== 'social') {
+      setActiveTab('social');
+    }
+  }, [socialPlatform, activeTab, setActiveTab]);
 
   // Show loading while checking authentication
   if (loading) {
@@ -89,7 +100,9 @@ export function MainContent() {
       {activeTab === 'inventory' && <InventoryDisplay />}
       {activeTab === 'library' && <AssetLibrary />}
       {activeTab === 'templates' && <VideoTemplatesTab />}
-      {activeTab === 'social' && <SocialProfiles />}
+      {activeTab === 'social' && (
+        socialPlatform ? <SocialAccountManager /> : <SocialProfiles />
+      )}
       {activeTab === 'user' && <UserModule />}
     </div>
   );
