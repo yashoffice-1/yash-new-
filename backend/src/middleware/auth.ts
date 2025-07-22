@@ -3,8 +3,11 @@ import jwt from 'jsonwebtoken';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
-    id: string;
+    userId: string;
     email: string;
+    firstName: string;
+    lastName: string;
+    initials: string;
   };
 }
 
@@ -22,7 +25,13 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
       throw new Error('JWT_SECRET not configured');
     }
 
-    const decoded = jwt.verify(token, secret) as { id: string; email: string };
+    const decoded = jwt.verify(token, secret) as { 
+      userId: string; 
+      email: string; 
+      firstName: string;
+      lastName: string;
+      initials: string;
+    };
     req.user = decoded;
     next();
   } catch (error) {

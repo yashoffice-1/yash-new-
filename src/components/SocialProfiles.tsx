@@ -66,29 +66,90 @@ export function SocialProfiles() {
 
   const handleConnectYouTube = async () => {
     setConnectingPlatform('youtube');
+    
+    // Check if Google Identity Services is loaded
+    if (!window.google?.accounts?.oauth2) {
+      toast({
+        title: "Google Services Not Loaded",
+        description: "Please wait for Google services to load and try again.",
+        variant: "destructive"
+      });
+      setConnectingPlatform(null);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/social/youtube/auth', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const YT_CLIENT_ID = import.meta.env.VITE_YOUTUBE_CLIENT_ID || 'your-client-id';
+      const YT_SCOPES = [
+        'https://www.googleapis.com/auth/youtube.upload',
+        'https://www.googleapis.com/auth/youtube.readonly',
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/userinfo.email'
+      ].join(' ');
+
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: YT_CLIENT_ID,
+        scope: YT_SCOPES,
+        callback: async (response: any) => {
+          if (response.access_token) {
+            console.log('✅ YouTube Access Token:', response.access_token);
+            
+            // Get user info and channel details
+            try {
+              const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+                headers: {
+                  'Authorization': `Bearer ${response.access_token}`
+                }
+              }).then(res => res.json());
+
+              const channelsResponse = await fetch(
+                `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${response.access_token}`
+                  }
+                }
+              ).then(res => res.json());
+
+              const channel = channelsResponse.items?.[0];
+              
+              if (channel) {
+                // Save connection to database
+                await saveYouTubeConnection({
+                  accessToken: response.access_token,
+                  refreshToken: response.refresh_token,
+                  channelId: channel.id,
+                  channelTitle: channel.snippet.title,
+                  platformUserId: userInfo.id,
+                  platformEmail: userInfo.email
+                });
+
+                toast({
+                  title: "YouTube Connected!",
+                  description: `Successfully connected to ${channel.snippet.title}`,
+                });
+              }
+            } catch (error) {
+              console.error('Error getting user/channel info:', error);
+              toast({
+                title: "Connection Failed",
+                description: "Failed to get channel information.",
+                variant: "destructive"
+              });
+            }
+          } else {
+            console.error('❌ YouTube Token Error:', response);
+            toast({
+              title: "Connection Failed",
+              description: "Failed to get access token from Google.",
+              variant: "destructive"
+            });
+          }
+          setConnectingPlatform(null);
+        },
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        // Open OAuth popup
-        const popup = window.open(data.authUrl, 'youtube-oauth', 'width=600,height=600');
-        
-        // Listen for OAuth completion
-        const checkClosed = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkClosed);
-            fetchConnections(); // Refresh connections
-            setConnectingPlatform(null);
-          }
-        }, 1000);
-      }
+      tokenClient.requestAccessToken();
     } catch (error) {
       console.error('Error starting YouTube OAuth:', error);
       toast({
@@ -97,6 +158,34 @@ export function SocialProfiles() {
         variant: "destructive"
       });
       setConnectingPlatform(null);
+    }
+  };
+
+  const saveYouTubeConnection = async (oauthResult: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3001/api/social/youtube/connect', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          accessToken: oauthResult.accessToken,
+          refreshToken: oauthResult.refreshToken,
+          channelId: oauthResult.channelId,
+          channelTitle: oauthResult.channelTitle,
+          platformUserId: oauthResult.platformUserId,
+          platformEmail: oauthResult.platformEmail
+        })
+      });
+      
+      if (response.ok) {
+        // Refresh connections list
+        fetchConnections();
+      }
+    } catch (error) {
+      console.error('Error saving YouTube connection:', error);
     }
   };
 
