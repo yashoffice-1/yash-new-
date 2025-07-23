@@ -197,7 +197,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
       return res.json({ 
         stats: cachedStats.data,
         cached: true,
-        lastUpdated: cachedStats.lastFetchedAt
+        lastUpdated: cachedStats.lastFetchedAt,
       });
     }
 
@@ -294,7 +294,6 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
             stats: cachedStats.data,
             cached: true,
             lastUpdated: cachedStats.lastFetchedAt,
-            note: 'Using cached data due to API error'
           });
         } else {
           res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
@@ -413,17 +412,17 @@ router.get('/:platform/activity', authenticateToken, async (req, res) => {
     }
 
     // Check if we have valid cached data
-    const cachedActivity = connection.cachedData[0];
-    if (!forceRefresh && isCacheValid(cachedActivity)) {
-      return res.json({ 
-        activity: cachedActivity.data,
-        cached: true,
-        lastUpdated: cachedActivity.lastFetchedAt
-      });
-    }
+      const cachedActivity = connection.cachedData[0];
+      if (!forceRefresh && isCacheValid(cachedActivity)) {
+        return res.json({ 
+          activity: cachedActivity.data,
+          cached: true,
+          lastUpdated: cachedActivity.lastFetchedAt
+        });
+      }
 
-    // For YouTube, fetch recent videos
-    if (platform === 'youtube') {
+      // For YouTube, fetch recent videos
+      if (platform === 'youtube') {
       try {
         const response = await fetch(
           `https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=5`,
@@ -479,7 +478,6 @@ router.get('/:platform/activity', authenticateToken, async (req, res) => {
               activity: cachedActivity.data,
               cached: true,
               lastUpdated: cachedActivity.lastFetchedAt,
-              note: 'Using cached data due to API error'
             });
           } else {
             res.json({ activity: [] });
