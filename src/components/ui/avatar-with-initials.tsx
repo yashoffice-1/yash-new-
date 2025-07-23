@@ -12,6 +12,8 @@ export function AvatarWithInitials({
   size = 'md', 
   className 
 }: AvatarWithInitialsProps) {
+  // Handle undefined or null initials
+  const safeInitials = initials || 'U';
   const sizeClasses = {
     sm: 'h-8 w-8 text-sm',
     md: 'h-10 w-10 text-base',
@@ -34,7 +36,15 @@ export function AvatarWithInitials({
       'bg-cyan-500'
     ];
     
-    const index = initials.charCodeAt(0) + initials.charCodeAt(1);
+    // Handle undefined or empty initials
+    if (!initials || initials.length === 0) {
+      return colors[0]; // Default to first color
+    }
+    
+    // Safe way to get char codes
+    const charCode1 = initials.charCodeAt(0) || 0;
+    const charCode2 = initials.length > 1 ? initials.charCodeAt(1) || 0 : 0;
+    const index = charCode1 + charCode2;
     return colors[index % colors.length];
   };
 
@@ -43,11 +53,11 @@ export function AvatarWithInitials({
       className={cn(
         'flex items-center justify-center rounded-full text-white font-semibold',
         sizeClasses[size],
-        getColorFromInitials(initials),
+        getColorFromInitials(safeInitials),
         className
       )}
     >
-      {initials}
+      {safeInitials}
     </div>
   );
 } 

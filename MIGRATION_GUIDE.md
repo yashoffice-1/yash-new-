@@ -1,337 +1,382 @@
-# Migration Guide: Supabase Edge Functions → Node.js + Prisma
+# Migration Guide: From Custom JWT to Supabase Authentication
 
-This guide will help you migrate from the current Supabase Edge Functions setup to a Node.js backend with Prisma ORM while keeping Supabase as your database.
+## Overview
+This guide helps you migrate from the current custom JWT authentication system to Supabase authentication with email verification and password reset functionality.
 
-## 🎯 Migration Overview
+## Prerequisites
+- Supabase project created
+- Supabase URL and anon key
+- Access to your database
 
-### What's Changing
-- **Backend**: Supabase Edge Functions → Node.js Express server
-- **ORM**: Direct Supabase client → Prisma ORM
-- **Database**: Supabase PostgreSQL (unchanged)
-- **Frontend**: Updated API client to use new backend
+## Step 1: Set Up Supabase Project
 
-### What's Staying the Same
-- **Database**: Supabase PostgreSQL
-- **Frontend**: React + TypeScript + Vite
-- **UI**: shadcn/ui components
-- **Authentication**: Supabase Auth (optional)
+1. **Create Supabase Project**
+   - Go to [supabase.com](https://supabase.com)
+   - Create a new project
+   - Note your project URL and anon key
 
-## 📋 Pre-Migration Checklist
-
-- [ ] Backup your current database
-- [ ] Note down all current API endpoints
-- [ ] Document current environment variables
-- [ ] Test current functionality
-
-## 🚀 Step-by-Step Migration
-
-### Step 1: Set Up Node.js Backend
-
-1. **Navigate to backend directory**
-   ```bash
-   cd backend
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Configure environment variables**
-   ```bash
-   cp env.example .env
-   ```
-   
-   Update `.env` with your actual values:
+2. **Configure Environment Variables**
    ```env
-   DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.speqcclarritenwiyrzl.supabase.co:5432/postgres"
-   PORT=3001
-   NODE_ENV=development
-   OPENAI_API_KEY=[YOUR-OPENAI-API-KEY]
-   HEYGEN_API_KEY=[YOUR-HEYGEN-API-KEY]
-   RUNWAYML_API_KEY=[YOUR-RUNWAYML-API-KEY]
+   # .env
+   VITE_SUPABASE_URL=your-supabase-project-url
+   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
    ```
 
-4. **Set up Prisma**
-   ```bash
-   npm run db:generate
-   npm run db:push
-   ```
+## Step 2: Database Schema Changes
 
-5. **Start the backend server**
-   ```bash
-   npm run dev
-   ```
+### 2.1 Run Prisma Migration
 
-### Step 2: Update Frontend Configuration
+Execute this command to add the required fields:
 
-1. **Create frontend environment file**
-   ```bash
-   cp frontend.env.example .env
-   ```
-
-2. **Update frontend environment variables**
-   ```env
-   VITE_BACKEND_URL=http://localhost:3001
-   VITE_SUPABASE_URL=
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-   ```
-
-### Step 3: Update Frontend API Calls
-
-Replace Supabase client calls with the new API client:
-
-#### Before (Supabase)
-```typescript
-import { supabase } from '@/integrations/supabase/client';
-
-// Get inventory
-const { data, error } = await supabase
-  .from('inventory')
-  .select('*');
-
-// Create asset
-const { data, error } = await supabase
-  .from('asset_library')
-  .insert(newAsset);
+```bash
+cd backend
+npx prisma migrate dev --name add_user_id_and_soft_delete_fields
 ```
 
-#### After (Node.js Backend)
-```typescript
-import { inventoryAPI, assetsAPI } from '@/api/backend-client';
+This will:
+- ✅ Add `user_id` fields to all tables
+- ✅ Add `is_active` and `deleted_at` fields
+- ✅ Create migration files for easy rollback
 
-// Get inventory
-const response = await inventoryAPI.getAll();
-const data = response.data.data;
+### 2.2 Run Supabase Auth Setup
 
-// Create asset
-const response = await assetsAPI.create(newAsset);
-const data = response.data.data;
+After Prisma migration, run this SQL script in your Supabase SQL Editor:
+
+```sql
+-- Supabase Authentication Setup
+-- Run this AFTER Prisma migrations to set up auth-specific features
+
+-- 1. Enable Row Level Security on all tables
+ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.generated_assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.asset_library ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.social_media_connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.social_media_cached_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- 2. Create RLS policies for inventory
+CREATE POLICY "Verified users can manage own inventory" ON public.inventory
+  FOR ALL USING (
+    auth.uid() = user_id AND 
+    is_active = true AND 
+    deleted_at IS NULL
+  );
+
+-- 3. Create RLS policies for generated_assets
+CREATE POLICY "Verified users can manage own generated assets" ON public.generated_assets
+  FOR ALL USING (
+    auth.uid() = user_id AND 
+    is_active = true AND 
+    deleted_at IS NULL
+  );
+
+-- 4. Create RLS policies for asset_library
+CREATE POLICY "Verified users can manage own asset library" ON public.asset_library
+  FOR ALL USING (
+    auth.uid() = user_id AND 
+    is_active = true AND 
+    deleted_at IS NULL
+  );
+
+-- 5. Create RLS policies for social_media_connections
+CREATE POLICY "Verified users can manage own social connections" ON public.social_media_connections
+  FOR ALL USING (
+    auth.uid() = profile_id AND 
+    is_active = true
+  );
+
+-- 6. Create RLS policies for social_media_cached_data
+CREATE POLICY "Verified users can manage own cached data" ON public.social_media_cached_data
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.social_media_connections 
+      WHERE id = connection_id AND profile_id = auth.uid()
+    )
+  );
+
+-- 7. Create RLS policies for profiles
+CREATE POLICY "Verified users can manage own profile" ON public.profiles
+  FOR ALL USING (
+    auth.uid() = id AND 
+    is_active = true AND 
+    deleted_at IS NULL
+  );
+
+-- 8. Create function to handle user creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, first_name, last_name, display_name, initials, password)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'display_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'initials', ''),
+    '' -- Empty password since Supabase handles auth
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 9. Create trigger for new user creation
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- 10. Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 11. Create trigger for updated_at on profiles
+DROP TRIGGER IF EXISTS handle_profiles_updated_at ON public.profiles;
+CREATE TRIGGER handle_profiles_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- 12. Update existing records to have default values
+UPDATE public.inventory SET is_active = true WHERE is_active IS NULL;
+UPDATE public.generated_assets SET is_active = true WHERE is_active IS NULL;
+UPDATE public.asset_library SET is_active = true WHERE is_active IS NULL;
+UPDATE public.profiles SET is_active = true WHERE is_active IS NULL;
+
+-- 13. Create indexes for performance
+CREATE INDEX IF NOT EXISTS inventory_user_id_idx ON public.inventory(user_id);
+CREATE INDEX IF NOT EXISTS inventory_is_active_idx ON public.inventory(is_active);
+CREATE INDEX IF NOT EXISTS generated_assets_user_id_idx ON public.generated_assets(user_id);
+CREATE INDEX IF NOT EXISTS generated_assets_is_active_idx ON public.generated_assets(is_active);
+CREATE INDEX IF NOT EXISTS asset_library_user_id_idx ON public.asset_library(user_id);
+CREATE INDEX IF NOT EXISTS asset_library_is_active_idx ON public.asset_library(is_active);
+CREATE INDEX IF NOT EXISTS profiles_is_active_idx ON public.profiles(is_active);
 ```
 
-### Step 4: Update AI Generation Calls
+## Step 3: Frontend Changes
 
-#### Before (Supabase Edge Functions)
-```typescript
-// HeyGen generation
-const response = await fetch('/functions/v1/heygen-generate', {
-  method: 'POST',
-  body: JSON.stringify({ templateId, instruction })
-});
+### 3.1 Updated Files
+The following files have been updated to use Supabase authentication:
 
-// OpenAI generation
-const response = await fetch('/functions/v1/openai-generate', {
-  method: 'POST',
-  body: JSON.stringify({ prompt, type: 'text' })
-});
+- ✅ `src/contexts/AuthContext.tsx` - Complete Supabase integration
+- ✅ `src/components/auth/ProtectedRoute.tsx` - Email verification enforcement
+- ✅ `src/App.tsx` - New authentication routes
+- ✅ `src/pages/auth/ForgotPassword.tsx` - Password reset request
+- ✅ `src/pages/auth/ResetPassword.tsx` - Password reset completion
+- ✅ `src/pages/auth/VerifyEmail.tsx` - Email verification page
+- ✅ `src/components/auth/SignUpForm.tsx` - Redirects to verification
+
+### 3.2 New Authentication Flow
+
+```
+1. User Signs Up → Account created (unverified)
+2. User receives verification email
+3. User clicks verification link → Email verified
+4. User can now sign in and access app
+5. Unverified users are blocked from all app features
 ```
 
-#### After (Node.js Backend)
+## Step 4: Backend Changes
+
+### 4.1 Remove Custom Auth Routes
+Remove or update these backend routes:
+- `POST /auth/signup` - Now handled by Supabase
+- `POST /auth/signin` - Now handled by Supabase
+- `POST /auth/verify-email` - Now handled by Supabase
+- `POST /auth/reset-password` - Now handled by Supabase
+
+### 4.2 Update API Routes
+All API routes should now:
+1. Verify Supabase JWT tokens
+2. Use `auth.uid()` for user identification
+3. Include user_id in all database operations
+4. Filter by `is_active = true` and `deleted_at IS NULL`
+
+Example:
 ```typescript
-import { aiAPI } from '@/api/backend-client';
+// Before (custom JWT)
+const userId = req.user.id;
 
-// HeyGen generation
-const response = await aiAPI.heygenGenerate({
-  templateId,
-  instruction,
-  formatSpecs: { channel: 'social_media' }
-});
-
-// OpenAI generation
-const response = await aiAPI.openaiGenerate({
-  prompt,
-  type: 'text',
-  options: { maxTokens: 1000 }
-});
+// After (Supabase)
+const { data: { user } } = await supabase.auth.getUser();
+const userId = user?.id;
 ```
 
-### Step 5: Test the Migration
+## Step 5: Data Migration
 
-1. **Test backend health**
-   ```bash
-   curl http://localhost:3001/health
-   ```
+### 5.1 Migrate Existing Users
+If you have existing users, you'll need to:
 
-2. **Test API endpoints**
-   ```bash
-   # Test inventory API
-   curl http://localhost:3001/api/inventory
-   
-   # Test assets API
-   curl http://localhost:3001/api/assets
-   
-   # Test AI API
-   curl http://localhost:3001/api/ai/stats
-   ```
+1. **Create Supabase accounts** for existing users
+2. **Migrate user data** to the new profiles table
+3. **Update existing records** with user_id foreign keys
 
-3. **Test frontend integration**
-   - Start frontend: `npm run dev`
-   - Navigate to inventory page
-   - Test CRUD operations
-   - Test AI generation
+```sql
+-- Example migration script for existing users
+INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, created_at)
+SELECT 
+  gen_random_uuid(),
+  email,
+  crypt(password, gen_salt('bf')),
+  CASE WHEN status = 'verified' THEN NOW() ELSE NULL END,
+  created_at
+FROM old_profiles_table;
 
-## 🔄 API Endpoint Mapping
+-- Then update existing records with user_id
+UPDATE inventory SET user_id = (SELECT id FROM auth.users WHERE email = 'user@example.com')
+WHERE user_id IS NULL;
+```
 
-| Supabase Edge Function | Node.js Backend Endpoint |
-|------------------------|--------------------------|
-| `heygen-generate` | `POST /api/ai/heygen/generate` |
-| `heygen-status-check` | `GET /api/ai/heygen/status/:videoId` |
-| `openai-generate` | `POST /api/ai/openai/generate` |
-| `runwayml-generate` | `POST /api/ai/runwayml/generate` |
-| Direct DB queries | Prisma ORM calls |
+### 5.2 Update Existing Records
+```sql
+-- Set default values for existing records
+UPDATE inventory SET is_active = true WHERE is_active IS NULL;
+UPDATE generated_assets SET is_active = true WHERE is_active IS NULL;
+UPDATE asset_library SET is_active = true WHERE is_active IS NULL;
+```
 
-## 🛠️ Troubleshooting
+## Step 6: Testing
+
+### 6.1 Test Authentication Flow
+1. **Sign Up** → Should redirect to email verification
+2. **Verify Email** → Should allow access to app
+3. **Sign In (unverified)** → Should show verification required
+4. **Forgot Password** → Should send reset email
+5. **Reset Password** → Should allow password change
+
+### 6.2 Test Data Access
+1. **Verified user** → Should access own data only
+2. **Unverified user** → Should be blocked from all data
+3. **Different user** → Should not access other users' data
+
+## Step 7: Security Verification
+
+### 7.1 Row Level Security (RLS)
+Verify RLS policies are working:
+```sql
+-- Test RLS policies
+SELECT * FROM inventory WHERE user_id = auth.uid();
+-- Should only return current user's data
+```
+
+### 7.2 Email Verification Enforcement
+- Unverified users cannot sign in
+- Unverified users cannot access protected routes
+- Unverified users cannot access API endpoints
+
+## ROLLBACK GUIDE
+
+### Safe Rollback (Keep Data)
+If you need to rollback at any stage:
+
+#### Step 1: Rollback Supabase Changes
+Run this SQL script in Supabase SQL Editor:
+
+```sql
+-- Supabase Authentication Rollback Script
+-- Run this to undo all Supabase auth changes
+
+-- 1. Drop all RLS policies
+DROP POLICY IF EXISTS "Verified users can manage own inventory" ON public.inventory;
+DROP POLICY IF EXISTS "Verified users can manage own generated assets" ON public.generated_assets;
+DROP POLICY IF EXISTS "Verified users can manage own asset library" ON public.asset_library;
+DROP POLICY IF EXISTS "Verified users can manage own social connections" ON public.social_media_connections;
+DROP POLICY IF EXISTS "Verified users can manage own cached data" ON public.social_media_cached_data;
+DROP POLICY IF EXISTS "Verified users can manage own profile" ON public.profiles;
+
+-- 2. Disable Row Level Security on all tables
+ALTER TABLE public.inventory DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.generated_assets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.asset_library DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.social_media_connections DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.social_media_cached_data DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles DISABLE ROW LEVEL SECURITY;
+
+-- 3. Drop triggers
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP TRIGGER IF EXISTS handle_profiles_updated_at ON public.profiles;
+
+-- 4. Drop functions
+DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP FUNCTION IF EXISTS public.handle_updated_at();
+
+-- 5. Drop indexes (optional - for complete rollback)
+DROP INDEX IF EXISTS inventory_user_id_idx;
+DROP INDEX IF EXISTS inventory_is_active_idx;
+DROP INDEX IF EXISTS generated_assets_user_id_idx;
+DROP INDEX IF EXISTS generated_assets_is_active_idx;
+DROP INDEX IF EXISTS asset_library_user_id_idx;
+DROP INDEX IF EXISTS asset_library_is_active_idx;
+DROP INDEX IF EXISTS profiles_is_active_idx;
+
+-- 6. Remove user_id columns (WARNING: This will delete data!)
+-- Uncomment these lines ONLY if you want to completely remove user_id columns
+-- ALTER TABLE public.inventory DROP COLUMN IF EXISTS user_id;
+-- ALTER TABLE public.generated_assets DROP COLUMN IF EXISTS user_id;
+-- ALTER TABLE public.asset_library DROP COLUMN IF EXISTS user_id;
+
+-- 7. Remove soft delete columns (WARNING: This will delete data!)
+-- Uncomment these lines ONLY if you want to completely remove soft delete columns
+-- ALTER TABLE public.inventory DROP COLUMN IF EXISTS is_active;
+-- ALTER TABLE public.inventory DROP COLUMN IF EXISTS deleted_at;
+-- ALTER TABLE public.generated_assets DROP COLUMN IF EXISTS is_active;
+-- ALTER TABLE public.generated_assets DROP COLUMN IF EXISTS deleted_at;
+-- ALTER TABLE public.asset_library DROP COLUMN IF EXISTS is_active;
+-- ALTER TABLE public.asset_library DROP COLUMN IF EXISTS deleted_at;
+-- ALTER TABLE public.profiles DROP COLUMN IF EXISTS is_active;
+-- ALTER TABLE public.profiles DROP COLUMN IF EXISTS deleted_at;
+```
+
+#### Step 2: Rollback Prisma Changes
+```bash
+cd backend
+npx prisma migrate reset
+```
+
+### Complete Rollback (Remove Everything)
+1. **Uncomment the dangerous lines** in the rollback script above
+2. **Run the rollback script** in Supabase
+3. **Rollback Prisma migration**
+4. **Revert frontend changes** with git
+
+## Troubleshooting
 
 ### Common Issues
 
-1. **Database Connection Error**
-   ```
-   Error: P1001: Can't reach database server
-   ```
-   **Solution**: Check `DATABASE_URL` and ensure Supabase database is accessible
+1. **"User not found" errors**
+   - Check if user exists in `auth.users` table
+   - Verify email verification status
 
-2. **CORS Error**
-   ```
-   Access to fetch at 'http://localhost:3001/api/...' from origin 'http://localhost:8080' has been blocked by CORS policy
-   ```
-   **Solution**: Update `CORS_ORIGIN` in backend `.env` to include `http://localhost:8080`
+2. **RLS policy violations**
+   - Ensure user is authenticated
+   - Check if user_id matches auth.uid()
+   - Verify is_active and deleted_at filters
 
-3. **Prisma Client Not Generated**
-   ```
-   Error: PrismaClient is not generated
-   ```
-   **Solution**: Run `npm run db:generate` in backend directory
+3. **Email verification not working**
+   - Check Supabase email settings
+   - Verify email templates
+   - Check spam folder
 
-4. **API Key Errors**
-   ```
-   Error: OpenAI API key not configured
-   ```
-   **Solution**: Add API keys to backend `.env` file
+### Debug Commands
+```sql
+-- Check user verification status
+SELECT id, email, email_confirmed_at FROM auth.users;
 
-### Debug Mode
+-- Check RLS policies
+SELECT * FROM pg_policies WHERE tablename = 'inventory';
 
-Enable debug logging:
-```bash
-# Backend
-NODE_ENV=development npm run dev
-
-# Frontend
-VITE_DEV_MODE=true npm run dev
+-- Test data access
+SELECT * FROM inventory WHERE user_id = 'your-user-id';
 ```
 
-## 📊 Performance Comparison
+## Support
 
-### Before (Supabase Edge Functions)
-- ✅ Serverless, auto-scaling
-- ✅ No server management
-- ❌ Cold start latency
-- ❌ Limited execution time
-- ❌ Less control over environment
-
-### After (Node.js + Prisma)
-- ✅ Full control over server
-- ✅ Better performance
-- ✅ Custom middleware
-- ✅ Advanced error handling
-- ✅ Better debugging
-- ❌ Server management required
-- ❌ Manual scaling
-
-## 🔒 Security Considerations
-
-### New Security Features
-- **Rate Limiting**: Prevents API abuse
-- **Input Validation**: Zod schema validation
-- **Security Headers**: Helmet middleware
-- **Error Handling**: Centralized error management
-- **Request Logging**: Audit trail
-
-### Environment Variables
-Ensure all sensitive data is in environment variables:
-- API keys
-- Database credentials
-- JWT secrets
-
-## 🚀 Deployment
-
-### Development
-```bash
-# Backend
-cd backend && npm run dev
-
-# Frontend
-npm run dev
-```
-
-### Production
-```bash
-# Backend
-cd backend && npm run build && npm start
-
-# Frontend
-npm run build
-```
-
-### Environment Variables for Production
-- Set `NODE_ENV=production`
-- Configure production database URL
-- Set all API keys
-- Configure CORS for production domain
-
-## 📈 Monitoring
-
-### Health Checks
-- Backend: `GET /health`
-- Database: Prisma connection test
-- API endpoints: Response time monitoring
-
-### Logging
-- Request logs: Morgan middleware
-- Error logs: Centralized error handler
-- Database logs: Prisma query logging
-
-## 🔄 Rollback Plan
-
-If you need to rollback:
-
-1. **Stop Node.js backend**
-2. **Revert frontend API calls to Supabase**
-3. **Restart Supabase Edge Functions**
-4. **Update environment variables**
-
-## 📞 Support
-
-If you encounter issues during migration:
-
-1. Check the troubleshooting section
-2. Review error logs
-3. Test individual components
-4. Verify environment configuration
-
-## ✅ Migration Checklist
-
-- [ ] Backend server running on port 3001
-- [ ] Prisma client generated
-- [ ] Database schema synced
-- [ ] Environment variables configured
-- [ ] Frontend connecting to backend
-- [ ] All API endpoints working
-- [ ] AI generation functional
-- [ ] Asset management working
-- [ ] Inventory management working
-- [ ] Error handling working
-- [ ] Security features enabled
-- [ ] Performance acceptable
-- [ ] Tests passing
-
-## 🎉 Post-Migration
-
-After successful migration:
-
-1. **Monitor performance**
-2. **Set up production deployment**
-3. **Configure monitoring**
-4. **Update documentation**
-5. **Train team on new architecture**
-
-Congratulations! You now have full control over your backend with Node.js and Prisma while maintaining the power of Supabase's PostgreSQL database. 
+For issues with:
+- **Supabase setup**: Check [Supabase docs](https://supabase.com/docs)
+- **Authentication flow**: Review the updated AuthContext
+- **Database issues**: Check migration scripts
+- **Frontend issues**: Review component updates 

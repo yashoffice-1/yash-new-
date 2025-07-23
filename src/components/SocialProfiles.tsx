@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { apiGet, apiPost, apiDelete } from "@/utils/api";
 import { 
   Instagram, 
   Facebook, 
@@ -49,20 +50,14 @@ export function SocialProfiles() {
 
   const fetchConnections = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/social/connections', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setConnections(data.connections);
-      }
+      console.log('🔄 Fetching social connections...');
+      const data = await apiGet('http://localhost:3001/api/social/connections');
+      console.log('📦 Connections data:', data);
+      setConnections(data.connections || []);
     } catch (error) {
-      console.error('Error fetching connections:', error);
+      console.error('❌ Error fetching connections:', error);
+      // Set empty array on error
+      setConnections([]);
     }
   };
 
@@ -165,27 +160,17 @@ export function SocialProfiles() {
 
   const saveYouTubeConnection = async (oauthResult: any) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/social/youtube/connect', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          accessToken: oauthResult.accessToken,
-          refreshToken: oauthResult.refreshToken,
-          channelId: oauthResult.channelId,
-          channelTitle: oauthResult.channelTitle,
-          platformUserId: oauthResult.platformUserId,
-          platformEmail: oauthResult.platformEmail
-        })
+      await apiPost('http://localhost:3001/api/social/youtube/connect', {
+        accessToken: oauthResult.accessToken,
+        refreshToken: oauthResult.refreshToken,
+        channelId: oauthResult.channelId,
+        channelTitle: oauthResult.channelTitle,
+        platformUserId: oauthResult.platformUserId,
+        platformEmail: oauthResult.platformEmail
       });
       
-      if (response.ok) {
-        // Refresh connections list
-        fetchConnections();
-      }
+      // Refresh connections list
+      fetchConnections();
     } catch (error) {
       console.error('Error saving YouTube connection:', error);
     }
@@ -206,22 +191,13 @@ export function SocialProfiles() {
 
   const handleDisconnect = async (platform: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3001/api/social/connections/${platform}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      await apiDelete(`http://localhost:3001/api/social/connections/${platform}`);
       
-      if (response.ok) {
-        toast({
-          title: "Account Disconnected",
-          description: `Your ${getPlatformName(platform)} account has been disconnected.`,
-        });
-        fetchConnections(); // Refresh connections
-      }
+      toast({
+        title: "Account Disconnected",
+        description: `Your ${getPlatformName(platform)} account has been disconnected.`,
+      });
+      fetchConnections(); // Refresh connections
     } catch (error) {
       console.error('Error disconnecting account:', error);
       toast({

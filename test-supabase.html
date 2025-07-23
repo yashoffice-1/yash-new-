@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Test</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase Connection Test</h1>
+    <div id="status">Testing connection...</div>
+    <div id="result"></div>
+
+    <script>
+        // Replace these with your actual values
+        const SUPABASE_URL = 'https://mbymzyoxzpwmmpypnfol.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY_HERE'; // Replace with your actual anon key
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function testConnection() {
+            const statusDiv = document.getElementById('status');
+            const resultDiv = document.getElementById('result');
+
+            try {
+                // Test 1: Basic connection
+                statusDiv.textContent = 'Testing basic connection...';
+                const { data, error } = await supabase.from('profiles').select('count').limit(1);
+                
+                if (error) {
+                    resultDiv.innerHTML = `<h3>Error:</h3><pre>${JSON.stringify(error, null, 2)}</pre>`;
+                    statusDiv.textContent = '❌ Connection failed';
+                } else {
+                    resultDiv.innerHTML = `<h3>Success:</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    statusDiv.textContent = '✅ Connection successful';
+                }
+
+                // Test 2: Check if we can read profiles
+                const { data: profiles, error: profilesError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .limit(5);
+
+                if (profilesError) {
+                    resultDiv.innerHTML += `<h3>Profiles Error:</h3><pre>${JSON.stringify(profilesError, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML += `<h3>Profiles Data:</h3><pre>${JSON.stringify(profiles, null, 2)}</pre>`;
+                }
+
+            } catch (err) {
+                resultDiv.innerHTML = `<h3>Exception:</h3><pre>${err.message}</pre>`;
+                statusDiv.textContent = '❌ Exception occurred';
+            }
+        }
+
+        // Run the test
+        testConnection();
+    </script>
+</body>
+</html> 

@@ -31,11 +31,11 @@ export function Header() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3">
               <AvatarWithInitials 
-                initials={user.initials} 
+                initials={user.user_metadata?.initials || user.email?.charAt(0).toUpperCase() || 'U'} 
                 size="sm"
               />
               <div className="hidden md:block">
-                <p className="text-sm font-medium">{user.displayName}</p>
+                <p className="text-sm font-medium">{user.user_metadata?.display_name || user.email}</p>
                 <p className="text-xs text-muted-foreground">{user.email}</p>
               </div>
             </div>

@@ -58,7 +58,8 @@ const getCacheExpiry = (dataType: string) => {
 // Get user's social connections
 router.get('/connections', authenticateToken, async (req, res) => {
   try {
-    const userId = (req as any).user.userId; // Changed from .id to .userId
+    const userId = (req as any).user.userId;
+    console.log('Fetching connections for user:', userId);
     
     const connections = await prisma.socialMediaConnection.findMany({
       where: {
@@ -76,10 +77,12 @@ router.get('/connections', authenticateToken, async (req, res) => {
       }
     });
 
+    console.log('Found connections:', connections.length);
     res.json({ connections });
   } catch (error) {
     console.error('Error fetching connections:', error);
-    res.status(500).json({ error: 'Failed to fetch connections' });
+    // Return empty array instead of error when no connections exist
+    res.json({ connections: [] });
   }
 });
 

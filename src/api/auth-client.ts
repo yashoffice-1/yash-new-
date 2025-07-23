@@ -1,6 +1,14 @@
-import axios from 'axios';
+import { createClient } from '@supabase/supabase-js';
+import { apiGet, apiPost } from '@/utils/api';
 
-const BACKEND_URL = 'http://localhost:3001';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface User {
   id: string;
@@ -18,7 +26,6 @@ export interface AuthResponse {
   error?: string;
   data?: {
     user: User;
-    token: string;
   };
 }
 
@@ -34,115 +41,151 @@ export interface SignInData {
   password: string;
 }
 
-// Create axios instance for auth
-const authClient = axios.create({
-  baseURL: `${BACKEND_URL}/api/auth`,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Request interceptor to add auth token
-authClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle auth errors
-authClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-     
-    }
-    return Promise.reject(error);
-  }
-);
-
 export const authAPI = {
-  // Sign up
+  // Sign up with Supabase
   signUp: async (data: SignUpData): Promise<AuthResponse> => {
-    const response = await authClient.post('/signup', data);
-    const result = response.data;
+    try {
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            first_name: data.firstName,
+            last_name: data.lastName,
+            display_name: `${data.firstName} ${data.lastName}`,
+            initials: `${data.firstName.charAt(0).toUpperCase()}${data.lastName.charAt(0).toUpperCase()}`,
+          }
+        }
+      });
 
-    if (result.success && result.data?.token) {
-      localStorage.setItem('token', result.data.token);
-      localStorage.setItem('user', JSON.stringify(result.data.user));
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Account created successfully. Please check your email to verify your account.',
+        data: {
+          user: {
+            id: authData.user?.id || '',
+            email: authData.user?.email || '',
+            firstName: data.firstName,
+            lastName: data.lastName,
+            displayName: `${data.firstName} ${data.lastName}`,
+            initials: `${data.firstName.charAt(0).toUpperCase()}${data.lastName.charAt(0).toUpperCase()}`,
+          }
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to create account'
+      };
     }
-
-    return result;
   },
 
-  // Verify email
-  verifyEmail: async (token: string): Promise<{ success: boolean; message?: string; error?: string; data?: { user: User } }> => {
-    const response = await authClient.post('/verify-email', { token });
-    const result = response.data;
-
-    if (result.success && result.data?.user) {
-      localStorage.setItem('user', JSON.stringify(result.data.user));
-    }
-
-    return result;
-  },
-
-  // Sign in
+  // Sign in with Supabase
   signIn: async (data: SignInData): Promise<AuthResponse> => {
-    const response = await authClient.post('/signin', data);
-    const result = response.data;
-    
-    if (result.success && result.data?.token) {
-      localStorage.setItem('token', result.data.token);
-      localStorage.setItem('user', JSON.stringify(result.data.user));
+    try {
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      if (authData.user) {
+        // Get user profile from backend
+        const profileResponse = await apiGet('http://localhost:3001/api/auth/profile');
+        
+        if (profileResponse.success && profileResponse.data?.user) {
+          return {
+            success: true,
+            message: 'Signed in successfully',
+            data: {
+              user: profileResponse.data.user
+            }
+          };
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Failed to get user profile'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to sign in'
+      };
     }
-    
-    return result;
   },
 
-  // Get current user profile
+  // Get current user profile from backend
   getProfile: async (): Promise<{ success: boolean; data?: { user: User }; error?: string }> => {
-    const response = await authClient.get('/profile');
-    return response.data;
-  },
-
-  // Update profile
-  updateProfile: async (data: { firstName: string; lastName: string }): Promise<{ success: boolean; data?: { user: User }; error?: string }> => {
-    const response = await authClient.put('/profile', data);
-    const result = response.data;
-    
-    if (result.success && result.data?.user) {
-      localStorage.setItem('user', JSON.stringify(result.data.user));
+    try {
+      return await apiGet('http://localhost:3001/api/auth/profile');
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to get profile'
+      };
     }
-    
-    return result;
   },
 
-  // Sign out
-  signOut: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  // Update profile via backend
+  updateProfile: async (data: { firstName: string; lastName: string }): Promise<{ success: boolean; data?: { user: User }; error?: string }> => {
+    try {
+      return await apiPost('http://localhost:3001/api/auth/profile', data);
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update profile'
+      };
+    }
   },
 
-  // Get stored user
-  getStoredUser: (): User | null => {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
+  // Sign out with Supabase
+  signOut: async () => {
+    await supabase.auth.signOut();
+  },
+
+  // Get current Supabase user
+  getCurrentUser: () => {
+    return supabase.auth.getUser();
+  },
+
+  // Get stored user from Supabase session
+  getStoredUser: async (): Promise<User | null> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    // Get profile from backend
+    try {
+      const profileResponse = await apiGet('http://localhost:3001/api/auth/profile');
+      if (profileResponse.success && profileResponse.data?.user) {
+        return profileResponse.data.user;
+      }
+    } catch (error) {
+      console.error('Failed to get profile:', error);
+    }
+
+    return null;
   },
 
   // Check if user is authenticated
-  isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('token');
+  isAuthenticated: async (): Promise<boolean> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    return !!user;
   }
 };
 
-export default authClient; 
+export default authAPI; 

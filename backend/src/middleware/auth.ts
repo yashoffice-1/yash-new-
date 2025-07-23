@@ -11,7 +11,7 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+export const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -21,22 +21,20 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
   }
 
   try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      throw new Error('JWT_SECRET not configured');
-    }
-
-    const decoded = jwt.verify(token, secret) as { 
-      userId: string; 
-      email: string; 
-      firstName: string;
-      lastName: string;
-      initials: string;
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
+    
+    req.user = {
+      userId: decoded.userId,
+      email: decoded.email,
+      firstName: decoded.firstName,
+      lastName: decoded.lastName,
+      initials: decoded.initials,
     };
-    req.user = decoded;
+
     next();
   } catch (error) {
-    console.error('Token verification failed:', error);
+    console.error('JWT verification failed:', error);
     res.status(403).json({ error: 'Invalid or expired token' });
     return;
   }

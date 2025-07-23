@@ -22,16 +22,16 @@ export function UserModule() {
           <CardHeader>
             <div className="flex items-center space-x-4">
               <AvatarWithInitials 
-                initials={user.initials} 
+                initials={user.user_metadata?.initials || user.email?.charAt(0).toUpperCase() || 'U'} 
                 size="lg"
               />
               <div>
-                <CardTitle className="text-xl">{user.displayName}</CardTitle>
+                <CardTitle className="text-xl">{user.user_metadata?.display_name || user.email}</CardTitle>
                 <CardDescription className="text-base">
                   {user.email}
                 </CardDescription>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Member since {new Date(user.createdAt || Date.now()).toLocaleDateString()}
+                  Member since {new Date(user.created_at || Date.now()).toLocaleDateString()}
                 </p>
               </div>
             </div>

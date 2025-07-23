@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,78 +8,76 @@ datasource db {
 }
 
 model ApiKey {
-  id         String   @id @default(cuid())
-  keyValue   String   @map("key_value")
-  provider   String
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  keyValue  String   @map("key_value")
+  provider  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("api_keys")
 }
 
 model AssetLibrary {
-  id              String   @id @default(cuid())
+  id              String          @id @default(cuid())
+  userId          String          @map("user_id")
   title           String
   description     String?
   tags            String[]
-  assetType       String   @map("asset_type")
-  assetUrl        String   @map("asset_url")
-  gifUrl          String?  @map("gif_url")
+  assetType       String          @map("asset_type")
+  assetUrl        String          @map("asset_url")
+  gifUrl          String?         @map("gif_url")
   content         String?
   instruction     String
-  sourceSystem    String   @map("source_system")
-  favorited       Boolean? @default(false)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
-  // Relations
-  originalAsset   GeneratedAsset? @relation("AssetLibraryToGeneratedAsset", fields: [originalAssetId], references: [id])
+  sourceSystem    String          @map("source_system")
+  favorited       Boolean?        @default(false)
+  isActive        Boolean         @default(true) @map("is_active")
+  deletedAt       DateTime?       @map("deleted_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
   originalAssetId String?         @map("original_asset_id")
+  originalAsset   GeneratedAsset? @relation("AssetLibraryToGeneratedAsset", fields: [originalAssetId], references: [id])
 
   @@map("asset_library")
 }
 
 model ClientConfig {
-  id        String   @id @default(cuid())
-  clientId  String   @unique @map("client_id")
-  clientName String  @map("client_name")
-  createdAt DateTime? @default(now()) @map("created_at")
-  updatedAt DateTime? @updatedAt @map("updated_at")
-
-  // Relations
+  id                  String                     @id @default(cuid())
+  clientId            String                     @unique @map("client_id")
+  clientName          String                     @map("client_name")
+  createdAt           DateTime?                  @default(now()) @map("created_at")
+  updatedAt           DateTime?                  @updatedAt @map("updated_at")
   templateAssignments ClientTemplateAssignment[]
 
   @@map("client_configs")
 }
 
 model ClientTemplateAssignment {
-  id             String   @id @default(cuid())
-  clientConfigId String?  @map("client_config_id")
-  templateId     String   @map("template_id")
-  templateName   String?  @map("template_name")
-  assignedAt     DateTime? @default(now()) @map("assigned_at")
-  isActive       Boolean? @default(true) @map("is_active")
-
-  // Relations
+  id             String        @id @default(cuid())
+  clientConfigId String?       @map("client_config_id")
+  templateId     String        @map("template_id")
+  templateName   String?       @map("template_name")
+  assignedAt     DateTime?     @default(now()) @map("assigned_at")
+  isActive       Boolean?      @default(true) @map("is_active")
   clientConfig   ClientConfig? @relation(fields: [clientConfigId], references: [id], onDelete: Cascade)
 
   @@map("client_template_assignments")
 }
 
 model GeneratedAsset {
-  id           String   @id @default(cuid())
-  inventoryId  String?  @map("inventory_id")
-  channel      String
-  format       String
-  sourceSystem String   @map("source_system")
-  assetType    String   @map("asset_type")
-  url          String
-  instruction  String?
-  approved     Boolean? @default(false)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  // Relations
+  id             String         @id @default(cuid())
+  userId         String         @map("user_id")
+  inventoryId    String?        @map("inventory_id")
+  channel        String
+  format         String
+  sourceSystem   String         @map("source_system")
+  assetType      String         @map("asset_type")
+  url            String
+  instruction    String?
+  approved       Boolean?       @default(false)
+  isActive       Boolean        @default(true) @map("is_active")
+  deletedAt      DateTime?      @map("deleted_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
   assetLibraries AssetLibrary[] @relation("AssetLibraryToGeneratedAsset")
 
   @@map("generated_assets")
@@ -90,6 +85,7 @@ model GeneratedAsset {
 
 model Inventory {
   id          String   @id @default(cuid())
+  userId      String   @map("user_id")
   name        String
   description String?
   price       Decimal?
@@ -99,83 +95,77 @@ model Inventory {
   images      String[] @default([])
   metadata    Json?    @default("{}")
   status      String   @default("active")
+  isActive    Boolean  @default(true) @map("is_active")
+  deletedAt   DateTime? @map("deleted_at")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("inventory")
 }
 
-
 model TemplateFallbackVariable {
-  id            String   @id @default(cuid())
-  templateId    String   @map("template_id")
-  variableName  String   @map("variable_name")
-  variableOrder Int?     @default(0) @map("variable_order")
+  id            String    @id @default(cuid())
+  templateId    String    @map("template_id")
+  variableName  String    @map("variable_name")
+  variableOrder Int?      @default(0) @map("variable_order")
   createdAt     DateTime? @default(now()) @map("created_at")
 
   @@map("template_fallback_variables")
 }
 
-enum ProfileStatus {
-  pending
-  verified
-}
-
-model Profile {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  password    String
-  firstName   String   @map("first_name")
-  lastName    String   @map("last_name")
-  displayName String?  @map("display_name")
-  initials    String
-  status      ProfileStatus @default(verified)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  socialConnections SocialMediaConnection[]
-
-  @@map("profiles")
-}
-
 model SocialMediaConnection {
-  id              String   @id @default(cuid())
-  profileId       String   @map("profile_id")
-  platform        String   // 'youtube', 'facebook', 'instagram', 'linkedin', etc.
-  accessToken     String   @map("access_token")
-  refreshToken    String?  @map("refresh_token")
-  tokenExpiresAt  DateTime? @map("token_expires_at")
-  platformUserId  String   @map("platform_user_id")
-  platformUsername String? @map("platform_username")
-  platformEmail   String?  @map("platform_email")
-  channelId       String?  @map("channel_id") // Added for YouTube channel ID
-  isActive        Boolean  @default(true) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  cachedData      SocialMediaCachedData[] // New relation
+  id               String                  @id @default(cuid())
+  profileId        String                  @map("profile_id")
+  platform         String
+  accessToken      String                  @map("access_token")
+  refreshToken     String?                 @map("refresh_token")
+  tokenExpiresAt   DateTime?               @map("token_expires_at")
+  platformUserId   String                  @map("platform_user_id")
+  platformUsername String?                 @map("platform_username")
+  platformEmail    String?                 @map("platform_email")
+  isActive         Boolean                 @default(true) @map("is_active")
+  createdAt        DateTime                @default(now()) @map("created_at")
+  updatedAt        DateTime                @updatedAt @map("updated_at")
+  channelId        String?                 @map("channel_id")
+  cachedData       SocialMediaCachedData[]
+  profiles         profiles                @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@unique([profileId, platform])
   @@map("social_media_connections")
 }
 
-// New model for caching social media data
 model SocialMediaCachedData {
-  id                    String   @id @default(cuid())
-  connectionId          String   @map("connection_id")
-  dataType              String   @map("data_type") // 'stats', 'activity', 'settings'
-  data                  Json     // Store the actual data as JSON
-  lastFetchedAt         DateTime @default(now()) @map("last_fetched_at")
-  expiresAt             DateTime @map("expires_at") // When this cache expires
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  connection            SocialMediaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  id            String                @id @default(cuid())
+  connectionId  String                @map("connection_id")
+  dataType      String                @map("data_type")
+  data          Json
+  lastFetchedAt DateTime              @default(now()) @map("last_fetched_at")
+  expiresAt     DateTime              @map("expires_at")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+  connection    SocialMediaConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
 
   @@unique([connectionId, dataType])
   @@map("social_media_cached_data")
+}
+
+model profiles {
+  id                       String                  @id
+  email                    String                  @unique
+  first_name               String
+  last_name                String
+  display_name             String?
+  initials                 String
+  status                   ProfileStatus           @default(verified)
+  created_at               DateTime                @default(now())
+  updated_at               DateTime                @default(now()) @updatedAt
+  password                 String
+  isActive                 Boolean                 @default(true) @map("is_active")
+  deletedAt                DateTime?               @map("deleted_at")
+  social_media_connections SocialMediaConnection[]
+}
+
+enum ProfileStatus {
+  pending
+  verified
 }

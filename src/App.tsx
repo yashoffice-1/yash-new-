@@ -11,6 +11,9 @@ import { Layout } from "@/components/layout/Layout";
 import { MainContent } from "@/components/MainContent";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
+import VerifyEmail from "@/pages/auth/VerifyEmail";
 
 const queryClient = new QueryClient();
 
@@ -38,12 +41,36 @@ const App = () => (
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/auth/forgot-password" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <ForgotPassword />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/auth/reset-password" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <ResetPassword />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/auth/verify-email" 
+                element={
+                  <ProtectedRoute requireAuth={true} requireEmailVerification={false}>
+                    <VerifyEmail />
+                  </ProtectedRoute>
+                } 
+              />
               
-              {/* Protected Main App Route */}
+              {/* Protected Main App Route - Requires both auth and email verification */}
               <Route 
                 path="/*" 
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireAuth={true} requireEmailVerification={true}>
                     <Layout>
                       <MainContent />
                     </Layout>

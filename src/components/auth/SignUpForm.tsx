@@ -68,12 +68,12 @@ export function SignUpForm() {
       setIsSuccess(true);
       toast({
         title: 'Account created successfully!',
-        description: 'Welcome to the platform!',
+        description: 'Please check your email to verify your account before signing in.',
       });
 
-      // Redirect to dashboard after a delay
+      // Redirect to email verification page after a delay
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate('/auth/verify-email');
       }, 2000);
     } catch (error) {
       setError('root', {
@@ -91,10 +91,10 @@ export function SignUpForm() {
         <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
         <h3 className="text-lg font-semibold">Account Created Successfully!</h3>
         <p className="text-muted-foreground">
-          Welcome to the platform! You can now access all features.
+          Please check your email to verify your account before signing in.
         </p>
-        <Button onClick={() => navigate('/auth/signin')}>
-          Go to Sign In
+        <Button onClick={() => navigate('/auth/verify-email')}>
+          Go to Email Verification
         </Button>
       </div>
     );

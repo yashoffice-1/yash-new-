@@ -1,75 +1,51 @@
-import axios from 'axios';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/utils/api';
 
 // Backend API client configuration
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
-// Create axios instance with default configuration
-const apiClient = axios.create({
-  baseURL: `${BACKEND_URL}/api`,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Request interceptor for adding auth tokens
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor for error handling
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('auth_token');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
+// Helper function to build API URLs
+const buildUrl = (endpoint: string) => `${BACKEND_URL}/api${endpoint}`;
 
 // Inventory API
 export const inventoryAPI = {
   // Get all inventory items
-  getAll: (params?: {
+  getAll: async (params?: {
     page?: number;
     limit?: number;
     search?: string;
     category?: string;
     status?: string;
-  }) => apiClient.get('/inventory', { params }),
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const url = buildUrl(`/inventory${queryParams.toString() ? `?${queryParams.toString()}` : ''}`);
+    return apiGet(url);
+  },
 
   // Get single inventory item
-  getById: (id: string) => apiClient.get(`/inventory/${id}`),
+  getById: (id: string) => apiGet(buildUrl(`/inventory/${id}`)),
 
   // Create new inventory item
-  create: (data: any) => apiClient.post('/inventory', data),
+  create: (data: any) => apiPost(buildUrl('/inventory'), data),
 
   // Update inventory item
-  update: (id: string, data: any) => apiClient.put(`/inventory/${id}`, data),
+  update: (id: string, data: any) => apiPut(buildUrl(`/inventory/${id}`), data),
 
   // Delete inventory item
-  delete: (id: string) => apiClient.delete(`/inventory/${id}`),
+  delete: (id: string) => apiDelete(buildUrl(`/inventory/${id}`)),
 
   // Bulk create inventory items
-  bulkCreate: (items: any[]) => apiClient.post('/inventory/bulk', { items }),
+  bulkCreate: (items: any[]) => apiPost(buildUrl('/inventory/bulk'), { items }),
 };
 
 // Assets API
 export const assetsAPI = {
   // Get all assets
-  getAll: (params?: {
+  getAll: async (params?: {
     page?: number;
     limit?: number;
     assetType?: string;
@@ -77,42 +53,60 @@ export const assetsAPI = {
     favorited?: boolean;
     search?: string;
     tags?: string;
-  }) => apiClient.get('/assets', { params }),
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const url = buildUrl(`/assets${queryParams.toString() ? `?${queryParams.toString()}` : ''}`);
+    return apiGet(url);
+  },
 
   // Get single asset
-  getById: (id: string) => apiClient.get(`/assets/${id}`),
+  getById: (id: string) => apiGet(buildUrl(`/assets/${id}`)),
 
   // Create new asset
-  create: (data: any) => apiClient.post('/assets', data),
+  create: (data: any) => apiPost(buildUrl('/assets'), data),
 
   // Update asset
-  update: (id: string, data: any) => apiClient.put(`/assets/${id}`, data),
+  update: (id: string, data: any) => apiPut(buildUrl(`/assets/${id}`), data),
 
   // Delete asset
-  delete: (id: string) => apiClient.delete(`/assets/${id}`),
+  delete: (id: string) => apiDelete(buildUrl(`/assets/${id}`)),
 
   // Toggle favorite status
-  toggleFavorite: (id: string) => apiClient.patch(`/assets/${id}/favorite`),
+  toggleFavorite: (id: string) => apiPost(buildUrl(`/assets/${id}/favorite`), {}),
 
   // Get generated assets
-  getGenerated: (params?: {
+  getGenerated: async (params?: {
     page?: number;
     limit?: number;
     assetType?: string;
     sourceSystem?: string;
     channel?: string;
     approved?: boolean;
-  }) => apiClient.get('/assets/generated/all', { params }),
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) queryParams.append(key, value.toString());
+      });
+    }
+    const url = buildUrl(`/assets/generated/all${queryParams.toString() ? `?${queryParams.toString()}` : ''}`);
+    return apiGet(url);
+  },
 
   // Create generated asset
-  createGenerated: (data: any) => apiClient.post('/assets/generated', data),
+  createGenerated: (data: any) => apiPost(buildUrl('/assets/generated'), data),
 
   // Update generated asset approval status
   updateApproval: (id: string, approved: boolean) =>
-    apiClient.patch(`/assets/generated/${id}/approve`, { approved }),
+    apiPost(buildUrl(`/assets/generated/${id}/approve`), { approved }),
 
   // Get asset statistics
-  getStats: () => apiClient.get('/assets/stats/overview'),
+  getStats: () => apiGet(buildUrl('/assets/stats/overview')),
 };
 
 // AI Generation API
@@ -122,7 +116,7 @@ export const aiAPI = {
     prompt: string;
     type: 'text' | 'image' | 'video';
     options?: any;
-  }) => apiClient.post('/ai/openai/generate', data),
+  }) => apiPost(buildUrl('/ai/openai/generate'), data),
 
   // HeyGen generation
   heygenGenerate: (data: {
@@ -133,77 +127,77 @@ export const aiAPI = {
       channel?: string;
       format?: string;
     };
-  }) => apiClient.post('/ai/heygen/generate', data),
+  }) => apiPost(buildUrl('/ai/heygen/generate'), data),
 
   // HeyGen status check
-  heygenStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
+  heygenStatus: (videoId: string) => apiGet(buildUrl(`/ai/heygen/status/${videoId}`)),
 
   // RunwayML generation
   runwaymlGenerate: (data: {
     prompt: string;
     options?: any;
-  }) => apiClient.post('/ai/runwayml/generate', data),
+  }) => apiPost(buildUrl('/ai/runwayml/generate'), data),
 
   // Get AI statistics
-  getStats: () => apiClient.get('/ai/stats'),
+  getStats: () => apiGet(buildUrl('/ai/stats')),
 };
 
 // Templates API
 export const templatesAPI = {
   // Get all client configurations
-  getClients: () => apiClient.get('/templates/clients'),
+  getClients: () => apiGet(buildUrl('/templates/clients')),
 
   // Create client configuration
   createClient: (data: { clientId: string; clientName: string }) =>
-    apiClient.post('/templates/clients', data),
+    apiPost(buildUrl('/templates/clients'), data),
 
   // Get template assignments for a client
   getClientAssignments: (clientId: string) =>
-    apiClient.get(`/templates/clients/${clientId}/assignments`),
+    apiGet(buildUrl(`/templates/clients/${clientId}/assignments`)),
 
   // Assign template to client
   assignTemplate: (clientId: string, data: {
     templateId: string;
     templateName?: string;
     isActive?: boolean;
-  }) => apiClient.post(`/templates/clients/${clientId}/assignments`, data),
+  }) => apiPost(buildUrl(`/templates/clients/${clientId}/assignments`), data),
 
   // Get fallback variables for a template
   getFallbackVariables: (templateId: string) =>
-    apiClient.get(`/templates/fallback-variables/${templateId}`),
+    apiGet(buildUrl(`/templates/fallback-variables/${templateId}`)),
 
   // Create fallback variables
   createFallbackVariables: (templateId: string, variables: any[]) =>
-    apiClient.post('/templates/fallback-variables', { templateId, variables }),
+    apiPost(buildUrl('/templates/fallback-variables'), { templateId, variables }),
 
   // Get available templates
-  getAvailable: () => apiClient.get('/templates/available'),
+  getAvailable: () => apiGet(buildUrl('/templates/available')),
 
   // Get template statistics
-  getStats: () => apiClient.get('/templates/stats'),
+  getStats: () => apiGet(buildUrl('/templates/stats')),
 };
 
 // Auth API
 export const authAPI = {
   // Get all API keys
-  getApiKeys: () => apiClient.get('/auth/api-keys'),
+  getApiKeys: () => apiGet(buildUrl('/auth/api-keys')),
 
   // Create new API key
   createApiKey: (data: { keyValue: string; provider: string }) =>
-    apiClient.post('/auth/api-keys', data),
+    apiPost(buildUrl('/auth/api-keys'), data),
 
   // Delete API key
-  deleteApiKey: (id: string) => apiClient.delete(`/auth/api-keys/${id}`),
+  deleteApiKey: (id: string) => apiDelete(buildUrl(`/auth/api-keys/${id}`)),
 
   // Get API key by provider
   getApiKeyByProvider: (provider: string) =>
-    apiClient.get(`/auth/api-keys/provider/${provider}`),
+    apiGet(buildUrl(`/auth/api-keys/provider/${provider}`)),
 
   // Health check
-  health: () => apiClient.get('/auth/health'),
+  health: () => apiGet(buildUrl('/auth/health')),
 };
 
 // Health check for backend
-export const healthCheck = () => apiClient.get('/health');
+export const healthCheck = () => apiGet(buildUrl('/health'));
 
-export default apiClient; 
+export default { inventoryAPI, assetsAPI, aiAPI, templatesAPI, authAPI, healthCheck }; 
