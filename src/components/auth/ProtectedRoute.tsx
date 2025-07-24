@@ -14,7 +14,7 @@ export function ProtectedRoute({
   requireAuth = true, 
   redirectTo = '/auth/signin' 
 }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, isVerified } = useAuth();
   const location = useLocation();
 
   // Show loading spinner while checking authentication
@@ -27,8 +27,13 @@ export function ProtectedRoute({
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 
+  // If user is authenticated but not verified, block access to protected routes
+  if (requireAuth && user && !isVerified) {
+    return <Navigate to="/auth/verify-email" replace />;
+  }
+
   // If authentication is not required and user is authenticated (e.g., for auth pages)
-  if (!requireAuth && user) {
+  if (!requireAuth && user && isVerified) {
     return <Navigate to="/dashboard" replace />;
   }
 

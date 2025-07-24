@@ -9,6 +9,8 @@ export interface User {
   lastName: string;
   displayName: string;
   initials: string;
+  emailVerified: boolean;
+  status: 'pending' | 'verified';
   createdAt?: string;
 }
 
@@ -64,7 +66,6 @@ authClient.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-     
     }
     return Promise.reject(error);
   }
@@ -76,8 +77,8 @@ export const authAPI = {
     const response = await authClient.post('/signup', data);
     const result = response.data;
 
-    if (result.success && result.data?.token) {
-      localStorage.setItem('token', result.data.token);
+    // Don't store token on signup - user needs to verify email first
+    if (result.success && result.data?.user) {
       localStorage.setItem('user', JSON.stringify(result.data.user));
     }
 
@@ -85,15 +86,22 @@ export const authAPI = {
   },
 
   // Verify email
-  verifyEmail: async (token: string): Promise<{ success: boolean; message?: string; error?: string; data?: { user: User } }> => {
+  verifyEmail: async (token: string): Promise<{ success: boolean; message?: string; error?: string; data?: { user: User; token: string } }> => {
     const response = await authClient.post('/verify-email', { token });
     const result = response.data;
 
-    if (result.success && result.data?.user) {
+    if (result.success && result.data?.user && result.data?.token) {
+      localStorage.setItem('token', result.data.token);
       localStorage.setItem('user', JSON.stringify(result.data.user));
     }
 
     return result;
+  },
+
+  // Resend verification email
+  resendVerification: async (email: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+    const response = await authClient.post('/resend-verification', { email });
+    return response.data;
   },
 
   // Sign in
@@ -107,6 +115,18 @@ export const authAPI = {
     }
     
     return result;
+  },
+
+  // Forgot password
+  forgotPassword: async (email: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+    const response = await authClient.post('/forgot-password', { email });
+    return response.data;
+  },
+
+  // Reset password
+  resetPassword: async (token: string, password: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+    const response = await authClient.post('/reset-password', { token, password });
+    return response.data;
   },
 
   // Get current user profile

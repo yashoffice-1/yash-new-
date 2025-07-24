@@ -48,10 +48,10 @@ export function SignUpForm() {
     setIsLoading(true);
     
     try {
-      const { error } = await signUp(data.email, data.password, data.firstName, data.lastName);
+      const result = await signUp(data.email, data.password, data.firstName, data.lastName);
       
-      if (error) {
-        if (error.includes('already exists')) {
+      if (result.error) {
+        if (result.error.includes('already exists')) {
           setError('email', {
             type: 'manual',
             message: 'An account with this email already exists.',
@@ -59,7 +59,7 @@ export function SignUpForm() {
         } else {
           setError('root', {
             type: 'manual',
-            message: error,
+            message: result.error,
           });
         }
         return;
@@ -68,13 +68,11 @@ export function SignUpForm() {
       setIsSuccess(true);
       toast({
         title: 'Account created successfully!',
-        description: 'Welcome to the platform!',
+        description: 'Please Verify your email to continue!',
       });
 
       // Redirect to dashboard after a delay
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
+    
     } catch (error) {
       setError('root', {
         type: 'manual',
@@ -91,7 +89,7 @@ export function SignUpForm() {
         <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
         <h3 className="text-lg font-semibold">Account Created Successfully!</h3>
         <p className="text-muted-foreground">
-          Welcome to the platform! You can now access all features.
+          Welcome to the platform. <br/> Please Verify your email to continue!.
         </p>
         <Button onClick={() => navigate('/auth/signin')}>
           Go to Sign In

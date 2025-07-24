@@ -129,7 +129,10 @@ model Profile {
   lastName    String   @map("last_name")
   displayName String?  @map("display_name")
   initials    String
-  status      ProfileStatus @default(verified)
+  status      ProfileStatus @default(pending)
+  emailVerified Boolean @default(false) @map("email_verified")
+  emailVerificationToken String? @map("email_verification_token")
+  emailVerificationExpires DateTime? @map("email_verification_expires")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

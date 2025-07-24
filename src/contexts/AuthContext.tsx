@@ -4,10 +4,12 @@ import { authAPI, User } from '@/api/auth-client';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isVerified: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<{ error?: string }>;
   signOut: () => void;
   updateProfile: (firstName: string, lastName: string) => Promise<{ error?: string }>;
+  resendVerification: (email: string) => Promise<{ error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -15,6 +17,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Computed property to check if user is verified
+  const isVerified = user?.emailVerified === true && user?.status === 'verified';
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -79,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-    const updateProfile = async (firstName: string, lastName: string) => {
+  const updateProfile = async (firstName: string, lastName: string) => {
     try {
       const response = await authAPI.updateProfile({ firstName, lastName });
 
@@ -94,15 +99,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-
+  const resendVerification = async (email: string) => {
+    try {
+      const response = await authAPI.resendVerification(email);
+      
+      if (response.success) {
+        return {};
+      } else {
+        return { error: response.error || 'Failed to resend verification email' };
+      }
+    } catch (error: any) {
+      return { error: error.response?.data?.error || 'Failed to resend verification email' };
+    }
+  };
 
   const value = {
     user,
     loading,
+    isVerified,
     signIn,
     signUp,
     signOut,
     updateProfile,
+    resendVerification,
   };
 
   return (

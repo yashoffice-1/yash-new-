@@ -19,48 +19,56 @@ const signInSchema = z.object({
 type SignInFormData = z.infer<typeof signInSchema>;
 
 export function SignInForm() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // <-- Add this line
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setError,
-  } = useForm<SignInFormData>({
+  const form = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
   });
 
   const onSubmit = async (data: SignInFormData) => {
     setIsLoading(true);
-    
     try {
-      const { error } = await signIn(data.email, data.password);
+      const result = await signIn(data.email, data.password);
       
-      if (error) {
-        setError('root', {
-          type: 'manual',
-          message: error,
+      if (result.error) {
+        // Check if it's an email verification error
+        if (result.error.includes('verify your email')) {
+          toast({
+            title: "Email Not Verified",
+            description: result.error,
+            variant: "destructive",
+          });
+          
+          // Navigate to email verification page
+          navigate('/auth/verify-email');
+        } else {
+          toast({
+            title: "Sign In Failed",
+            description: result.error,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Welcome Back!",
+          description: "You have been successfully signed in.",
         });
-        return;
+        
+        navigate('/dashboard');
       }
-
-      toast({
-        title: 'Welcome back!',
-        description: 'You have successfully signed in.',
-      });
-
-      // Navigate to the intended destination or dashboard
-      const params = new URLSearchParams(window.location.search);
-      const redirectTo = params.get('redirectTo') || '/dashboard';
-      navigate(redirectTo);
     } catch (error) {
-      setError('root', {
-        type: 'manual',
-        message: 'An unexpected error occurred. Please try again.',
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -68,10 +76,10 @@ export function SignInForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {errors.root && (
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      {form.formState.errors.root && (
         <Alert variant="destructive">
-          <AlertDescription>{errors.root.message}</AlertDescription>
+          <AlertDescription>{form.formState.errors.root.message}</AlertDescription>
         </Alert>
       )}
 
@@ -81,11 +89,11 @@ export function SignInForm() {
           id="email"
           type="email"
           placeholder="Enter your email"
-          {...register('email')}
-          className={errors.email ? 'border-red-500' : ''}
+          {...form.register('email')}
+          className={form.formState.errors.email ? 'border-red-500' : ''}
         />
-        {errors.email && (
-          <p className="text-sm text-red-500">{errors.email.message}</p>
+        {form.formState.errors.email && (
+          <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
         )}
       </div>
 
@@ -96,8 +104,8 @@ export function SignInForm() {
             id="password"
             type={showPassword ? 'text' : 'password'}
             placeholder="Enter your password"
-            {...register('password')}
-            className={errors.password ? 'border-red-500' : ''}
+            {...form.register('password')}
+            className={form.formState.errors.password ? 'border-red-500' : ''}
           />
           <Button
             type="button"
@@ -113,8 +121,8 @@ export function SignInForm() {
             )}
           </Button>
         </div>
-        {errors.password && (
-          <p className="text-sm text-red-500">{errors.password.message}</p>
+        {form.formState.errors.password && (
+          <p className="text-sm text-red-500">{form.formState.errors.password.message}</p>
         )}
       </div>
 

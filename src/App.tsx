@@ -12,6 +12,7 @@ import { MainContent } from "@/components/MainContent";
 import { OAuthCallback } from "@/components/OAuthCallback";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
+import { EmailVerification } from "@/components/auth/EmailVerification";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requireAuth={false}>
                     <SignUp />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Email Verification Route */}
+              <Route 
+                path="/auth/verify-email" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <EmailVerification />
                   </ProtectedRoute>
                 } 
               />
