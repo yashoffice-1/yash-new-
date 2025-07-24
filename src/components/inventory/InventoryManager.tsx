@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, Upload, Package, Edit, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddProductDialog } from "./AddProductDialog";
 import { ImportProductsDialog } from "./ImportProductsDialog";
 import { ProductCard } from "./ProductCard";
+import { inventoryAPI } from "@/api/backend-client";
 
 interface InventoryItem {
   id: string;
@@ -40,59 +40,43 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
 
   // Fetch inventory items
-  const { data: inventory, isLoading, refetch } = useQuery({
+  const { data: inventoryResponse, isLoading, refetch } = useQuery({
     queryKey: ['inventory', searchTerm, categoryFilter],
     queryFn: async () => {
-      let query = supabase
-        .from('inventory')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+      const params: any = {
+        status: 'active',
+        limit: 100
+      };
 
       if (searchTerm) {
-        query = query.ilike('name', `%${searchTerm}%`);
+        params.search = searchTerm;
       }
 
       if (categoryFilter) {
-        query = query.eq('category', categoryFilter);
+        params.category = categoryFilter;
       }
 
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error('Error fetching inventory:', error);
-        throw error;
-      }
-      
-      return data as InventoryItem[];
+      const response = await inventoryAPI.getAll(params);
+      return response.data;
     },
   });
 
+  const inventory = inventoryResponse?.data || [];
+
   // Get unique categories for filter
-  const { data: categories } = useQuery({
+  const { data: categories } = useQuery<string[]>({
     queryKey: ['inventory-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('inventory')
-        .select('category')
-        .not('category', 'is', null)
-        .eq('status', 'active');
-      
-      if (error) throw error;
-      
-      const uniqueCategories = [...new Set(data.map(item => item.category))].filter(Boolean);
+      const response = await inventoryAPI.getAll({ status: 'active', limit: 1000 });
+      const items = response.data.data || [];
+      const uniqueCategories = [...new Set(items.map(item => item.category))].filter(Boolean);
       return uniqueCategories;
     },
   });
 
   const handleDeleteProduct = async (productId: string) => {
     try {
-      const { error } = await supabase
-        .from('inventory')
-        .update({ status: 'inactive' })
-        .eq('id', productId);
-
-      if (error) throw error;
+      await inventoryAPI.update(productId, { status: 'inactive' });
 
       toast({
         title: "Product Deleted",
@@ -110,13 +94,25 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
     }
   };
 
-  const handleProductAdded = () => {
-    refetch();
-    setShowAddDialog(false);
-    toast({
-      title: "Product Added",
-      description: "New product has been successfully added to inventory.",
-    });
+  const handleProductAdded = async (productData: any) => {
+    try {
+      // Use the backend API client to create product with Prisma
+      await inventoryAPI.create(productData);
+      
+      refetch();
+      setShowAddDialog(false);
+      toast({
+        title: "Product Added",
+        description: "New product has been successfully added to inventory.",
+      });
+    } catch (error) {
+      console.error('Error creating product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create product. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleProductsImported = (count: number) => {
@@ -239,10 +235,28 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
         onOpenChange={setShowAddDialog}
         onProductAdded={handleProductAdded}
         editProduct={selectedProduct}
-        onEditComplete={() => {
-          setSelectedProduct(null);
-          setShowAddDialog(false);
-          refetch();
+        onEditComplete={async (productData: any) => {
+          try {
+            // Use the backend API client to update product with Prisma
+            if (selectedProduct?.id) {
+              await inventoryAPI.update(selectedProduct.id, productData);
+            }
+            
+            setSelectedProduct(null);
+            setShowAddDialog(false);
+            refetch();
+            toast({
+              title: "Product Updated",
+              description: "Product has been successfully updated.",
+            });
+          } catch (error) {
+            console.error('Error updating product:', error);
+            toast({
+              title: "Error",
+              description: "Failed to update product. Please try again.",
+              variant: "destructive",
+            });
+          }
         }}
       />
 
