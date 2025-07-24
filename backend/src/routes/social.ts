@@ -362,13 +362,69 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
       });
     }
 
+    // Check if access token is expired and refresh if needed
+    let accessToken = connection.accessToken;
+    if (connection.tokenExpiresAt && new Date() >= connection.tokenExpiresAt) {
+      console.log('Access token expired, refreshing...');
+      if (connection.refreshToken) {
+        const refreshResult = await refreshGoogleToken(connection.refreshToken);
+        if (refreshResult) {
+          accessToken = refreshResult.accessToken;
+          
+          // Update the connection with new token
+          await prisma.socialMediaConnection.update({
+            where: { id: connection.id },
+            data: {
+              accessToken: refreshResult.accessToken,
+              tokenExpiresAt: new Date(Date.now() + (refreshResult.expiresIn * 1000)),
+              updatedAt: new Date()
+            }
+          });
+          
+          console.log('Token refreshed successfully');
+        } else {
+          console.error('Failed to refresh token');
+          // If force refresh is requested but token refresh failed, return error
+          if (forceRefresh) {
+            return res.status(401).json({ error: 'Failed to refresh access token' });
+          }
+          // Otherwise, return cached data if available
+          if (cachedStats) {
+            return res.json({ 
+              stats: cachedStats.data,
+              cached: true,
+              lastUpdated: cachedStats.lastFetchedAt,
+              note: 'Using cached data due to token refresh failure'
+            });
+          } else {
+            return res.status(401).json({ error: 'Access token expired and refresh failed' });
+          }
+        }
+      } else {
+        console.error('No refresh token available');
+        if (forceRefresh) {
+          return res.status(401).json({ error: 'Access token expired and no refresh token available' });
+        }
+        if (cachedStats) {
+          return res.json({ 
+            stats: cachedStats.data,
+            cached: true,
+            lastUpdated: cachedStats.lastFetchedAt,
+            note: 'Using cached data due to expired token'
+          });
+        } else {
+          return res.status(401).json({ error: 'Access token expired and no refresh token available' });
+        }
+      }
+    }
+
     // Fetch fresh data from YouTube API
     try {
       const response = await fetch(
         `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true`,
         {
           headers: {
-            'Authorization': `Bearer ${connection.accessToken}`
+            'Authorization': `Bearer ${accessToken}`
           }
         }
       );
@@ -385,7 +441,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
               `https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=1`,
               {
                 headers: {
-                  'Authorization': `Bearer ${connection.accessToken}`
+                  'Authorization': `Bearer ${accessToken}`
                 }
               }
             );
@@ -449,12 +505,23 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
           res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
         }
       } else {
+        // If force refresh is requested but API call failed, return error
+        if (forceRefresh) {
+          console.error('YouTube API call failed:', response.status, response.statusText);
+          return res.status(response.status).json({ 
+            error: 'Failed to fetch fresh data from YouTube API',
+            status: response.status,
+            statusText: response.statusText
+          });
+        }
+        
         // Return cached data if available, even if expired
         if (cachedStats) {
           res.json({ 
             stats: cachedStats.data,
             cached: true,
             lastUpdated: cachedStats.lastFetchedAt,
+            note: 'Using cached data due to API error'
           });
         } else {
           res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
@@ -462,6 +529,15 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
       }
     } catch (error) {
       console.error('Error fetching YouTube stats:', error);
+      
+      // If force refresh is requested but API call failed, return error
+      if (forceRefresh) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch fresh data from YouTube API',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+      
       // Return cached data if available
       if (cachedStats) {
         res.json({ 
