@@ -18,6 +18,7 @@ interface YouTubeVideosResponse {
 }
 
 interface YouTubeChannelItem {
+  id: string;
   snippet: {
     title: string;
   };
@@ -54,6 +55,166 @@ const getCacheExpiry = (dataType: string) => {
       return new Date(now.getTime() + 60 * 60 * 1000); // 1 hour default
   }
 };
+
+// Helper function to refresh Google OAuth token
+const refreshGoogleToken = async (refreshToken: string) => {
+  try {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.YOUTUBE_CLIENT_ID || '',
+        client_secret: process.env.YOUTUBE_CLIENT_SECRET || '',
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    });
+
+    if (response.ok) {
+      const data = await response.json() as {
+        access_token: string;
+        expires_in: number;
+        token_type: string;
+      };
+      return {
+        accessToken: data.access_token,
+        expiresIn: data.expires_in,
+        tokenType: data.token_type,
+      };
+    } else {
+      console.error('Token refresh failed:', response.status, response.statusText);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return null;
+  }
+};
+
+// Exchange authorization code for tokens
+router.post('/youtube/exchange-code', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.body;
+    const userId = (req as any).user.userId;
+
+    console.log('Exchanging authorization code for tokens');
+
+    // Exchange authorization code for tokens
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        client_id: process.env.YOUTUBE_CLIENT_ID || '',
+        client_secret: process.env.YOUTUBE_CLIENT_SECRET || '',
+        code: code,
+        grant_type: 'authorization_code',
+        redirect_uri: `${process.env.FRONTEND_URL || 'http://localhost:8080'}/oauth/callback`,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      console.error('Token exchange failed:', tokenResponse.status, tokenResponse.statusText);
+      const errorText = await tokenResponse.text();
+      console.error('Error response:', errorText);
+      return res.status(400).json({ error: 'Failed to exchange authorization code' });
+    }
+
+    const tokenData = await tokenResponse.json() as {
+      access_token: string;
+      refresh_token: string;
+      expires_in: number;
+    };
+    
+    console.log('Token exchange successful:', {
+      hasAccessToken: !!tokenData.access_token,
+      hasRefreshToken: !!tokenData.refresh_token,
+      accessTokenLength: tokenData.access_token?.length,
+      refreshTokenLength: tokenData.refresh_token?.length,
+      expiresIn: tokenData.expires_in
+    });
+
+    // Get user info and channel info
+    const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`
+      }
+    }).then(res => res.json()) as { id: string; email: string };
+
+    const channelsResponse = await fetch(
+      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true`,
+      {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`
+        }
+      }
+    ).then(res => res.json()) as YouTubeChannelsResponse;
+
+    const channel = channelsResponse.items?.[0];
+    
+    if (!channel) {
+      return res.status(400).json({ error: 'No YouTube channel found' });
+    }
+
+    // Calculate token expiry
+    const tokenExpiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
+
+    // Save the connection with both access and refresh tokens
+    const connection = await prisma.socialMediaConnection.upsert({
+      where: {
+        profileId_platform: {
+          profileId: userId,
+          platform: 'youtube'
+        }
+      },
+      update: {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenExpiresAt,
+        platformUserId: userInfo.id,
+        platformUsername: channel.snippet.title,
+        platformEmail: userInfo.email,
+        channelId: channel.id,
+        isActive: true,
+        updatedAt: new Date()
+      },
+      create: {
+        profileId: userId,
+        platform: 'youtube',
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenExpiresAt,
+        platformUserId: userInfo.id,
+        platformUsername: channel.snippet.title,
+        platformEmail: userInfo.email,
+        channelId: channel.id,
+        isActive: true
+      }
+    });
+
+    console.log('YouTube connection saved with refresh token:', {
+      id: connection.id,
+      hasAccessToken: !!connection.accessToken,
+      hasRefreshToken: !!connection.refreshToken
+    });
+
+    res.json({
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      channelId: channel.id,
+      channelTitle: channel.snippet.title,
+      platformUserId: userInfo.id,
+      platformEmail: userInfo.email
+    });
+
+  } catch (error) {
+    console.error('Error exchanging authorization code:', error);
+    res.status(500).json({ error: 'Failed to exchange authorization code' });
+  }
+});
 
 // Get user's social connections
 router.get('/connections', authenticateToken, async (req, res) => {

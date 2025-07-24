@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Layout } from "@/components/layout/Layout";
 import { MainContent } from "@/components/MainContent";
+import { OAuthCallback } from "@/components/OAuthCallback";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
 
@@ -35,6 +36,16 @@ const App = () => (
                 element={
                   <ProtectedRoute requireAuth={false}>
                     <SignUp />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* OAuth Callback Route */}
+              <Route 
+                path="/oauth/callback" 
+                element={
+                  <ProtectedRoute>
+                    <OAuthCallback />
                   </ProtectedRoute>
                 } 
               />

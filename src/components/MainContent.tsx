@@ -24,6 +24,15 @@ export function MainContent() {
   const [searchParams, setSearchParams] = useSearchParams();
   const socialPlatform = searchParams.get('platform');
 
+  // Restore tab state from localStorage on mount
+  useEffect(() => {
+    const savedTab = localStorage.getItem('activeTab');
+    if (savedTab && ['inventory', 'library', 'templates', 'user', 'social'].includes(savedTab)) {
+      setActiveTab(savedTab as any);
+      localStorage.removeItem('activeTab'); // Clean up after restoring
+    }
+  }, [setActiveTab]);
+
   // Auto-switch to social tab if platform parameter is present
   useEffect(() => {
     if (socialPlatform && activeTab !== 'social') {

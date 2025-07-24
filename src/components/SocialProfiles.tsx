@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Loading } from "@/components/ui/loading";
 import { useToast } from "@/hooks/use-toast";
+import { useOAuth } from "@/hooks/useOAuth";
 import { 
   Instagram, 
   Facebook, 
@@ -14,7 +16,6 @@ import {
   Plus,
   Settings,
   Unlink,
-  Link,
   AlertCircle
 } from "lucide-react";
 
@@ -39,8 +40,10 @@ interface SocialChannel {
 export function SocialProfiles() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { initiateYouTubeOAuth } = useOAuth();
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Fetch existing connections on component mount
   useEffect(() => {
@@ -49,6 +52,7 @@ export function SocialProfiles() {
 
   const fetchConnections = async () => {
     try {
+      setIsLoading(true);
       const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:3001/api/social/connections', {
         headers: {
@@ -63,131 +67,16 @@ export function SocialProfiles() {
       }
     } catch (error) {
       console.error('Error fetching connections:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleConnectYouTube = async () => {
     setConnectingPlatform('youtube');
-    
-    // Check if Google Identity Services is loaded
-    if (!window.google?.accounts?.oauth2) {
-      toast({
-        title: "Google Services Not Loaded",
-        description: "Please wait for Google services to load and try again.",
-        variant: "destructive"
-      });
+    const success = initiateYouTubeOAuth();
+    if (!success) {
       setConnectingPlatform(null);
-      return;
-    }
-
-    try {
-      const YT_CLIENT_ID = import.meta.env.VITE_YOUTUBE_CLIENT_ID || 'your-client-id';
-      const YT_SCOPES = [
-        'https://www.googleapis.com/auth/youtube.upload',
-        'https://www.googleapis.com/auth/youtube.readonly',
-        'https://www.googleapis.com/auth/userinfo.profile',
-        'https://www.googleapis.com/auth/userinfo.email'
-      ].join(' ');
-
-      const tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: YT_CLIENT_ID,
-        scope: YT_SCOPES,
-        callback: async (response: any) => {
-          if (response.access_token) {
-            console.log('✅ YouTube Access Token:', response.access_token);
-            
-            // Get user info and channel details
-            try {
-              const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                headers: {
-                  'Authorization': `Bearer ${response.access_token}`
-                }
-              }).then(res => res.json());
-
-              const channelsResponse = await fetch(
-                `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${response.access_token}`
-                  }
-                }
-              ).then(res => res.json());
-
-              const channel = channelsResponse.items?.[0];
-              
-              if (channel) {
-                // Save connection to database
-                await saveYouTubeConnection({
-                  accessToken: response.access_token,
-                  refreshToken: response.refresh_token,
-                  channelId: channel.id,
-                  channelTitle: channel.snippet.title,
-                  platformUserId: userInfo.id,
-                  platformEmail: userInfo.email
-                });
-
-                toast({
-                  title: "YouTube Connected!",
-                  description: `Successfully connected to ${channel.snippet.title}`,
-                });
-              }
-            } catch (error) {
-              console.error('Error getting user/channel info:', error);
-              toast({
-                title: "Connection Failed",
-                description: "Failed to get channel information.",
-                variant: "destructive"
-              });
-            }
-          } else {
-            console.error('❌ YouTube Token Error:', response);
-            toast({
-              title: "Connection Failed",
-              description: "Failed to get access token from Google.",
-              variant: "destructive"
-            });
-          }
-          setConnectingPlatform(null);
-        },
-      });
-      
-      tokenClient.requestAccessToken();
-    } catch (error) {
-      console.error('Error starting YouTube OAuth:', error);
-      toast({
-        title: "Connection Failed",
-        description: "Failed to start YouTube connection. Please try again.",
-        variant: "destructive"
-      });
-      setConnectingPlatform(null);
-    }
-  };
-
-  const saveYouTubeConnection = async (oauthResult: any) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/social/youtube/connect', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          accessToken: oauthResult.accessToken,
-          refreshToken: oauthResult.refreshToken,
-          channelId: oauthResult.channelId,
-          channelTitle: oauthResult.channelTitle,
-          platformUserId: oauthResult.platformUserId,
-          platformEmail: oauthResult.platformEmail
-        })
-      });
-      
-      if (response.ok) {
-        // Refresh connections list
-        fetchConnections();
-      }
-    } catch (error) {
-      console.error('Error saving YouTube connection:', error);
     }
   };
 
@@ -338,6 +227,30 @@ export function SocialProfiles() {
       platform: 'google-ads'
     }
   ];
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Social Media Integrations</CardTitle>
+            <CardDescription>
+              Connect your social media and advertising accounts to streamline content publishing and campaign management
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center space-x-2">
+                {/* <Loading className="h-6 w-6" /> */}
+                <span>Loading social media connections...</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

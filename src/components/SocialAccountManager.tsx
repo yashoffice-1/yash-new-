@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useOAuth } from "@/hooks/useOAuth";
 import { 
   ArrowLeft,
   CheckCircle,
@@ -93,11 +94,14 @@ const platformDetails = {
   }
 };
 
+type PlatformType = 'youtube' | 'instagram' | 'facebook' | 'linkedin' | 'twitter' | 'tiktok';
+
 export function SocialAccountManager() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const platform = searchParams.get('platform') || 'youtube';
+  const { initiateYouTubeOAuth, handleOAuthCallback } = useOAuth();
+  const platform = (searchParams.get('platform') || 'youtube') as PlatformType;
   
   const [connection, setConnection] = useState<SocialConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -122,6 +126,19 @@ export function SocialAccountManager() {
   useEffect(() => {
     fetchConnection();
   }, [platform]);
+
+  // Check for OAuth callback on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('code') && urlParams.get('state')) {
+      handleOAuthCallback().then((success) => {
+        if (success) {
+          // Refresh connection data after successful OAuth
+          fetchConnection();
+        }
+      });
+    }
+  }, [handleOAuthCallback]);
 
   // Fetch activity when connection is loaded
   useEffect(() => {
@@ -240,94 +257,8 @@ export function SocialAccountManager() {
 
   const handleConnectYouTube = async () => {
     setConnectingPlatform('youtube');
-    
-    if (!window.google?.accounts?.oauth2) {
-      toast({
-        title: "Google Services Not Loaded",
-        description: "Please wait for Google services to load and try again.",
-        variant: "destructive"
-      });
-      setConnectingPlatform(null);
-      return;
-    }
-
-    try {
-      const YT_CLIENT_ID = import.meta.env.VITE_YOUTUBE_CLIENT_ID || 'your-client-id';
-      const YT_SCOPES = [
-        'https://www.googleapis.com/auth/youtube.upload',
-        'https://www.googleapis.com/auth/youtube.readonly',
-        'https://www.googleapis.com/auth/userinfo.profile',
-        'https://www.googleapis.com/auth/userinfo.email'
-      ].join(' ');
-
-      const tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: YT_CLIENT_ID,
-        scope: YT_SCOPES,
-        callback: async (response: any) => {
-          if (response.access_token) {
-            try {
-              const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                headers: {
-                  'Authorization': `Bearer ${response.access_token}`
-                }
-              }).then(res => res.json());
-
-              const channelsResponse = await fetch(
-                `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${response.access_token}`
-                  }
-                }
-              ).then(res => res.json());
-
-              const channel = channelsResponse.items?.[0];
-              
-              if (channel) {
-                await saveYouTubeConnection({
-                  accessToken: response.access_token,
-                  refreshToken: response.refresh_token,
-                  channelId: channel.id,
-                  channelTitle: channel.snippet.title,
-                  platformUserId: userInfo.id,
-                  platformEmail: userInfo.email
-                });
-
-                toast({
-                  title: "YouTube Connected!",
-                  description: `Successfully connected to ${channel.snippet.title}`,
-                });
-                
-                // Refresh connection data
-                await fetchConnection();
-              }
-            } catch (error) {
-              console.error('Error saving YouTube connection:', error);
-              toast({
-                title: "Connection Failed",
-                description: "Failed to save YouTube connection. Please try again.",
-                variant: "destructive"
-              });
-            }
-          } else {
-            toast({
-              title: "Authentication Failed",
-              description: "Failed to authenticate with YouTube. Please try again.",
-              variant: "destructive"
-            });
-          }
-          setConnectingPlatform(null);
-        }
-      });
-
-      tokenClient.requestAccessToken();
-    } catch (error) {
-      console.error('Error connecting to YouTube:', error);
-      toast({
-        title: "Connection Error",
-        description: "An error occurred while connecting to YouTube.",
-        variant: "destructive"
-      });
+    const success = initiateYouTubeOAuth();
+    if (!success) {
       setConnectingPlatform(null);
     }
   };

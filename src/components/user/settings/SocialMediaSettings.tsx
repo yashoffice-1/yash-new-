@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useOAuth } from "@/hooks/useOAuth";
 import { Save, Share2, Facebook, Instagram, Linkedin, Youtube, Link, Unlink, ExternalLink } from "lucide-react";
 
 interface SocialConnection {
@@ -17,7 +18,8 @@ interface SocialConnection {
 
 export function SocialMediaSettings() {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const { initiateYouTubeOAuth } = useOAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
 
@@ -28,7 +30,8 @@ export function SocialMediaSettings() {
 
   const fetchConnections = async () => {
     try {
-      const token = localStorage.getItem('token'); // Get from your auth context
+      setIsLoading(true);
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:3001/api/social/connections', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -42,102 +45,15 @@ export function SocialMediaSettings() {
       }
     } catch (error) {
       console.error('Error fetching connections:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleConnectYouTube = async () => {
     setConnectingPlatform('youtube');
-    
-    // Check if Google Identity Services is loaded
-    if (!window.google?.accounts?.oauth2) {
-      toast({
-        title: "Google Services Not Loaded",
-        description: "Please wait for Google services to load and try again.",
-        variant: "destructive"
-      });
-      setConnectingPlatform(null);
-      return;
-    }
-
-    try {
-      const YT_CLIENT_ID = process.env.VITE_YOUTUBE_CLIENT_ID || 'your-client-id';
-      const YT_SCOPES = [
-        'https://www.googleapis.com/auth/youtube.upload',
-        'https://www.googleapis.com/auth/youtube.readonly',
-        'https://www.googleapis.com/auth/userinfo.profile',
-        'https://www.googleapis.com/auth/userinfo.email'
-      ].join(' ');
-
-      const tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: YT_CLIENT_ID,
-        scope: YT_SCOPES,
-        callback: async (response: any) => {
-          if (response.access_token) {
-            console.log('✅ YouTube Access Token:', response.access_token);
-            
-            // Get user info and channel details
-            try {
-              const userInfo = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                headers: {
-                  'Authorization': `Bearer ${response.access_token}`
-                }
-              }).then(res => res.json());
-
-              const channelsResponse = await fetch(
-                `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${response.access_token}`
-                  }
-                }
-              ).then(res => res.json());
-
-              const channel = channelsResponse.items?.[0];
-              
-              if (channel) {
-                // Save connection to database
-                await saveYouTubeConnection({
-                  accessToken: response.access_token,
-                  refreshToken: response.refresh_token,
-                  channelId: channel.id,
-                  channelTitle: channel.snippet.title,
-                  platformUserId: userInfo.id,
-                  platformEmail: userInfo.email
-                });
-
-                toast({
-                  title: "YouTube Connected!",
-                  description: `Successfully connected to ${channel.snippet.title}`,
-                });
-              }
-            } catch (error) {
-              console.error('Error getting user/channel info:', error);
-              toast({
-                title: "Connection Failed",
-                description: "Failed to get channel information.",
-                variant: "destructive"
-              });
-            }
-          } else {
-            console.error('❌ YouTube Token Error:', response);
-            toast({
-              title: "Connection Failed",
-              description: "Failed to get access token from Google.",
-              variant: "destructive"
-            });
-          }
-          setConnectingPlatform(null);
-        },
-      });
-      
-      tokenClient.requestAccessToken();
-    } catch (error) {
-      console.error('Error starting YouTube OAuth:', error);
-      toast({
-        title: "Connection Failed",
-        description: "Failed to start YouTube connection. Please try again.",
-        variant: "destructive"
-      });
+    const success = initiateYouTubeOAuth();
+    if (!success) {
       setConnectingPlatform(null);
     }
   };

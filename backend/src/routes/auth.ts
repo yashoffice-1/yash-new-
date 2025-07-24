@@ -181,7 +181,7 @@ router.post('/signin', async (req, res, next) => {
 router.get('/profile', authenticateToken, async (req, res, next) => {
   try {
     const profile = await prisma.profile.findUnique({
-      where: { id: req.user.userId }
+      where: { id: (req as any).user.userId }
     });
 
     if (!profile) {
@@ -226,7 +226,7 @@ router.put('/profile', authenticateToken, async (req, res, next) => {
     const initials = generateInitials(firstName, lastName);
     
     const updatedProfile = await prisma.profile.update({
-      where: { id: req.user.userId },
+      where: { id: (req as any).user.userId },
       data: {
         firstName,
         lastName,
