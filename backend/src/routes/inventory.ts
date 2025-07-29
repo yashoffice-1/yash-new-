@@ -71,6 +71,31 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// Get unique categories from active products only
+router.get('/categories', async (req, res, next) => {
+  try {
+    const categories = await prisma.inventory.findMany({
+      where: {
+        status: 'active'
+      },
+      select: { category: true },
+      distinct: ['category'],
+      orderBy: { category: 'asc' }
+    });
+
+    const uniqueCategories = categories
+      .map(item => item.category)
+      .filter(Boolean);
+
+    res.json({
+      success: true,
+      data: uniqueCategories
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get single inventory item
 router.get('/:id', async (req, res, next) => {
   try {

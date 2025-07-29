@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,14 +63,12 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
   const inventory = inventoryResponse?.data || [];
 
-  // Get unique categories for filter
-  const { data: categories } = useQuery<string[]>({
+  // Get all categories from active products
+  const { data: categories,refetch: refetchCategories } = useQuery<string[]>({
     queryKey: ['inventory-categories'],
     queryFn: async () => {
-      const response = await inventoryAPI.getAll({ status: 'active', limit: 1000 });
-      const items = response.data.data || [];
-      const uniqueCategories = [...new Set(items.map(item => item.category))].filter(Boolean);
-      return uniqueCategories;
+      const response = await inventoryAPI.getCategories();
+      return response.data.data;
     },
   });
 
@@ -84,6 +82,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       });
 
       refetch();
+      refetchCategories();
     } catch (error) {
       console.error('Error deleting product:', error);
       toast({
@@ -100,6 +99,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       await inventoryAPI.create(productData);
       
       refetch();
+      refetchCategories();
       setShowAddDialog(false);
       toast({
         title: "Product Added",
@@ -117,6 +117,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
   const handleProductsImported = (count: number) => {
     refetch();
+    refetchCategories();
     setShowImportDialog(false);
     toast({
       title: "Products Imported",
@@ -245,6 +246,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
             setSelectedProduct(null);
             setShowAddDialog(false);
             refetch();
+            refetchCategories();
             toast({
               title: "Product Updated",
               description: "Product has been successfully updated.",

@@ -50,6 +50,9 @@ export const inventoryAPI = {
     status?: string;
   }) => apiClient.get('/inventory', { params }),
 
+  // Get all categories from active products
+  getCategories: () => apiClient.get('/inventory/categories'),
+
   // Get single inventory item
   getById: (id: string) => apiClient.get(`/inventory/${id}`),
 
