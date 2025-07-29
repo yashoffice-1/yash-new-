@@ -1,9 +1,11 @@
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useView } from "@/contexts/ViewContext";
 import { InventoryManager } from "./InventoryManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, BarChart3 } from "lucide-react";
+import { inventoryAPI } from "@/api/backend-client";
 
 interface InventoryItem {
   id: string;
@@ -22,6 +24,17 @@ interface InventoryItem {
 
 export function InventoryDisplay() {
   const { setActiveTab, setSelectedProduct } = useView();
+
+  // Fetch inventory data for stats
+  const { data: inventoryResponse } = useQuery({
+    queryKey: ['inventory-stats-display'],
+    queryFn: async () => {
+      const response = await inventoryAPI.getAll({ status: 'active', all: 'true' });
+      return response.data;
+    },
+  });
+
+  const totalProducts = inventoryResponse?.data?.length || 0;
 
   const handleProductSelect = (product: InventoryItem) => {
     setSelectedProduct(product);
@@ -45,7 +58,7 @@ export function InventoryDisplay() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{totalProducts}</div>
             <p className="text-xs text-muted-foreground">
               Active in inventory
             </p>

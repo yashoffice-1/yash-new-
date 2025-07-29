@@ -22,11 +22,11 @@ const updateInventorySchema = createInventorySchema.partial();
 // Get all inventory items
 router.get('/', async (req, res, next) => {
   try {
-    const { page = '1', limit = '10', search, category, status } = req.query;
+    const { page = '1', limit = '10', search, category, status, all } = req.query;
     
     const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
+    const limitNum = limit === 'all' ? undefined : parseInt(limit as string);
+    const skip = limitNum ? (pageNum - 1) * limitNum : 0;
 
     const where: any = {};
     
@@ -46,26 +46,40 @@ router.get('/', async (req, res, next) => {
       where.status = status;
     }
 
-    const [inventory, total] = await Promise.all([
-      prisma.inventory.findMany({
+    // If 'all' parameter is provided or limit is 'all', fetch all products without pagination
+    if (all === 'true' || limit === 'all') {
+      const inventory = await prisma.inventory.findMany({
         where,
-        skip,
-        take: limitNum,
         orderBy: { createdAt: 'desc' }
-      }),
-      prisma.inventory.count({ where })
-    ]);
+      });
 
-    res.json({
-      success: true,
-      data: inventory,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
-      }
-    });
+      res.json({
+        success: true,
+        data: inventory,
+        total: inventory.length
+      });
+    } else {
+      const [inventory, total] = await Promise.all([
+        prisma.inventory.findMany({
+          where,
+          skip,
+          take: limitNum,
+          orderBy: { createdAt: 'desc' }
+        }),
+        prisma.inventory.count({ where })
+      ]);
+
+      res.json({
+        success: true,
+        data: inventory,
+        pagination: {
+          page: pageNum,
+          limit: limitNum || 0,
+          total,
+          pages: limitNum ? Math.ceil(total / limitNum) : 1
+        }
+      });
+    }
   } catch (error) {
     next(error);
   }

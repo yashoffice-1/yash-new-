@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Upload, Package, Edit, Trash2, Image, Video, FileText, Wand2 } from "lucide-react";
+import { Search, Plus, Upload, Package, Edit, Trash2, Image, Video, FileText, Wand2, RefreshCw, CheckCircle, Save, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AddProductDialog } from "./AddProductDialog";
 import { ImportProductsDialog } from "./ImportProductsDialog";
 import { ProductCard } from "./ProductCard";
 import { inventoryAPI } from "@/api/backend-client";
+import { useAssetLibrary } from "@/hooks/useAssetLibrary";
+import { generationAPI } from "@/api/generation-client";
 
 interface InventoryItem {
   id: string;
@@ -57,6 +59,25 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
     autoOptimize: true
   });
 
+  // Generation results state
+  const [generationResults, setGenerationResults] = useState<Array<{
+    id: string;
+    title: string;
+    description: string;
+    asset_type: 'image' | 'video' | 'content';
+    asset_url: string;
+    content?: string;
+    instruction: string;
+    source_system: 'runway' | 'heygen' | 'openai';
+    platform: string;
+    format: string;
+    product: InventoryItem;
+    status?: string;
+    error?: string;
+  }>>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
   // Fetch inventory items
   const { data: inventoryResponse, isLoading, refetch } = useQuery({
     queryKey: ['inventory', searchTerm, categoryFilter],
@@ -89,6 +110,8 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       return response.data.data;
     },
   });
+
+  const { saveToLibrary } = useAssetLibrary();
 
   const handleDeleteProduct = async (productId: string) => {
     try {
@@ -181,8 +204,8 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
     }
   };
 
-  const handleGenerateContent = (type: 'video' | 'image' | 'content') => {
-    if (selectedProducts.length === 0) {
+  const handleGenerateContent = async () => {
+    if (selectedProductsData.length === 0) {
       toast({
         title: "No Products Selected",
         description: "Please select at least one product to generate content.",
@@ -191,14 +214,234 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       return;
     }
 
-    setGenerationType(type);
-    setShowGenerator(true);
+    setIsGenerating(true);
+    setShowGenerator(false);
+
+    try {
+      toast({
+        title: "Starting Generation",
+        description: `Preparing to generate ${generationConfig.type} content for ${selectedProductsData.length} product${selectedProductsData.length > 1 ? 's' : ''}...`,
+      });
+
+      // Determine the best service based on content type and platform
+      const getServiceForGeneration = () => {
+        const { type, channel } = generationConfig;
+        
+        if (type === 'video') {
+          if (channel === 'youtube' || channel === 'tiktok') {
+            return 'heygen'; // HeyGen is best for video content
+          } else {
+            return 'runway'; // Runway for other video platforms
+          }
+        } else if (type === 'image') {
+          return 'runway'; // Runway for image generation
+        } else {
+          return 'openai'; // OpenAI for text content
+        }
+      };
+
+      const service = getServiceForGeneration();
+      console.log(`Using ${service} for ${generationConfig.type} generation`);
+
+      // Show service-specific loading message
+      toast({
+        title: `Generating with ${service.charAt(0).toUpperCase() + service.slice(1)}`,
+        description: `Creating ${generationConfig.type} content. This may take a few moments...`,
+      });
+
+      // Generate content for each selected product
+      const results = await Promise.all(
+        selectedProductsData.map(async (product, index) => {
+          // Add delay between requests to avoid rate limiting
+          if (index > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+
+          const instruction = generationConfig.instructions || getPlatformSpecificInstruction();
+          
+          // Prepare format specifications
+          const formatSpecs = {
+            channel: generationConfig.channel,
+            assetType: generationConfig.type,
+            format: generationConfig.format,
+            specification: generationConfig.formatSpec,
+            width: generationConfig.formatSpec === 'square' ? 1080 : 
+                   generationConfig.formatSpec === 'landscape' ? 1920 : 1080,
+            height: generationConfig.formatSpec === 'square' ? 1080 : 
+                    generationConfig.formatSpec === 'landscape' ? 1080 : 1920,
+            aspectRatio: generationConfig.formatSpec === 'square' ? '1:1' : 
+                        generationConfig.formatSpec === 'landscape' ? '16:9' : '9:16',
+            duration: generationConfig.type === 'video' ? '5' : undefined
+          };
+
+          let result;
+          
+          try {
+            // Show progress for each product
+            toast({
+              title: `Generating for ${product.name}`,
+              description: `Processing ${index + 1} of ${selectedProductsData.length}...`,
+            });
+
+            if (service === 'heygen') {
+              // Call HeyGen API
+              result = await generateWithHeyGen(product, instruction, formatSpecs);
+            } else if (service === 'runway') {
+              // Call Runway API
+              result = await generateWithRunway(product, instruction, formatSpecs);
+            } else {
+              // Call OpenAI API
+              result = await generateWithOpenAI(product, instruction, formatSpecs);
+            }
+
+            return {
+              id: `gen-${Date.now()}-${index}`,
+              title: `${product.name} - ${generationConfig.channel} ${generationConfig.format}`,
+              description: `Generated ${generationConfig.type} for ${product.name} on ${generationConfig.channel}`,
+              asset_type: generationConfig.type as 'image' | 'video' | 'content',
+              asset_url: result.asset_url || result.url,
+              content: instruction,
+              instruction: instruction,
+              source_system: service as 'runway' | 'heygen' | 'openai',
+              platform: generationConfig.channel,
+              format: generationConfig.format,
+              product: product,
+              status: result.status || 'completed'
+            };
+          } catch (error) {
+            console.error(`Generation failed for ${product.name}:`, error);
+            
+            // Return a placeholder result for failed generations
+            return {
+              id: `gen-${Date.now()}-${index}`,
+              title: `${product.name} - ${generationConfig.channel} ${generationConfig.format}`,
+              description: `Generation failed for ${product.name}`,
+              asset_type: generationConfig.type as 'image' | 'video' | 'content',
+              asset_url: `https://via.placeholder.com/800x600/EF4444/FFFFFF?text=Generation+Failed`,
+              content: instruction,
+              instruction: instruction,
+              source_system: service as 'runway' | 'heygen' | 'openai',
+              platform: generationConfig.channel,
+              format: generationConfig.format,
+              product: product,
+              status: 'failed',
+              error: error.message
+            };
+          }
+        })
+      );
+
+      setGenerationResults(results);
+      setShowResults(true);
+
+      const successCount = results.filter(r => r.status !== 'failed').length;
+      const failedCount = results.filter(r => r.status === 'failed').length;
+
+      if (failedCount > 0) {
+        toast({
+          title: "Generation Partially Complete",
+          description: `${successCount} generated successfully, ${failedCount} failed. Check results for details.`,
+          variant: failedCount === results.length ? "destructive" : "default",
+        });
+      } else {
+        toast({
+          title: "Generation Complete",
+          description: `Successfully generated ${successCount} ${generationConfig.type}${successCount > 1 ? 's' : ''}!`,
+        });
+      }
+
+    } catch (error) {
+      console.error('Generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to generate content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // HeyGen API integration
+  const generateWithHeyGen = async (product: InventoryItem, instruction: string, formatSpecs: any) => {
+    const response = await generationAPI.generateWithHeyGen({
+      type: 'video',
+      instruction: instruction,
+      productId: product.id,
+      formatSpecs: formatSpecs,
+      templateData: {
+        productName: product.name,
+        productDescription: product.description,
+        category: product.category
+      }
+    });
+
+    return response.data;
+  };
+
+  // Runway API integration
+  const generateWithRunway = async (product: InventoryItem, instruction: string, formatSpecs: any) => {
+    const response = await generationAPI.generateWithRunway({
+      type: generationConfig.type as 'image' | 'video',
+      instruction: instruction,
+      productInfo: {
+        name: product.name,
+        description: product.description || ''
+      },
+      formatSpecs: formatSpecs
+    });
+
+    return response.data;
+  };
+
+  // OpenAI API integration
+  const generateWithOpenAI = async (product: InventoryItem, instruction: string, formatSpecs: any) => {
+    const response = await generationAPI.generateWithOpenAI({
+      type: 'content',
+      instruction: instruction,
+      productInfo: {
+        name: product.name,
+        description: product.description || ''
+      },
+      formatSpecs: formatSpecs
+    });
+
+    return response.data;
+  };
+
+  const handleSaveToLibrary = async (result: typeof generationResults[0]) => {
+    try {
+      await saveToLibrary({
+        title: result.title,
+        description: result.description,
+        asset_type: result.asset_type,
+        asset_url: result.asset_url,
+        content: result.content,
+        instruction: result.instruction,
+        source_system: result.source_system,
+        tags: [result.platform, result.format, result.product.category].filter(Boolean)
+      });
+
+      toast({
+        title: "Saved to Library",
+        description: `${result.title} has been saved to your asset library.`,
+      });
+    } catch (error) {
+      console.error('Error saving to library:', error);
+      toast({
+        title: "Save Failed",
+        description: "Failed to save to asset library.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleGenerationComplete = () => {
     setShowGenerator(false);
+    setShowResults(false);
     setGenerationType(null);
     setSelectedProducts([]);
+    setGenerationResults([]);
     setGenerationConfig({
       channel: 'facebook',
       type: 'image',
@@ -212,6 +455,75 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   };
 
   const selectedProductsData = inventory.filter(product => selectedProducts.includes(product.id));
+
+  // Generate platform-specific instruction placeholder
+  const getPlatformSpecificInstruction = () => {
+    const { channel, type, format, formatSpec } = generationConfig;
+    const productName = selectedProductsData[0]?.name || 'selected product';
+    
+    const platformInstructions = {
+      facebook: {
+        image: {
+          feed_post: `Create an eye-catching Facebook feed post image showcasing ${productName}. Use vibrant colors, clear product photography, and include compelling text overlay. Optimize for engagement and sharing.`,
+          story: `Design a Facebook story image for ${productName} with vertical format. Include engaging visuals, clear call-to-action, and story-appropriate text styling.`,
+          ad: `Create a professional Facebook ad image for ${productName} with strong visual hierarchy, clear value proposition, and conversion-focused design.`
+        },
+        video: {
+          feed_post: `Produce a compelling Facebook video showcasing ${productName} in action. Include engaging visuals, clear messaging, and optimize for autoplay viewing.`,
+          story: `Create a vertical Facebook story video for ${productName} with dynamic visuals, clear narrative, and story-appropriate duration.`,
+          ad: `Develop a high-converting Facebook video ad for ${productName} with strong opening hook, clear value proposition, and call-to-action.`
+        }
+      },
+      instagram: {
+        image: {
+          feed_post: `Design an Instagram-worthy feed post image for ${productName}. Use aesthetic photography, trending visual styles, and hashtag-friendly composition.`,
+          story: `Create an Instagram story image for ${productName} with vertical format, engaging visuals, and story-appropriate text styling.`,
+          reel: `Design a thumbnail image for Instagram reel featuring ${productName}. Use bold visuals, trending aesthetics, and reel-optimized composition.`
+        },
+        video: {
+          feed_post: `Produce an Instagram feed video showcasing ${productName}. Use trending visual styles, engaging transitions, and Instagram-optimized format.`,
+          story: `Create a vertical Instagram story video for ${productName} with dynamic visuals, clear narrative, and story-appropriate duration.`,
+          reel: `Develop an Instagram reel video for ${productName} with trending music, engaging transitions, and reel-optimized format and duration.`
+        }
+      },
+      tiktok: {
+        video: {
+          feed_post: `Create a TikTok video showcasing ${productName} with trending music, engaging transitions, and TikTok-optimized vertical format. Include trending hashtags and viral potential.`,
+          story: `Produce a TikTok story video for ${productName} with vertical format, engaging visuals, and story-appropriate duration.`,
+          ad: `Develop a TikTok ad video for ${productName} with strong opening hook, trending elements, and conversion-focused design.`
+        }
+      },
+      youtube: {
+        video: {
+          feed_post: `Create a YouTube video showcasing ${productName} with professional production quality, engaging narrative, and YouTube-optimized format. Include clear call-to-action and description.`,
+          ad: `Develop a YouTube ad video for ${productName} with strong opening hook, clear value proposition, and conversion-focused design.`
+        }
+      },
+      linkedin: {
+        image: {
+          feed_post: `Design a professional LinkedIn post image for ${productName}. Use business-appropriate styling, clear messaging, and professional color scheme.`,
+          ad: `Create a LinkedIn ad image for ${productName} with professional design, clear value proposition, and B2B-focused messaging.`
+        },
+        video: {
+          feed_post: `Produce a professional LinkedIn video showcasing ${productName}. Use business-appropriate styling, clear narrative, and professional production quality.`,
+          ad: `Develop a LinkedIn ad video for ${productName} with professional design, clear value proposition, and B2B-focused messaging.`
+        }
+      },
+      twitter: {
+        image: {
+          feed_post: `Create a Twitter post image for ${productName} with concise messaging, clear visuals, and Twitter-optimized format. Include engaging elements for retweets.`,
+          ad: `Design a Twitter ad image for ${productName} with clear value proposition, engaging visuals, and conversion-focused design.`
+        },
+        video: {
+          feed_post: `Produce a Twitter video showcasing ${productName} with concise messaging, engaging visuals, and Twitter-optimized format and duration.`,
+          ad: `Develop a Twitter ad video for ${productName} with strong opening hook, clear value proposition, and conversion-focused design.`
+        }
+      }
+    };
+
+    const instruction = platformInstructions[channel]?.[type]?.[format];
+    return instruction || `Create a compelling ${type} showcasing ${productName} for ${channel}. Highlight key features and benefits with professional styling and engaging visuals.`;
+  };
 
   return (
     <div className="space-y-6">
@@ -313,7 +625,10 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                 {selectedProducts.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      onClick={() => handleGenerateContent('video')}
+                      onClick={() => {
+                        setGenerationType('video');
+                        setShowGenerator(true);
+                      }}
                       className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                     >
                       <Video className="h-4 w-4" />
@@ -321,7 +636,10 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                     </Button>
                     
                     <Button
-                      onClick={() => handleGenerateContent('image')}
+                      onClick={() => {
+                        setGenerationType('image');
+                        setShowGenerator(true);
+                      }}
                       className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                     >
                       <Image className="h-4 w-4" />
@@ -329,7 +647,10 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                     </Button>
                     
                     <Button
-                      onClick={() => handleGenerateContent('content')}
+                      onClick={() => {
+                        setGenerationType('content');
+                        setShowGenerator(true);
+                      }}
                       className="flex items-center space-x-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                     >
                       <FileText className="h-4 w-4" />
@@ -337,7 +658,10 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                     </Button>
                     
                     <Button
-                      onClick={() => handleGenerateContent('content')}
+                      onClick={() => {
+                        setGenerationType('content');
+                        setShowGenerator(true);
+                      }}
                       className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
                     >
                       <Wand2 className="h-4 w-4" />
@@ -762,17 +1086,17 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                         </div>
                         
                         <div className="space-y-3">
-                          <div className="relative">
-                            <textarea
-                              className="w-full h-24 sm:h-32 px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
-                              placeholder="Enter detailed instructions for content generation..."
-                              value={generationConfig.instructions || `Create a compelling ${generationConfig.type} showcasing the ${selectedProductsData[0]?.name || 'selected product'} in action. Highlight key features and benefits with professional styling and engaging visuals.`}
-                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, instructions: e.target.value }))}
-                            />
-                            <div className="absolute top-2 right-2 text-xs text-gray-400">
-                              {generationConfig.instructions?.length || 0}/500
+                                                      <div className="relative">
+                              <textarea
+                                className="w-full h-24 sm:h-32 px-4 py-3 pr-12 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                                placeholder="Enter detailed instructions for content generation..."
+                                value={generationConfig.instructions || getPlatformSpecificInstruction()}
+                                onChange={(e) => setGenerationConfig(prev => ({ ...prev, instructions: e.target.value }))}
+                              />
+                              <div className="absolute top-3 right-3 text-xs text-gray-500 bg-white/80 px-2 py-1 rounded">
+                                {(generationConfig.instructions || getPlatformSpecificInstruction()).length}/500
+                              </div>
                             </div>
-                          </div>
                           <Button variant="outline" size="sm" className="w-full border-dashed hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 group">
                             <Wand2 className="h-4 w-4 mr-2 group-hover:animate-pulse" />
                             <span className="hidden sm:inline">Enhance with AI</span>
@@ -847,41 +1171,159 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                       Cancel
                     </Button>
                     <Button
-                      onClick={() => {
-                        if (selectedProductsData.length === 0) {
-                          toast({
-                            title: "No Products Selected",
-                            description: "Please select at least one product to generate content.",
-                            variant: "destructive",
-                          });
-                          return;
-                        }
-                        console.log(`Generating ${generationType} for:`, selectedProductsData);
-                        console.log('Generation config:', generationConfig);
-                        toast({
-                          title: "Generation Started",
-                          description: `Started generating ${generationConfig.type} content for ${selectedProductsData.length} products on ${generationConfig.channel}.`,
-                        });
-                        handleGenerationComplete();
-                      }}
-                      disabled={selectedProductsData.length === 0}
+                      onClick={handleGenerateContent}
+                      disabled={selectedProductsData.length === 0 || isGenerating}
                       className={`flex-1 transition-all duration-200 ${
-                        selectedProductsData.length === 0
+                        selectedProductsData.length === 0 || isGenerating
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           : 'bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
                       }`}
                       size="lg"
                     >
-                      <Wand2 className={`h-4 w-4 mr-2 ${selectedProductsData.length > 0 ? 'animate-pulse' : ''}`} />
-                      <span className="hidden sm:inline">
-                        {selectedProductsData.length === 0 ? 'Select Products First' : `Generate ${generationConfig.type.charAt(0).toUpperCase() + generationConfig.type.slice(1)}`}
-                      </span>
-                      <span className="sm:hidden">
-                        {selectedProductsData.length === 0 ? 'Select Products' : 'Generate'}
-                      </span>
+                      {isGenerating ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          <span>Generating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className={`h-4 w-4 mr-2 ${selectedProductsData.length > 0 ? 'animate-pulse' : ''}`} />
+                          <span className="hidden sm:inline">
+                            {selectedProductsData.length === 0 ? 'Select Products First' : `Generate ${generationConfig.type.charAt(0).toUpperCase() + generationConfig.type.slice(1)}`}
+                          </span>
+                          <span className="sm:hidden">
+                            {selectedProductsData.length === 0 ? 'Select Products' : 'Generate'}
+                          </span>
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generation Results Modal */}
+      {showResults && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] sm:h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white p-4 sm:p-6 flex-shrink-0 relative overflow-hidden">
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
+              </div>
+
+              <div className="relative flex justify-between items-start sm:items-center">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-2xl font-bold flex items-center">
+                    <div className="relative">
+                      <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3" />
+                    </div>
+                    <span className="truncate">Generation Results</span>
+                  </h3>
+                  <p className="text-green-100 mt-1 text-sm sm:text-base">
+                    {generationResults.length} {generationConfig.type}{generationResults.length > 1 ? 's' : ''} generated successfully
+                  </p>
+                </div>
+                <Button
+                  onClick={handleGenerationComplete}
+                  variant="ghost"
+                  size="sm"
+                  className="text-white hover:bg-white/20 ml-2 flex-shrink-0 transition-all duration-200 hover:scale-110"
+                >
+                  <span className="text-xl">×</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {generationResults.map((result, index) => (
+                  <div key={result.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                    {/* Asset Preview */}
+                    <div className="relative aspect-video bg-gray-100">
+                      {result.asset_type === 'image' ? (
+                        <img 
+                          src={result.asset_url} 
+                          alt={result.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : result.asset_type === 'video' ? (
+                        <video 
+                          src={result.asset_url} 
+                          className="w-full h-full object-cover"
+                          controls
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
+                          <FileText className="h-12 w-12 text-blue-500" />
+                        </div>
+                      )}
+                      
+                                           {/* Platform Badge */}
+                     <div className="absolute top-2 left-2 flex flex-col gap-1">
+                       <Badge variant="secondary" className="bg-white/90 text-gray-700">
+                         {result.platform}
+                       </Badge>
+                       <Badge variant="outline" className="bg-white/90 text-xs">
+                         {result.source_system}
+                       </Badge>
+                     </div>
+                     
+                     {/* Status Badge */}
+                     {result.status && (
+                       <div className="absolute top-2 right-2">
+                         <Badge 
+                           variant={result.status === 'failed' ? 'destructive' : 'secondary'} 
+                           className="bg-white/90"
+                         >
+                           {result.status}
+                         </Badge>
+                       </div>
+                     )}
+                    </div>
+
+                    {/* Content Details */}
+                    <div className="p-4">
+                      <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">{result.title}</h4>
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{result.description}</p>
+                      
+                      {/* Product Info */}
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Badge variant="outline" className="text-xs">
+                          {result.product.category || 'Uncategorized'}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {result.format}
+                        </Badge>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex space-x-2">
+                        <Button
+                          onClick={() => handleSaveToLibrary(result)}
+                          size="sm"
+                          className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                        >
+                          <Save className="h-4 w-4 mr-1" />
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(result.asset_url, '_blank')}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

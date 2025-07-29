@@ -48,6 +48,7 @@ export const inventoryAPI = {
     search?: string;
     category?: string;
     status?: string;
+    all?: string;
   }) => apiClient.get('/inventory', { params }),
 
   // Get all categories from active products
