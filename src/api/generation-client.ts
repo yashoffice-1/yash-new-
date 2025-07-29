@@ -48,7 +48,12 @@ export const generationAPI = {
     productId: string;
     formatSpecs: any;
     templateData: any;
-  }) => apiClient.post('/heygen-generate', data),
+  }) => apiClient.post('/ai/heygen/generate', {
+    templateId: 'default',
+    productId: data.productId,
+    instruction: data.instruction,
+    formatSpecs: data.formatSpecs
+  }),
 
   // Runway generation
   generateWithRunway: (data: {
@@ -59,7 +64,11 @@ export const generationAPI = {
       description: string;
     };
     formatSpecs: any;
-  }) => apiClient.post('/runwayml-generate', data),
+  }) => apiClient.post('/ai/runwayml/generate', {
+    prompt: data.instruction,
+    type: data.type,
+    options: data.formatSpecs
+  }),
 
   // OpenAI generation
   generateWithOpenAI: (data: {
@@ -70,13 +79,17 @@ export const generationAPI = {
       description: string;
     };
     formatSpecs: any;
-  }) => apiClient.post('/openai-generate', data),
+  }) => apiClient.post('/ai/openai/generate', {
+    prompt: data.instruction,
+    type: data.type === 'content' ? 'text' : data.type,
+    options: data.formatSpecs
+  }),
 
   // Get generation status
-  getStatus: (generationId: string) => apiClient.get(`/generation-status/${generationId}`),
+  getStatus: (generationId: string) => apiClient.get(`/ai/heygen/status/${generationId}`),
 
   // Cancel generation
-  cancelGeneration: (generationId: string) => apiClient.post(`/generation-cancel/${generationId}`),
+  cancelGeneration: (generationId: string) => apiClient.post(`/ai/generation-cancel/${generationId}`),
 };
 
 export default generationAPI; 
