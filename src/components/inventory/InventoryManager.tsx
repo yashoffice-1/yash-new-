@@ -155,10 +155,21 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
   // Mul    ti-select handlers
   const handleProductSelect = (productId: string, checked: boolean) => {
+    console.log('InventoryManager handleProductSelect:', productId, checked);
+    console.log('Current selectedProducts:', selectedProducts);
+    
     if (checked) {
-      setSelectedProducts(prev => [...prev, productId]);
+      setSelectedProducts(prev => {
+        const newState = [...prev, productId];
+        console.log('Adding product, new state:', newState);
+        return newState;
+      });
     } else {
-      setSelectedProducts(prev => prev.filter(id => id !== productId));
+      setSelectedProducts(prev => {
+        const newState = prev.filter(id => id !== productId);
+        console.log('Removing product, new state:', newState);
+        return newState;
+      });
     }
   };
 
@@ -247,115 +258,152 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                 <Plus className="h-4 w-4" />
                 <span>Add Product</span>
               </Button>
-
+              
               <Button variant="outline" onClick={() => setShowImportDialog(true)} className="flex items-center space-x-2">
                 <Upload className="h-4 w-4" />
                 <span>Import</span>
               </Button>
-            </div>              
+
+              {inventory && inventory.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleSelectAll(!(selectedProducts.length === inventory.length))}
+                  className={`flex items-center space-x-2 transition-all duration-200 ${
+                    selectedProducts.length === inventory.length && inventory.length > 0
+                      ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
+                  <Checkbox
+                    checked={selectedProducts.length === inventory.length && inventory.length > 0}
+                    className="w-4 h-4"
+                  />
+                  <span>Select All</span>
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Multi-Select Controls */}
           {inventory && inventory.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="select-all"
-                    checked={selectedProducts.length === inventory.length && inventory.length > 0}
-                    onCheckedChange={handleSelectAll}
-                  />
-                  <label htmlFor="select-all" className="text-sm font-medium">
-                    Select All ({selectedProducts.length}/{inventory.length})
-                  </label>
+            <div className={`transition-all duration-300 ease-in-out ${
+              selectedProducts.length > 0 
+                ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-200 shadow-lg' 
+                : 'bg-gray-50 border-gray-200'
+            } border-2 rounded-xl p-4 mb-6`}>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center space-x-4">
+                  {selectedProducts.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors">
+                        {selectedProducts.length} selected
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedProducts([])}
+                        className="text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                      >
+                        Clear Selection
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {selectedProducts.length > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {selectedProducts.length} selected
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => handleGenerateContent('video')}
+                      className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                    >
+                      <Video className="h-4 w-4" />
+                      <span>Generate Video</span>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleGenerateContent('image')}
+                      className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                    >
+                      <Image className="h-4 w-4" />
+                      <span>Generate Image</span>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleGenerateContent('content')}
+                      className="flex items-center space-x-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Generate Content</span>
+                    </Button>
+                    
+                    <Button
+                      onClick={() => handleGenerateContent('content')}
+                      className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                    >
+                      <Wand2 className="h-4 w-4" />
+                      <span>AI Generate</span>
+                    </Button>
+                  </div>
                 )}
               </div>
-
-              {selectedProducts.length > 0 && (
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={() => handleGenerateContent('video')}
-                    className="flex items-center space-x-2 bg-red-600 hover:bg-red-700"
-                  >
-                    <Video className="h-4 w-4" />
-                    <span>Generate Video</span>
-                  </Button>
-                  
-                  <Button
-                    onClick={() => handleGenerateContent('image')}
-                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Image className="h-4 w-4" />
-                    <span>Generate Image</span>
-                  </Button>
-                  
-                  <Button
-                    onClick={() => handleGenerateContent('content')}
-                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
-                  >
-                    <FileText className="h-4 w-4" />
-                    <span>Generate Content</span>
-                  </Button>
-                  
-                  <Button
-                    onClick={() => handleGenerateContent('content')}
-                    className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Wand2 className="h-4 w-4" />
-                    <span>AI Generate</span>
-                  </Button>
-                </div>
-              )}
             </div>
           )}
 
           {/* Products Grid */}
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="border rounded-lg p-4 animate-pulse">
-                  <div className="w-full h-48 bg-gray-200 rounded mb-4"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="border rounded-xl p-4 animate-pulse">
+                  <div className="w-full h-48 bg-gray-200 rounded-lg mb-4"></div>
                   <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded"></div>
+                  <div className="h-3 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
                 </div>
               ))}
             </div>
           ) : inventory && inventory.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {inventory.map((product) => (
-                <ProductCard
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {inventory.map((product, index) => (
+                <div
                   key={product.id}
-                  product={product}
-                  onEdit={() => setSelectedProduct(product)}
-                  onDelete={() => handleDeleteProduct(product.id)}
-                  onUseForGeneration={handleUseForGeneration}
-                  isSelected={selectedProducts.includes(product.id)}
-                  onSelect={handleProductSelect}
-                  showCheckbox={true}
-                />
+                  className="transform transition-all duration-300 hover:scale-105"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <ProductCard
+                    product={product}
+                    onEdit={() => {
+                      setSelectedProduct(product);
+                      setShowAddDialog(true);
+                    }}
+                    onDelete={() => handleDeleteProduct(product.id)}
+                    onUseForGeneration={handleUseForGeneration}
+                    isSelected={selectedProducts.includes(product.id)}
+                    onSelect={handleProductSelect}
+                    showCheckbox={true}
+                  />
+                </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-              <p className="text-gray-500 mb-4">
-                {searchTerm || categoryFilter
-                  ? "No products match your current filters."
-                  : "Get started by adding your first product to the inventory."
+            <div className="text-center py-16">
+              <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Package className="h-12 w-12 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">No products found</h3>
+              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                {searchTerm || categoryFilter 
+                  ? "No products match your current filters. Try adjusting your search criteria." 
+                  : "Get started by adding your first product to the inventory. You'll be able to select multiple products for content generation."
                 }
               </p>
-              <Button onClick={() => setShowAddDialog(true)} className="flex items-center space-x-2 mx-auto">
+              <Button 
+                onClick={() => setShowAddDialog(true)} 
+                className="flex items-center space-x-2 mx-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+              >
                 <Plus className="h-4 w-4" />
-                 <span>Add Product</span>
+                <span>Add Your First Product</span>
               </Button>
-             </div>
+            </div>
           )}
         </CardContent>
       </Card>
