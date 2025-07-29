@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Upload, Package, Edit, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Plus, Upload, Package, Edit, Trash2, Image, Video, FileText, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AddProductDialog } from "./AddProductDialog";
 import { ImportProductsDialog } from "./ImportProductsDialog";
@@ -39,6 +40,23 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
 
+  // Multi-select state
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [showGenerator, setShowGenerator] = useState(false);
+  const [generationType, setGenerationType] = useState<'video' | 'image' | 'content' | null>(null);
+  
+  // Generation form state
+  const [generationConfig, setGenerationConfig] = useState({
+    channel: 'facebook',
+    type: 'image',
+    format: 'feed_post',
+    formatSpec: 'square',
+    instructions: '',
+    batchGenerate: true,
+    variations: false,
+    autoOptimize: true
+  });
+
   // Fetch inventory items
   const { data: inventoryResponse, isLoading, refetch } = useQuery({
     queryKey: ['inventory', searchTerm, categoryFilter],
@@ -64,7 +82,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const inventory = inventoryResponse?.data || [];
 
   // Get all categories from active products
-  const { data: categories,refetch: refetchCategories } = useQuery<string[]>({
+  const { data: categories, refetch: refetchCategories } = useQuery<string[]>({
     queryKey: ['inventory-categories'],
     queryFn: async () => {
       const response = await inventoryAPI.getCategories();
@@ -97,12 +115,12 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
     try {
       // Use the backend API client to create product with Prisma
       await inventoryAPI.create(productData);
-      
+
       refetch();
       refetchCategories();
       setShowAddDialog(false);
       toast({
-        title: "Product Added",
+        title: "Product Add      ed",
         description: "New product has been successfully added to inventory.",
       });
     } catch (error) {
@@ -128,12 +146,61 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const handleUseForGeneration = (product: InventoryItem) => {
     console.log('Using product for generation:', product);
     onProductSelect?.(product);
-    
+
     toast({
       title: "Product Selected",
       description: `${product.name} has been selected for content generation.`,
     });
   };
+
+  // Mul    ti-select handlers
+  const handleProductSelect = (productId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProducts(prev => [...prev, productId]);
+    } else {
+      setSelectedProducts(prev => prev.filter(id => id !== productId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedProducts(inventory.map(product => product.id));
+    } else {
+      setSelectedProducts([]);
+    }
+  };
+
+  const handleGenerateContent = (type: 'video' | 'image' | 'content') => {
+    if (selectedProducts.length === 0) {
+      toast({
+        title: "No Products Selected",
+        description: "Please select at least one product to generate content.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGenerationType(type);
+    setShowGenerator(true);
+  };
+
+  const handleGenerationComplete = () => {
+    setShowGenerator(false);
+    setGenerationType(null);
+    setSelectedProducts([]);
+    setGenerationConfig({
+      channel: 'facebook',
+      type: 'image',
+      format: 'feed_post',
+      formatSpec: 'square',
+      instructions: '',
+      batchGenerate: true,
+      variations: false,
+      autoOptimize: true
+    });
+  };
+
+  const selectedProductsData = inventory.filter(product => selectedProducts.includes(product.id));
 
   return (
     <div className="space-y-6">
@@ -161,13 +228,13 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                 />
               </div>
             </div>
-            
+
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
-              <option value="">All Categories</option>
+                          <option value="">All Categories</option>
               {categories?.map((category) => (
                 <option key={category} value={category}>
                   {category}
@@ -180,13 +247,73 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                 <Plus className="h-4 w-4" />
                 <span>Add Product</span>
               </Button>
-              
+
               <Button variant="outline" onClick={() => setShowImportDialog(true)} className="flex items-center space-x-2">
                 <Upload className="h-4 w-4" />
                 <span>Import</span>
               </Button>
-            </div>
+            </div>              
           </div>
+
+          {/* Multi-Select Controls */}
+          {inventory && inventory.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="select-all"
+                    checked={selectedProducts.length === inventory.length && inventory.length > 0}
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <label htmlFor="select-all" className="text-sm font-medium">
+                    Select All ({selectedProducts.length}/{inventory.length})
+                  </label>
+                </div>
+
+                {selectedProducts.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {selectedProducts.length} selected
+                  </Badge>
+                )}
+              </div>
+
+              {selectedProducts.length > 0 && (
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => handleGenerateContent('video')}
+                    className="flex items-center space-x-2 bg-red-600 hover:bg-red-700"
+                  >
+                    <Video className="h-4 w-4" />
+                    <span>Generate Video</span>
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleGenerateContent('image')}
+                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Image className="h-4 w-4" />
+                    <span>Generate Image</span>
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleGenerateContent('content')}
+                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700"
+                  >
+                    <FileText className="h-4 w-4" />
+                    <span>Generate Content</span>
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleGenerateContent('content')}
+                    className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Wand2 className="h-4 w-4" />
+                    <span>AI Generate</span>
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Products Grid */}
           {isLoading ? (
@@ -208,6 +335,9 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                   onEdit={() => setSelectedProduct(product)}
                   onDelete={() => handleDeleteProduct(product.id)}
                   onUseForGeneration={handleUseForGeneration}
+                  isSelected={selectedProducts.includes(product.id)}
+                  onSelect={handleProductSelect}
+                  showCheckbox={true}
                 />
               ))}
             </div>
@@ -216,16 +346,16 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
               <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
               <p className="text-gray-500 mb-4">
-                {searchTerm || categoryFilter 
-                  ? "No products match your current filters." 
+                {searchTerm || categoryFilter
+                  ? "No products match your current filters."
                   : "Get started by adding your first product to the inventory."
                 }
               </p>
               <Button onClick={() => setShowAddDialog(true)} className="flex items-center space-x-2 mx-auto">
                 <Plus className="h-4 w-4" />
-                <span>Add Product</span>
+                 <span>Add Product</span>
               </Button>
-            </div>
+             </div>
           )}
         </CardContent>
       </Card>
@@ -242,7 +372,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
             if (selectedProduct?.id) {
               await inventoryAPI.update(selectedProduct.id, productData);
             }
-            
+
             setSelectedProduct(null);
             setShowAddDialog(false);
             refetch();
@@ -253,7 +383,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
             });
           } catch (error) {
             console.error('Error updating product:', error);
-            toast({
+                        toast({
               title: "Error",
               description: "Failed to update product. Please try again.",
               variant: "destructive",
@@ -267,6 +397,448 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
         onOpenChange={setShowImportDialog}
         onProductsImported={handleProductsImported}
       />
+
+      {/* Generation Modal */}
+      {showGenerator && generationType && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] sm:h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white p-4 sm:p-6 flex-shrink-0 relative overflow-hidden">
+              {/* Background Pattern */}
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
+              </div>
+
+              <div className="relative flex justify-between items-start sm:items-center">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-2xl font-bold flex items-center">
+                    <div className="relative">
+                      <Wand2 className="h-5 w-5 sm:h-6 sm:w-6 mr-2 sm:mr-3 animate-pulse" />
+                      <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-ping"></div>
+                    </div>
+                    <span className="truncate">Unified Asset Generator</span>
+                  </h3>
+                  <p className="text-blue-100 mt-1 text-sm sm:text-base">
+                    {selectedProductsData.length === 0
+                      ? "Select products to start generating content"
+                      : `Generate ${generationConfig.type}s for ${selectedProductsData.length} selected product${selectedProductsData.length > 1 ? 's' : ''}`
+                    }
+                  </p>
+                </div>
+                <Button
+                  onClick={handleGenerationComplete}
+                  variant="ghost"
+                   size="sm"
+                  className="text-white hover:bg-white/20 ml-2 flex-shrink-0 transition-all duration-200 hover:scale-110"
+                >
+                  <span className="text-xl">×</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex flex-col lg:flex-row flex-1 min-h-0">
+              {/* Left Panel - Configuration */}
+              <div className="w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r border-gray-200 overflow-y-auto">
+                <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
+                  {/* Product Configuration */}
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 animate-pulse"></div>
+                      <h4 className="font-semibold text-base sm:text-lg">Selected Products</h4>
+                      <Badge variant="secondary" className="ml-auto flex-shrink-0 bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors">
+                        {selectedProductsData.length} products
+                      </Badge>
+                    </div>
+
+                    {selectedProductsData.length === 0 ? (
+                      <div className="text-center py-8 px-4">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Package className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h5 className="text-lg font-medium text-gray-900 mb-2">No Products Selected</h5>
+                                            <p className="text-gray-500 mb-4 max-w-sm mx-auto">
+                          Please select one or more products from the inventory to generate content.
+                        </p>
+                        <div className="space-y-2">
+                          <Button
+                            variant="outline"
+                            onClick={handleGenerationComplete}
+                            className="w-full"
+                          >
+                            Close Generator
+                          </Button>
+                          <p className="text-xs text-gray-400">
+                            Tip: Use the checkboxes in the inventory to select products
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-32 sm:max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                        {selectedProductsData.map((product, index) => (
+                          <div key={product.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-gray-50 via-blue-50 to-indigo-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-md group">
+                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-full flex items-center justify-center text-blue-600 font-semibold text-xs sm:text-sm flex-shrink-0 shadow-sm">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate group-hover:text-blue-600 transition-colors">{product.name}</p>
+                              {product.category && (
+                                <Badge variant="outline" className="text-xs mt-1 bg-white/80 backdrop-blur-sm">
+                                  {product.category}
+                                </Badge>
+                              )}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedProducts(prev => prev.filter(id => id !== product.id));
+                              }}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0 transition-all duration-200 hover:scale-110 opacity-0 group-hover:opacity-100"
+                            >
+                              <span className="hidden sm:inline">Remove</span>
+                              <span className="sm:hidden">×</span>
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Platform Configuration - Only show if products are selected */}
+                  {selectedProductsData.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0 animate-pulse"></div>
+                        <h4 className="font-semibold text-base sm:text-lg">Platform Settings</h4>
+                      </div>
+                    
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Channel Selection */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">Channel</label>
+                          <select 
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                            value={generationConfig.channel}
+                            onChange={(e) => setGenerationConfig(prev => ({ ...prev, channel: e.target.value }))}
+                          >
+                            <option value="facebook">📘 Facebook</option>
+                            <option value="instagram">📷 Instagram</option>
+                            <option value="tiktok">🎵 TikTok</option>
+                            <option value="youtube">📺 YouTube</option>
+                            <option value="linkedin">💼 LinkedIn</option>
+                            <option value="twitter">🐦 Twitter</option>
+                          </select>
+                        </div>
+
+                        {/* Type Selection */}
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">Content Type</label>
+                          <select 
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                            value={generationConfig.type}
+                            onChange={(e) => setGenerationConfig(prev => ({ ...prev, type: e.target.value }))}
+                          >
+                            <option value="image">🖼️ Image</option>
+                            <option value="video">🎥 Video</option>
+                            <option value="carousel">🔄 Carousel</option>
+                            <option value="story">📱 Story</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Format Selection */}
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">Format</label>
+                        <select 
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                          value={generationConfig.format}
+                          onChange={(e) => setGenerationConfig(prev => ({ ...prev, format: e.target.value }))}
+                        >
+                          <option value="feed_post">📄 Feed Post</option>
+                          <option value="story">📱 Story</option>
+                          <option value="reel">🎬 Reel</option>
+                          <option value="ad">📢 Ad</option>
+                          <option value="banner">🖼️ Banner</option>
+                        </select>
+                      </div>
+
+                      {/* Format Specifications */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-700">Dimensions</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                          <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                            generationConfig.formatSpec === 'square' 
+                              ? 'border-blue-500 bg-blue-50 shadow-md scale-105' 
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                          }`}>
+                            <input 
+                              type="radio" 
+                              name="format" 
+                              id="square" 
+                              value="square"
+                              checked={generationConfig.formatSpec === 'square'}
+                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, formatSpec: e.target.value }))}
+                              className="sr-only"
+                            />
+                            <label htmlFor="square" className="cursor-pointer">
+                              <div className="text-center">
+                                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
+                                <p className="text-xs sm:text-sm font-medium">Square</p>
+                                <p className="text-xs text-gray-500 hidden sm:block">1080×1080px</p>
+                              </div>
+                            </label>
+                          </div>
+                          
+                          <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                            generationConfig.formatSpec === 'landscape' 
+                              ? 'border-blue-500 bg-blue-50 shadow-md scale-105' 
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                          }`}>
+                            <input 
+                              type="radio" 
+                              name="format" 
+                              id="landscape" 
+                              value="landscape"
+                              checked={generationConfig.formatSpec === 'landscape'}
+                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, formatSpec: e.target.value }))}
+                              className="sr-only"
+                            />
+                            <label htmlFor="landscape" className="cursor-pointer">
+                              <div className="text-center">
+                                <div className="w-6 h-4 sm:w-8 sm:h-4 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
+                                <p className="text-xs sm:text-sm font-medium">Landscape</p>
+                                <p className="text-xs text-gray-500 hidden sm:block">1920×1080px</p>
+                              </div>
+                            </label>
+                          </div>
+                          
+                          <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                            generationConfig.formatSpec === 'portrait' 
+                              ? 'border-blue-500 bg-blue-50 shadow-md scale-105' 
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                          }`}>
+                            <input 
+                              type="radio" 
+                              name="format" 
+                              id="portrait" 
+                              value="portrait"
+                              checked={generationConfig.formatSpec === 'portrait'}
+                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, formatSpec: e.target.value }))}
+                              className="sr-only"
+                            />
+                            <label htmlFor="portrait" className="cursor-pointer">
+                              <div className="text-center">
+                                <div className="w-4 h-6 sm:w-4 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
+                                <p className="text-xs sm:text-sm font-medium">Portrait</p>
+                                <p className="text-xs text-gray-500 hidden sm:block">1080×1920px</p>
+                              </div>
+                            </label>
+                          </div>
+                          
+                          <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                            generationConfig.formatSpec === 'story' 
+                              ? 'border-blue-500 bg-blue-50 shadow-md scale-105' 
+                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                          }`}>
+                            <input 
+                              type="radio" 
+                              name="format" 
+                              id="story" 
+                              value="story"
+                              checked={generationConfig.formatSpec === 'story'}
+                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, formatSpec: e.target.value }))}
+                              className="sr-only"
+                            />
+                            <label htmlFor="story" className="cursor-pointer">
+                              <div className="text-center">
+                                <div className="w-4 h-6 sm:w-4 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
+                                <p className="text-xs sm:text-sm font-medium">Story</p>
+                                <p className="text-xs text-gray-500 hidden sm:block">1080×1920px</p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                        <p className="text-xs text-blue-600 mt-2 flex items-center">
+                          <span className="mr-1">✨</span>
+                          Optimized for {generationConfig.channel.charAt(0).toUpperCase() + generationConfig.channel.slice(1)} {generationConfig.format.replace('_', ' ')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Panel - Instructions and Actions */}
+              <div className="w-full lg:w-1/2 flex flex-col min-h-0">
+                <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+                  {selectedProductsData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Wand2 className="h-8 w-8 text-gray-400" />
+                        </div>
+                        <h5 className="text-lg font-medium text-gray-900 mb-2">Ready to Generate</h5>
+                        <p className="text-gray-500 mb-4 max-w-sm">
+                          Select products from the left panel to configure your content generation settings.
+                        </p>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span>Choose products from inventory</span>
+                          </div>
+                          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span>Configure platform settings</span>
+                          </div>
+                          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                            <span>Add generation instructions</span>
+                          </div>
+                          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                            <span>Generate your content</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Instructions */}
+                      <div className="space-y-4 mb-6 sm:mb-8">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0 animate-pulse"></div>
+                          <h4 className="font-semibold text-base sm:text-lg">Content Instructions</h4>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="relative">
+                            <textarea
+                              className="w-full h-24 sm:h-32 px-4 py-3 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                              placeholder="Enter detailed instructions for content generation..."
+                              value={generationConfig.instructions || `Create a compelling ${generationConfig.type} showcasing the ${selectedProductsData[0]?.name || 'selected product'} in action. Highlight key features and benefits with professional styling and engaging visuals.`}
+                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, instructions: e.target.value }))}
+                            />
+                            <div className="absolute top-2 right-2 text-xs text-gray-400">
+                              {generationConfig.instructions?.length || 0}/500
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="w-full border-dashed hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 group">
+                            <Wand2 className="h-4 w-4 mr-2 group-hover:animate-pulse" />
+                            <span className="hidden sm:inline">Enhance with AI</span>
+                            <span className="sm:hidden">AI Enhance</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Generation Options */}
+                      <div className="space-y-4 mb-6 sm:mb-8">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 animate-pulse"></div>
+                          <h4 className="font-semibold text-base sm:text-lg">Generation Options</h4>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-sm">
+                            <div className="flex items-center space-x-3 min-w-0 flex-1">
+                              <input 
+                                type="checkbox" 
+                                id="batch_generate" 
+                                checked={generationConfig.batchGenerate}
+                                onChange={(e) => setGenerationConfig(prev => ({ ...prev, batchGenerate: e.target.checked }))}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 flex-shrink-0 transition-all duration-200"
+                              />
+                              <label htmlFor="batch_generate" className="text-sm font-medium truncate cursor-pointer">Generate for all selected products</label>
+                            </div>
+                            <Badge variant="secondary" className="flex-shrink-0 bg-green-100 text-green-800 hover:bg-green-200 transition-colors">Recommended</Badge>
+                          </div>
+                          
+                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg border border-gray-200 hover:border-purple-300 transition-all duration-200 hover:shadow-sm">
+                            <div className="flex items-center space-x-3 min-w-0 flex-1">
+                              <input 
+                                type="checkbox" 
+                                id="variations" 
+                                checked={generationConfig.variations}
+                                onChange={(e) => setGenerationConfig(prev => ({ ...prev, variations: e.target.checked }))}
+                                className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 flex-shrink-0 transition-all duration-200"
+                              />
+                              <label htmlFor="variations" className="text-sm font-medium truncate cursor-pointer">Create multiple variations</label>
+                            </div>
+                            <Badge variant="outline" className="flex-shrink-0">Optional</Badge>
+                          </div>
+                          
+                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-orange-50 rounded-lg border border-gray-200 hover:border-orange-300 transition-all duration-200 hover:shadow-sm">
+                            <div className="flex items-center space-x-3 min-w-0 flex-1">
+                              <input 
+                                type="checkbox" 
+                                id="auto_optimize" 
+                                checked={generationConfig.autoOptimize}
+                                onChange={(e) => setGenerationConfig(prev => ({ ...prev, autoOptimize: e.target.checked }))}
+                                className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 flex-shrink-0 transition-all duration-200"
+                              />
+                              <label htmlFor="auto_optimize" className="text-sm font-medium truncate cursor-pointer">Auto-optimize for platform</label>
+                            </div>
+                            <Badge variant="secondary" className="flex-shrink-0 bg-orange-100 text-orange-800 hover:bg-orange-200 transition-colors">Recommended</Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="p-4 sm:p-6 border-t border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50 flex-shrink-0">
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                    <Button
+                      variant="outline"
+                      onClick={handleGenerationComplete}
+                      className="flex-1 hover:bg-gray-100 transition-all duration-200"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        if (selectedProductsData.length === 0) {
+                          toast({
+                            title: "No Products Selected",
+                            description: "Please select at least one product to generate content.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        console.log(`Generating ${generationType} for:`, selectedProductsData);
+                        console.log('Generation config:', generationConfig);
+                        toast({
+                          title: "Generation Started",
+                          description: `Started generating ${generationConfig.type} content for ${selectedProductsData.length} products on ${generationConfig.channel}.`,
+                        });
+                        handleGenerationComplete();
+                      }}
+                      disabled={selectedProductsData.length === 0}
+                      className={`flex-1 transition-all duration-200 ${
+                        selectedProductsData.length === 0
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
+                      }`}
+                      size="lg"
+                    >
+                      <Wand2 className={`h-4 w-4 mr-2 ${selectedProductsData.length > 0 ? 'animate-pulse' : ''}`} />
+                      <span className="hidden sm:inline">
+                        {selectedProductsData.length === 0 ? 'Select Products First' : `Generate ${generationConfig.type.charAt(0).toUpperCase() + generationConfig.type.slice(1)}`}
+                      </span>
+                      <span className="sm:hidden">
+                        {selectedProductsData.length === 0 ? 'Select Products' : 'Generate'}
+                      </span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

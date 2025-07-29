@@ -2,6 +2,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Trash2, Wand2, DollarSign, Package } from "lucide-react";
 
 interface InventoryItem {
@@ -24,16 +25,38 @@ interface ProductCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onUseForGeneration: (product: InventoryItem) => void;
+  // Multi-select props
+  isSelected?: boolean;
+  onSelect?: (productId: string, checked: boolean) => void;
+  showCheckbox?: boolean;
 }
 
-export function ProductCard({ product, onEdit, onDelete, onUseForGeneration }: ProductCardProps) {
+export function ProductCard({ 
+  product, 
+  onEdit, 
+  onDelete, 
+  onUseForGeneration,
+  isSelected = false,
+  onSelect,
+  showCheckbox = false
+}: ProductCardProps) {
   const primaryImage = product.images?.[0];
   
   return (
-    <Card className="group hover:shadow-lg transition-shadow">
+    <Card className={`group hover:shadow-lg transition-shadow ${isSelected ? 'ring-2 ring-blue-500' : ''}`}>
       <CardContent className="p-4">
-        {/* Product Image */}
-        <div className="w-full h-48 bg-gray-100 rounded-lg mb-4 overflow-hidden">
+        {/* Product Image with Checkbox Overlay */}
+        <div className="relative w-full h-48 bg-gray-100 rounded-lg mb-4 overflow-hidden">
+          {showCheckbox && (
+            <div className="absolute top-2 left-2 z-10">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={(checked) => onSelect?.(product.id, checked as boolean)}
+                className="bg-white/90 backdrop-blur-sm"
+              />
+            </div>
+          )}
+          
           {primaryImage ? (
             <img
               src={primaryImage}
