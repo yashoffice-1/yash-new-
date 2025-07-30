@@ -139,19 +139,83 @@ export function AssetLibrary() {
     });
     
     try {
-      const { data, error } = await supabase.functions.invoke('heygen-video-status', {
-        body: { assetId }
-      });
-
-      if (error) {
-        throw error;
+      // Get the asset details from the current state instead of Supabase
+      const asset = assets.find(a => a.id === assetId);
+      
+      if (!asset) {
+        throw new Error('Asset not found');
       }
 
-      if (data.success) {
-        toast({
-          title: "✅ Video Status Updated",
-          description: `Video status: ${data.status}${data.video_url ? ' - Real video loaded!' : ''}`,
+      // Extract video ID from the asset URL if it's pending
+      let videoId = null;
+      if (asset.asset_url && asset.asset_url.startsWith('pending_')) {
+        videoId = asset.asset_url.replace('pending_', '');
+      } else if (asset.description) {
+        // Try to extract video ID from description
+        const videoIdMatch = asset.description.match(/video_id[:_](\w+)/i);
+        if (videoIdMatch) {
+          videoId = videoIdMatch[1];
+        }
+      }
+
+      if (!videoId) {
+        // If we can't find a video ID, use the backend bulk recovery endpoint
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/recover-pending`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
         });
+
+        if (!response.ok) {
+          throw new Error(`Backend error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          toast({
+            title: "✅ Recovery Completed",
+            description: `${data.data.length} videos checked. ${data.data.filter((r: any) => r.updated).length} updated.`,
+          });
+          
+          // Reload assets to show the updated status
+          await loadAssets();
+          return;
+        } else {
+          throw new Error(data.error || 'Recovery failed');
+        }
+      }
+
+      // Use the backend status check endpoint for specific video
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/status/${videoId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Status check failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const { status, videoUrl, errorMessage } = data.data;
+        
+        if (status === 'completed' && videoUrl) {
+          toast({
+            title: "✅ Video Completed!",
+            description: "Your video has been generated and is now available.",
+          });
+        } else if (status === 'failed') {
+          toast({
+            title: "❌ Video Failed",
+            description: errorMessage || "Video generation failed. Please try again.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "⏳ Still Processing",
+            description: `Video is still being generated. Status: ${status}`,
+          });
+        }
         
         // Reload assets to show the updated status
         await loadAssets();
@@ -168,12 +232,60 @@ export function AssetLibrary() {
     }
   };
 
+  const handleBulkRecovery = async () => {
+    toast({
+      title: "Recovering Pending Videos",
+      description: "Checking all pending HeyGen videos...",
+    });
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/recover-pending`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Backend error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const updatedCount = data.data.filter((r: any) => r.updated).length;
+        toast({
+          title: "✅ Bulk Recovery Completed",
+          description: `${data.data.length} videos checked. ${updatedCount} videos updated.`,
+        });
+        
+        // Reload assets to show the updated status
+        await loadAssets();
+      } else {
+        throw new Error(data.error || 'Bulk recovery failed');
+      }
+    } catch (error) {
+      console.error('Error in bulk recovery:', error);
+      toast({
+        title: "Failed to Recover Videos", 
+        description: error.message || "Could not recover pending videos.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const assetCounts = {
     all: assets.length,
     image: assets.filter(a => a.asset_type === 'image').length,
     video: assets.filter(a => a.asset_type === 'video').length,
     content: assets.filter(a => a.asset_type === 'content').length,
   };
+
+  // Check if there are any pending HeyGen videos
+  const hasPendingHeyGenVideos = assets.some(asset => 
+    (asset.source_system === "heygen" || asset.source_system === "heygen_zapier") &&
+    (asset.asset_url === "pending" || asset.asset_url === "processing" || asset.asset_url?.startsWith("pending_"))
+  );
 
   return (
     <div className="space-y-6">
@@ -182,15 +294,28 @@ export function AssetLibrary() {
           <h2 className="text-3xl font-bold">Asset Library</h2>
           <p className="text-muted-foreground">Manage and organize your saved AI-generated assets</p>
         </div>
-        <Button
-          variant="outline"
-          onClick={handleManualRefresh}
-          disabled={isLoading}
-          className="flex items-center space-x-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </Button>
+        <div className="flex space-x-2">
+          {hasPendingHeyGenVideos && (
+            <Button
+              variant="default"
+              onClick={handleBulkRecovery}
+              disabled={isLoading}
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span>Recover Videos</span>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={handleManualRefresh}
+            disabled={isLoading}
+            className="flex items-center space-x-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filter Controls */}
@@ -261,10 +386,10 @@ export function AssetLibrary() {
                     
                     <div className="flex flex-wrap gap-1 mt-2">
                       <Badge variant="secondary" className="text-xs">
-                        {asset.asset_type.toUpperCase()}
+                        {asset.asset_type?.toUpperCase() || 'UNKNOWN'}
                       </Badge>
                       <Badge variant="outline" className="text-xs">
-                        {asset.source_system.toUpperCase()}
+                        {asset.source_system?.toUpperCase() || 'UNKNOWN'}
                       </Badge>
                       {asset.tags?.map((tag, index) => (
                         <Badge key={index} variant="secondary" className="text-xs">
@@ -315,12 +440,12 @@ export function AssetLibrary() {
                               <p className="font-medium mb-2">🎬 FeedGenesis is working on your video</p>
                               <div className="flex items-center space-x-2 mb-2">
                                 <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-32">
-                                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: "75%" }}></div>
+                                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: "60%" }}></div>
                                 </div>
-                                <span className="text-xs text-gray-600">75%</span>
+                                <span className="text-xs text-gray-600">60%</span>
                               </div>
                               <p className="text-xs text-gray-600">
-                                Estimated time remaining: 1-2 minutes
+                                Estimated time remaining: 2-3 minutes
                               </p>
                               {asset.asset_url === "pending" && (
                                 <p className="text-xs text-orange-600 mt-1">
@@ -406,38 +531,38 @@ export function AssetLibrary() {
                         {new Date(asset.created_at).toLocaleDateString()}
                       </span>
                       
-                        <div className="flex space-x-1">
-                          {/* Show refresh button for ALL HeyGen videos */}
-                          {asset.source_system === "heygen" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRefreshVideo(asset.id)}
-                              className="text-blue-600 hover:text-blue-700"
-                              title="Refresh video from HeyGen"
-                            >
-                              🔄
-                            </Button>
-                          )}
+                      <div className="flex space-x-1">
+                        {/* Show refresh button for ALL HeyGen videos */}
+                        {(asset.source_system === "heygen" || asset.source_system === "heygen_zapier") && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRefreshVideo(asset.id)}
+                            className="text-blue-600 hover:text-blue-700 border-blue-200"
+                            title="Check video status from HeyGen"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        )}
                          
-                         {asset.asset_type === 'content' && asset.content ? (
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => handleCopyContent(asset.content!, asset.title)}
-                           >
-                             <Copy className="h-4 w-4" />
-                           </Button>
-                         ) : (
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => handleDownload(asset)}
-                             disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
-                           >
-                             <Download className="h-4 w-4" />
-                           </Button>
-                         )}
+                        {asset.asset_type === 'content' && asset.content ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyContent(asset.content!, asset.title)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownload(asset)}
+                            disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
                         
                         <Button
                           variant="outline"

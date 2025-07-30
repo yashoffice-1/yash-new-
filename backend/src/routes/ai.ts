@@ -16,6 +16,7 @@ const heygenGenerateSchema = z.object({
   templateId: z.string(),
   productId: z.string().optional(),
   instruction: z.string(),
+  variables: z.record(z.string()).optional(), // Template variables
   formatSpecs: z.object({
     channel: z.string().optional(),
     format: z.string().optional()
@@ -101,7 +102,7 @@ router.post('/openai/generate', async (req, res, next) => {
 // HeyGen Integration
 router.post('/heygen/generate', async (req, res, next) => {
   try {
-    const { templateId, productId, instruction, formatSpecs } = heygenGenerateSchema.parse(req.body);
+    const { templateId, productId, instruction, variables, formatSpecs } = heygenGenerateSchema.parse(req.body);
     
     const heygenApiKey = process.env.HEYGEN_API_KEY;
     if (!heygenApiKey) {
@@ -123,33 +124,46 @@ router.post('/heygen/generate', async (req, res, next) => {
       }
     }
 
-    // Create HeyGen video generation request using template
-    const response = await axios.post('https://api.heygen.com/v1/video.generate', {
-      video_inputs: [
-        {
-          character: {
-            type: "avatar",
-            avatar_id: "DnDpLjqVDqOKVBhxJEn"
-          },
-          voice: {
-            type: "text",
-            input_text: instruction,
-            voice_id: "sara"
-          },
-          background: {
-            type: "color",
-            value: "#000000"
-          }
-        }
-      ],
+    // Prepare the request body according to HeyGen API v2 template generation
+    const requestBody: any = {
       test: false,
-      aspect_ratio: "16:9",
-      template_id: templateId
-    }, {
+      aspect_ratio: "16:9"
+    };
+
+    // Add variables if provided - this is the key part for template-based generation
+    if (variables && Object.keys(variables).length > 0) {
+      // Convert simple string variables to HeyGen's expected format
+      const formattedVariables: Record<string, any> = {};
+      Object.entries(variables).forEach(([key, value]) => {
+        formattedVariables[key] = {
+          name: key,
+          type: "text",
+          properties: {
+            content: value
+          }
+        };
+      });
+      requestBody.variables = formattedVariables;
+    }
+
+    // For v2 API, we don't need video_inputs for template-based generation
+    // The template handles everything, and variables are passed directly
+    // Only add video_inputs if we want to override template settings (which we don't for templates)
+
+    console.log('HeyGen API Request Body:', JSON.stringify(requestBody, null, 2));
+    console.log('HeyGen API Key Length:', heygenApiKey?.length || 0);
+    console.log('Template ID:', templateId);
+    console.log('Variables:', variables);
+
+    // Create HeyGen video generation request using template
+    // According to HeyGen API v2 documentation, use the template-specific endpoint
+    console.log('Making request to HeyGen API v2...');
+    const response = await axios.post(`https://api.heygen.com/v2/template/${templateId}/generate`, requestBody, {
       headers: {
         'X-Api-Key': heygenApiKey,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 30000 // 30 second timeout
     });
 
     const videoId = response.data.data.video_id;
@@ -197,7 +211,19 @@ router.post('/heygen/generate', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+    
+    // Log the full error for debugging
+    console.error('HeyGen API Error:', error);
+    if (axios.isAxiosError(error) && error.response) {
+      console.error('HeyGen API Response:', error.response.data);
+      console.error('HeyGen API Status:', error.response.status);
+    }
+    
+    return res.status(500).json({
+      success: false,
+      error: `HeyGen API error: ${axios.isAxiosError(error) ? error.response?.status || 'Unknown' : 'Unknown'} - ${axios.isAxiosError(error) ? error.response?.data?.message || error.message : error instanceof Error ? error.message : 'Unknown error'}`,
+      details: axios.isAxiosError(error) ? error.response?.data : null
+    });
   }
 });
 
@@ -214,33 +240,61 @@ router.get('/heygen/status/:videoId', async (req, res, next) => {
       });
     }
 
-    const response = await axios.get(`https://api.heygen.com/v1/video.status.get?video_id=${videoId}`, {
+    // Use the v1 status endpoint as per HeyGen documentation
+    const response = await axios.get(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
       headers: {
         'X-Api-Key': heygenApiKey
       }
     });
 
-    const status = response.data.data.status;
-    const videoUrl = response.data.data.video_url;
+    const data = response.data.data;
+    const status = data.status;
+    const videoUrl = data.video_url;
+    const errorMessage = data.error_message;
+    
+    // HeyGen doesn't provide progress percentage, so we'll estimate based on status
+    let progress = 0;
+    if (status === 'completed') {
+      progress = 100;
+    } else if (status === 'failed') {
+      progress = 0;
+    } else if (status === 'processing') {
+      progress = 50; // Estimate 50% for processing state
+    }
 
     // Update asset if video is ready
     if (status === 'completed' && videoUrl) {
       await prisma.generatedAsset.updateMany({
         where: { url: `pending_${videoId}` },
-        data: { url: videoUrl }
+        data: { 
+          url: videoUrl,
+          status: 'completed'
+        }
       });
 
       await prisma.assetLibrary.updateMany({
         where: { assetUrl: `pending_${videoId}` },
-        data: { assetUrl: videoUrl }
+        data: { 
+          assetUrl: videoUrl
+        }
       });
+    } else if (status === 'failed') {
+      // Update status to failed
+      await prisma.generatedAsset.updateMany({
+        where: { url: `pending_${videoId}` },
+        data: { status: 'failed' }
+      });
+
+      // Note: AssetLibrary doesn't have a status field, so we only update GeneratedAsset status
     }
 
     res.json({
       success: true,
       data: {
         status,
-        videoUrl: status === 'completed' ? videoUrl : null
+        progress,
+        videoUrl: status === 'completed' ? videoUrl : null,
+        errorMessage: status === 'failed' ? errorMessage : null
       }
     });
   } catch (error) {
@@ -295,58 +349,126 @@ router.post('/runwayml/generate', async (req, res, next) => {
   }
 });
 
-
-// Get AI generation statistics
-router.get('/stats', async (req, res, next) => {
+// Bulk recovery endpoint for pending HeyGen videos
+router.post('/heygen/recover-pending', async (req, res, next) => {
   try {
-    const [openaiCount, heygenCount, runwaymlCount] = await Promise.all([
-      prisma.generatedAsset.count({ where: { sourceSystem: 'openai' } }),
-      prisma.generatedAsset.count({ where: { sourceSystem: 'heygen' } }),
-      prisma.generatedAsset.count({ where: { sourceSystem: 'runwayml' } })
-    ]);
+    const heygenApiKey = process.env.HEYGEN_API_KEY;
+    if (!heygenApiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'HeyGen API key not configured'
+      });
+    }
 
-    res.json({
-      success: true,
-      data: {
-        openai: openaiCount,
-        heygen: heygenCount,
-        runwayml: runwaymlCount,
-        total: openaiCount + heygenCount + runwaymlCount
+    // Get all pending HeyGen videos from database
+    const pendingAssets = await prisma.generatedAsset.findMany({
+      where: {
+        sourceSystem: 'heygen',
+        url: { startsWith: 'pending_' }
+      },
+      include: {
+        assetLibraries: true
       }
     });
+
+    if (pendingAssets.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No pending videos found',
+        data: []
+      });
+    }
+
+    console.log(`Found ${pendingAssets.length} pending videos to check`);
+
+    const results = [];
+    
+    for (const asset of pendingAssets) {
+      try {
+        // Extract video ID from pending URL
+        const videoId = asset.url.replace('pending_', '');
+        
+        console.log(`Checking status for video: ${videoId}`);
+        
+        // Check status from HeyGen API
+        const response = await axios.get(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
+          headers: {
+            'X-Api-Key': heygenApiKey
+          }
+        });
+
+        const data = response.data.data;
+        const status = data.status;
+        const videoUrl = data.video_url;
+        const errorMessage = data.error_message;
+
+        let updateData = {};
+        let message = '';
+
+        if (status === 'completed' && videoUrl) {
+          // Update both generated_assets and asset_library
+          await prisma.generatedAsset.update({
+            where: { id: asset.id },
+            data: { 
+              url: videoUrl,
+              status: 'completed'
+            }
+          });
+
+          // Update asset library entries
+          for (const libraryAsset of asset.assetLibraries) {
+            await prisma.assetLibrary.update({
+              where: { id: libraryAsset.id },
+              data: { assetUrl: videoUrl }
+            });
+          }
+
+          updateData = { url: videoUrl, status: 'completed' };
+          message = 'Video completed and updated';
+        } else if (status === 'failed') {
+          await prisma.generatedAsset.update({
+            where: { id: asset.id },
+            data: { status: 'failed' }
+          });
+
+          updateData = { status: 'failed' };
+          message = `Video failed: ${errorMessage || 'Unknown error'}`;
+        } else {
+          message = `Video still processing: ${status}`;
+        }
+
+        results.push({
+          assetId: asset.id,
+          videoId,
+          status,
+          message,
+          updated: status === 'completed' || status === 'failed'
+        });
+
+      } catch (error) {
+        console.error(`Error checking video ${asset.url}:`, error);
+        results.push({
+          assetId: asset.id,
+          videoId: asset.url.replace('pending_', ''),
+          status: 'error',
+          message: `Error checking status: ${error.message}`,
+          updated: false
+        });
+      }
+    }
+
+    const updatedCount = results.filter(r => r.updated).length;
+    
+    res.json({
+      success: true,
+      message: `Recovery completed. ${updatedCount} videos updated.`,
+      data: results
+    });
+
   } catch (error) {
+    console.error('Error in bulk recovery:', error);
     next(error);
   }
 });
-
-// Test environment variables and service availability
-router.get('/test-env', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      services: {
-        openai: {
-          configured: !!process.env.OPENAI_API_KEY,
-          keyLength: process.env.OPENAI_API_KEY?.length || 0
-        },
-        heygen: {
-          configured: !!process.env.HEYGEN_API_KEY,
-          keyLength: process.env.HEYGEN_API_KEY?.length || 0
-        },
-        runwayml: {
-          configured: !!process.env.RUNWAYML_API_KEY,
-          keyLength: process.env.RUNWAYML_API_KEY?.length || 0
-        },
-
-      },
-      totalConfigured: [
-        process.env.OPENAI_API_KEY,
-        process.env.HEYGEN_API_KEY,
-        process.env.RUNWAYML_API_KEY
-      ].filter(Boolean).length
-    }
-  });
-});
-
 
 export default router; 

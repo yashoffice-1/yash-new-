@@ -78,9 +78,28 @@ router.get('/', async (req, res, next) => {
       prisma.assetLibrary.count({ where })
     ]);
 
+    // Transform the data to match frontend expectations
+    const transformedAssets = assets.map(asset => ({
+      id: asset.id,
+      title: asset.title,
+      description: asset.description,
+      tags: asset.tags,
+      asset_type: asset.assetType,
+      asset_url: asset.assetUrl,
+      gif_url: asset.gifUrl,
+      content: asset.content,
+      instruction: asset.instruction,
+      source_system: asset.sourceSystem,
+      favorited: asset.favorited,
+      created_at: asset.createdAt.toISOString(),
+      updated_at: asset.updatedAt.toISOString(),
+      original_asset_id: asset.originalAssetId,
+      originalAsset: asset.originalAsset
+    }));
+
     res.json({
       success: true,
-      data: assets,
+      data: transformedAssets,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -112,9 +131,28 @@ router.get('/:id', async (req, res, next) => {
       });
     }
 
+    // Transform the data to match frontend expectations
+    const transformedAsset = {
+      id: asset.id,
+      title: asset.title,
+      description: asset.description,
+      tags: asset.tags,
+      asset_type: asset.assetType,
+      asset_url: asset.assetUrl,
+      gif_url: asset.gifUrl,
+      content: asset.content,
+      instruction: asset.instruction,
+      source_system: asset.sourceSystem,
+      favorited: asset.favorited,
+      created_at: asset.createdAt.toISOString(),
+      updated_at: asset.updatedAt.toISOString(),
+      original_asset_id: asset.originalAssetId,
+      originalAsset: asset.originalAsset
+    };
+
     res.json({
       success: true,
-      data: asset
+      data: transformedAsset
     });
   } catch (error) {
     next(error);
