@@ -278,6 +278,7 @@ router.get('/heygen/list', async (req, res, next) => {
       totalTemplates: templates.length,
       firstTemplate: templates[0]?.name || 'none'
     });
+    console.log('First template structure:', JSON.stringify(templates[0], null, 2));
 
     res.json({
       success: true,
@@ -321,6 +322,7 @@ router.get('/heygen/detail/:templateId', async (req, res, next) => {
     const templateData = response.data.data;
     
     console.log('Successfully fetched template details from HeyGen');
+    console.log('Template data structure:', JSON.stringify(templateData, null, 2));
 
     res.json({
       success: true,

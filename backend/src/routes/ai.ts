@@ -123,8 +123,8 @@ router.post('/heygen/generate', async (req, res, next) => {
       }
     }
 
-    // Create HeyGen video generation request
-    const response = await axios.post(' /v1/video.generate', {
+    // Create HeyGen video generation request using template
+    const response = await axios.post('https://api.heygen.com/v1/video.generate', {
       video_inputs: [
         {
           character: {
@@ -143,7 +143,8 @@ router.post('/heygen/generate', async (req, res, next) => {
         }
       ],
       test: false,
-      aspect_ratio: "16:9"
+      aspect_ratio: "16:9",
+      template_id: templateId
     }, {
       headers: {
         'X-Api-Key': heygenApiKey,

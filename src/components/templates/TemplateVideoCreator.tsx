@@ -15,14 +15,16 @@ interface VideoTemplate {
   duration: string;
   status: 'active' | 'pending' | 'draft';
   heygenTemplateId?: string;
+  variables?: string[];
+  aspectRatio?: 'landscape' | 'portrait';
+  templateDetails?: any;
 }
 
 interface TemplateVideoCreatorProps {
   template: VideoTemplate;
-  onBack: () => void;
 }
 
-export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorProps) {
+export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
   const { toast } = useToast();
   const { generateVideo, isGenerating } = useVideoGeneration();
   const [templateVariables, setTemplateVariables] = useState<string[]>([]);
@@ -34,7 +36,71 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
       setIsLoadingTemplate(true);
       try {
         console.log('Fetching template details for template ID:', template.id);
-        const templateDetail = await templateManager.getTemplateDetail(template.id);
+        
+        let templateDetail;
+        
+        // For HeyGen templates, always use pre-fetched details or HeyGen API
+        if (template.heygenTemplateId) {
+          if (template.templateDetails) {
+            console.log('Using pre-fetched HeyGen template details');
+            const variables = template.templateDetails.variables ? Object.keys(template.templateDetails.variables) : [];
+            templateDetail = {
+              id: template.id,
+              name: template.name,
+              description: template.description,
+              thumbnail: template.thumbnail,
+              category: template.category,
+              duration: template.duration,
+              variables: variables,
+              variableTypes: variables.reduce((acc, varName) => {
+                acc[varName] = {
+                  name: varName,
+                  type: 'text',
+                  charLimit: 100,
+                  required: true
+                };
+                return acc;
+              }, {} as Record<string, any>)
+            };
+          } else {
+            console.log('HeyGen template detected, using HeyGen API endpoint');
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/heygen/detail/${template.heygenTemplateId}`);
+            
+            if (!response.ok) {
+              throw new Error(`HeyGen API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+              // Convert HeyGen template data to our format
+              const variables = data.data.variables ? Object.keys(data.data.variables) : [];
+              templateDetail = {
+                id: template.id,
+                name: template.name,
+                description: template.description,
+                thumbnail: template.thumbnail,
+                category: template.category,
+                duration: template.duration,
+                variables: variables,
+                variableTypes: variables.reduce((acc, varName) => {
+                  acc[varName] = {
+                    name: varName,
+                    type: 'text',
+                    charLimit: 100,
+                    required: true
+                  };
+                  return acc;
+                }, {} as Record<string, any>)
+              };
+            } else {
+              throw new Error('Failed to fetch HeyGen template details');
+            }
+          }
+        } else {
+          // Use the regular template manager for non-HeyGen templates
+          templateDetail = await templateManager.getTemplateDetail(template.id);
+        }
         
         console.log('Raw template detail response:', templateDetail);
         
@@ -43,29 +109,12 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
           console.log('Template variables length:', templateDetail.variables.length);
           setTemplateVariables(templateDetail.variables);
           
-          // Initialize variable values with default suggestions
+          // Initialize variable values with empty strings (no predefined values)
           const initialValues: Record<string, string> = {};
           templateDetail.variables.forEach(variable => {
-            // Provide smart defaults based on variable names
-            if (variable.toLowerCase().includes('product')) {
-              initialValues[variable] = 'Premium Product Name';
-            } else if (variable.toLowerCase().includes('brand')) {
-              initialValues[variable] = 'Your Brand';
-            } else if (variable.toLowerCase().includes('price')) {
-              initialValues[variable] = '$99.99';
-            } else if (variable.toLowerCase().includes('discount')) {
-              initialValues[variable] = '25%';
-            } else if (variable.toLowerCase().includes('cta') || variable.toLowerCase().includes('call')) {
-              initialValues[variable] = 'Shop Now';
-            } else if (variable.toLowerCase().includes('website') || variable.toLowerCase().includes('url')) {
-              initialValues[variable] = 'https://yourwebsite.com';
-            } else if (variable.toLowerCase().includes('image')) {
-              initialValues[variable] = 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=600&fit=crop';
-            } else {
-              initialValues[variable] = `Enter ${variable.replace(/_/g, ' ')}`;
-            }
+            initialValues[variable] = '';
           });
-          console.log('Initial variable values:', initialValues);
+          console.log('Initial variable values (empty):', initialValues);
           setVariableValues(initialValues);
         } else {
           console.error('Template detail is null - no template found');
@@ -83,7 +132,7 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
     };
 
     fetchTemplateDetails();
-  }, [template.id, toast]);
+  }, [template.id, template.heygenTemplateId, template.templateDetails, toast]);
 
   const handleVariableChange = (variable: string, value: string) => {
     setVariableValues(prev => ({
@@ -106,13 +155,10 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
       // Use HeyGen for video generation with template
       await generateVideo(instruction, undefined, 'heygen');
       
-      toast({
-        title: "✅ Request Sent Successfully",
-        description: `Video generation request sent to HeyGen using template "${template.name}". Check the Asset Library to monitor progress!`,
-      });
-      
-      // Go back to templates after successful creation
-      onBack();
+             toast({
+         title: "✅ Request Sent Successfully",
+         description: `Video generation request sent to HeyGen using template "${template.name}". Check the Asset Library to monitor progress!`,
+       });
     } catch (error) {
       console.error('Error creating video:', error);
       toast({
@@ -124,23 +170,16 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
   };
 
   const canCreateVideo = templateVariables.length === 0 || templateVariables.every(variable => 
-    variableValues[variable] && variableValues[variable].trim() !== '' && 
-    !variableValues[variable].startsWith('Enter ')
+    variableValues[variable] && variableValues[variable].trim() !== ''
   );
 
   if (isLoadingTemplate) {
     return (
       <Card>
         <CardHeader>
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Templates
-            </Button>
-            <div>
-              <CardTitle>Loading Template...</CardTitle>
-              <CardDescription>Fetching template details</CardDescription>
-            </div>
+          <div>
+            <CardTitle>Loading Template...</CardTitle>
+            <CardDescription>Fetching template details</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -157,18 +196,12 @@ export function TemplateVideoCreator({ template, onBack }: TemplateVideoCreatorP
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Templates
-          </Button>
-          <div>
-            <CardTitle className="flex items-center space-x-2">
-              <Video className="h-5 w-5" />
-              <span>Create Video: {template.name}</span>
-            </CardTitle>
-            <CardDescription>{template.description}</CardDescription>
-          </div>
+        <div>
+          <CardTitle className="flex items-center space-x-2">
+            <Video className="h-5 w-5" />
+            <span>Create Video: {template.name}</span>
+          </CardTitle>
+          <CardDescription>{template.description}</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">

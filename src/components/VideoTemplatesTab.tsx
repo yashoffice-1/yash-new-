@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,7 @@ import { Button } from "./ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
-import { Eye, Plus, Search, Filter, Grid, List } from "lucide-react";
+import { Eye, Plus, Search, Filter, Grid, List, Play } from "lucide-react";
 
 interface VideoTemplate {
   id: string;
@@ -30,6 +30,7 @@ interface VideoTemplate {
   heygenTemplateId?: string;
   variables?: string[];
   aspectRatio?: 'landscape' | 'portrait';
+  templateDetails?: any;
 }
 
 interface HeyGenTemplate {
@@ -40,6 +41,7 @@ interface HeyGenTemplate {
   aspect_ratio?: string;
   duration?: string;
   category?: string;
+  templateDetails?: any;
 }
 
 export function VideoTemplatesTab() {
@@ -51,6 +53,8 @@ export function VideoTemplatesTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [previewTemplate, setPreviewTemplate] = useState<HeyGenTemplate | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   // Fetch templates using the new template manager
   const { data: templates, isLoading, error } = useQuery({
@@ -160,22 +164,86 @@ export function VideoTemplatesTab() {
     // Here you would add the template to the client's assigned templates
   };
 
-  const handleHeyGenTemplateSelect = (template: HeyGenTemplate) => {
+  const handleHeyGenTemplateSelect = async (template: HeyGenTemplate) => {
     console.log('HeyGen template selected:', template);
-    // Convert HeyGen template to VideoTemplate format
-    const videoTemplate: VideoTemplate = {
-      id: template.template_id,
-      name: template.name,
-      description: template.description || '',
-      thumbnail: template.thumbnail_image_url || 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop',
-      category: template.category || 'custom',
-      duration: template.duration || '30s',
-      status: 'active' as const,
-      heygenTemplateId: template.template_id,
-      variables: [], // You would get these from template detail API
-      aspectRatio: template.aspect_ratio === 'portrait' ? 'portrait' : 'landscape'
-    };
-    setSelectedTemplateForCreation(videoTemplate);
+    
+    try {
+      // Fetch template details from HeyGen API
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/heygen/detail/${template.template_id}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Convert HeyGen template to VideoTemplate format with details
+          const videoTemplate: VideoTemplate = {
+            id: template.template_id,
+            name: template.name,
+            description: template.description || '',
+            thumbnail: template.thumbnail_image_url || 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop',
+            category: template.category || 'custom',
+            duration: template.duration || '30s',
+            status: 'active' as const,
+            heygenTemplateId: template.template_id,
+            variables: data.data.variables ? Object.keys(data.data.variables) : [],
+            aspectRatio: template.aspect_ratio === 'portrait' ? 'portrait' : 'landscape',
+            // Pass the template details to avoid re-fetching
+            templateDetails: data.data
+          };
+          setSelectedTemplateForCreation(videoTemplate);
+        } else {
+          throw new Error('Failed to fetch template details');
+        }
+      } else {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error fetching HeyGen template details:', error);
+      toast({
+        title: "Template Error",
+        description: "Could not load template details. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+    const handlePlayTemplatePreview = async (template: HeyGenTemplate) => {
+    setIsLoadingPreview(true);
+    setPreviewTemplate(template);
+    
+    try {
+      // Fetch template details to get template structure
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/heygen/detail/${template.template_id}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          // Show template details without generating demo video
+          setPreviewTemplate({
+            ...template,
+            templateDetails: data.data
+          });
+          
+          toast({
+            title: "Template Details Loaded",
+            description: "Template information has been loaded successfully.",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching template details:', error);
+      toast({
+        title: "Template Details Error",
+        description: "Could not load template details. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setPreviewTemplate(null);
+    setIsLoadingPreview(false);
   };
 
   // Show error state if template fetching fails completely
@@ -366,6 +434,15 @@ export function VideoTemplatesTab() {
                         </div>
                         
                         <div className="flex items-center space-x-1">
+                                                     <Button
+                             size="sm"
+                             variant="outline"
+                             onClick={() => handlePlayTemplatePreview(template)}
+                             disabled={isLoadingPreview}
+                           >
+                             <Eye className="h-3 w-3 mr-1" />
+                             {isLoadingPreview ? 'Loading...' : 'Preview'}
+                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
@@ -417,6 +494,100 @@ export function VideoTemplatesTab() {
         onOpenChange={setShowOnboardingDialog}
         onComplete={handleOnboardingComplete}
       />
+
+      {/* Template Preview Modal */}
+      {previewTemplate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Template Preview: {previewTemplate.name}</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClosePreview}
+              >
+                ✕
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+                             {/* Template Preview */}
+               <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                 {previewTemplate.thumbnail_image_url ? (
+                   <img
+                     src={previewTemplate.thumbnail_image_url}
+                     alt={previewTemplate.name}
+                     className="w-full h-full object-cover"
+                   />
+                 ) : (
+                   <div className="w-full h-full flex items-center justify-center">
+                     <div className="text-center">
+                       {isLoadingPreview ? (
+                         <div className="flex items-center space-x-2">
+                           <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                           <span>Loading template details...</span>
+                         </div>
+                       ) : (
+                         <div className="text-gray-500">
+                           <Eye className="h-12 w-12 mx-auto mb-2" />
+                           <p>Template Preview</p>
+                         </div>
+                       )}
+                     </div>
+                   </div>
+                 )}
+               </div>
+
+              {/* Template Details */}
+              <div className="space-y-2">
+                <h4 className="font-medium">{previewTemplate.name}</h4>
+                {previewTemplate.description && (
+                  <p className="text-sm text-gray-600">{previewTemplate.description}</p>
+                )}
+                
+                <div className="flex items-center space-x-2">
+                  {previewTemplate.category && (
+                    <Badge variant="outline" className="text-xs">
+                      {previewTemplate.category}
+                    </Badge>
+                  )}
+                  {previewTemplate.duration && (
+                    <Badge variant="secondary" className="text-xs">
+                      {previewTemplate.duration}
+                    </Badge>
+                  )}
+                  {previewTemplate.aspect_ratio && (
+                    <Badge variant="outline" className="text-xs">
+                      {previewTemplate.aspect_ratio}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-2 pt-4">
+                <Button
+                  onClick={() => {
+                    handleHeyGenTemplateSelect(previewTemplate);
+                    handleClosePreview();
+                  }}
+                  className="flex-1"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  Use This Template
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleAddHeyGenTemplate(previewTemplate)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add to Library
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
