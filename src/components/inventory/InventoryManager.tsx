@@ -234,9 +234,11 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
             return 'runway'; // Runway for other video platforms
           }
         } else if (type === 'image') {
-          return 'runway'; // Runway for image generation
+          // Use OpenAI for images (fallback to free services)
+          return 'openai';
         } else {
-          return 'openai'; // OpenAI for text content
+          // Use OpenAI for text content
+          return 'openai';
         }
       };
 
@@ -283,16 +285,17 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
               description: `Processing ${index + 1} of ${selectedProductsData.length}...`,
             });
 
-            if (service === 'heygen') {
-              // Call HeyGen API
-              result = await generateWithHeyGen(product, instruction, formatSpecs);
-            } else if (service === 'runway') {
-              // Call Runway API
-              result = await generateWithRunway(product, instruction, formatSpecs);
-            } else {
-              // Call OpenAI API
-              result = await generateWithOpenAI(product, instruction, formatSpecs);
-            }
+                      if (service === 'heygen') {
+            // Call HeyGen API
+            result = await generateWithHeyGen(product, instruction, formatSpecs);
+          } else if (service === 'runway') {
+            // Call Runway API
+            result = await generateWithRunway(product, instruction, formatSpecs);
+
+          } else {
+            // Call OpenAI API
+            result = await generateWithOpenAI(product, instruction, formatSpecs);
+          }
 
             return {
               id: `gen-${Date.now()}-${index}`,
@@ -302,11 +305,11 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
               asset_url: result.asset_url || result.url,
               content: instruction,
               instruction: instruction,
-              source_system: service as 'runway' | 'heygen' | 'openai',
-              platform: generationConfig.channel,
-              format: generationConfig.format,
-              product: product,
-              status: result.status || 'completed'
+                          source_system: service as 'runway' | 'heygen' | 'openai',
+            platform: generationConfig.channel,
+            format: generationConfig.format,
+            product: product,
+            status: result.status || 'completed'
             };
           } catch (error) {
             console.error(`Generation failed for ${product.name}:`, error);
@@ -320,12 +323,12 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
               asset_url: `https://via.placeholder.com/800x600/EF4444/FFFFFF?text=Generation+Failed`,
               content: instruction,
               instruction: instruction,
-              source_system: service as 'runway' | 'heygen' | 'openai',
-              platform: generationConfig.channel,
-              format: generationConfig.format,
-              product: product,
-              status: 'failed',
-              error: error.message
+                          source_system: service as 'runway' | 'heygen' | 'openai',
+            platform: generationConfig.channel,
+            format: generationConfig.format,
+            product: product,
+            status: 'failed',
+            error: error.message
             };
           }
         })
@@ -397,7 +400,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   // OpenAI API integration
   const generateWithOpenAI = async (product: InventoryItem, instruction: string, formatSpecs: any) => {
     const response = await generationAPI.generateWithOpenAI({
-      type: 'content',
+      type: generationConfig.type === 'content' ? 'text' : 'image',
       instruction: instruction,
       productInfo: {
         name: product.name,
@@ -408,6 +411,8 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
     return response.data;
   };
+
+
 
   const handleSaveToLibrary = async (result: typeof generationResults[0]) => {
     try {

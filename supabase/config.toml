@@ -13,11 +13,11 @@ verify_jwt = false
 [functions.heygen-generate]
 verify_jwt = false
 
-[functions.heygen-templates]
-verify_jwt = false
+# [functions.heygen-templates] - REMOVED: Now handled by backend
+# verify_jwt = false
 
-[functions.heygen-template-detail]
-verify_jwt = false
+# [functions.heygen-template-detail] - REMOVED: Now handled by backend
+# verify_jwt = false
 
 [functions.heygen-webhook]
 verify_jwt = false

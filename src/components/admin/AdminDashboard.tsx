@@ -3,11 +3,10 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ApiKeyManager } from "./ApiKeyManager";
-import { TestingModule } from "./TestingModule";
 import { HeyGenVideoManager } from "../HeyGenVideoManager";
 
 export function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'keys' | 'testing' | 'videos'>('keys');
+  const [activeTab, setActiveTab] = useState<'keys' | 'videos'>('keys');
 
   return (
     <div className="space-y-6">
@@ -24,13 +23,7 @@ export function AdminDashboard() {
         >
           API Keys
         </Button>
-        <Button 
-          variant={activeTab === 'testing' ? 'default' : 'ghost'} 
-          onClick={() => setActiveTab('testing')}
-          className="rounded-b-none"
-        >
-          Testing Module
-        </Button>
+
         <Button 
           variant={activeTab === 'videos' ? 'default' : 'ghost'} 
           onClick={() => setActiveTab('videos')}
@@ -41,7 +34,6 @@ export function AdminDashboard() {
       </div>
 
       {activeTab === 'keys' && <ApiKeyManager />}
-      {activeTab === 'testing' && <TestingModule />}
       {activeTab === 'videos' && <HeyGenVideoManager />}
     </div>
   );

@@ -15,6 +15,9 @@ import { VideoTemplateUtility } from "./VideoTemplateUtility";
 import { templateManager } from "@/api/template-manager";
 import { Button } from "./ui/button";
 import { ArrowLeft } from "lucide-react";
+import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
+import { Eye, Plus, Search, Filter, Grid, List } from "lucide-react";
 
 interface VideoTemplate {
   id: string;
@@ -29,12 +32,25 @@ interface VideoTemplate {
   aspectRatio?: 'landscape' | 'portrait';
 }
 
+interface HeyGenTemplate {
+  template_id: string;
+  name: string;
+  description?: string;
+  thumbnail_image_url?: string;
+  aspect_ratio?: string;
+  duration?: string;
+  category?: string;
+}
+
 export function VideoTemplatesTab() {
   const { toast } = useToast();
   const { selectedProduct, setSelectedProduct } = useView();
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showOnboardingDialog, setShowOnboardingDialog] = useState(false);
   const [selectedTemplateForCreation, setSelectedTemplateForCreation] = useState<VideoTemplate | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Fetch templates using the new template manager
   const { data: templates, isLoading, error } = useQuery({
@@ -71,6 +87,37 @@ export function VideoTemplatesTab() {
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
+  // Fetch HeyGen templates automatically when tab is opened
+  const { data: heygenData, isLoading: heygenLoading, error: heygenError } = useQuery({
+    queryKey: ['heygen-templates'],
+    queryFn: async () => {
+      try {
+        console.log('Fetching HeyGen templates automatically...');
+        
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/heygen/list`);
+        
+        if (!response.ok) {
+          throw new Error(`Backend API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to fetch HeyGen templates');
+        }
+        
+        console.log('Successfully fetched HeyGen templates:', data.data);
+        return data.data;
+        
+      } catch (error) {
+        console.error('Error fetching HeyGen templates:', error);
+        throw error;
+      }
+    },
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   const handleRequestTemplate = () => {
     setShowRequestDialog(true);
   };
@@ -105,6 +152,32 @@ export function VideoTemplatesTab() {
     setSelectedProduct(null);
   };
 
+  const handleAddHeyGenTemplate = (template: HeyGenTemplate) => {
+    toast({
+      title: "Template Added",
+      description: `${template.name} has been added to your template library.`,
+    });
+    // Here you would add the template to the client's assigned templates
+  };
+
+  const handleHeyGenTemplateSelect = (template: HeyGenTemplate) => {
+    console.log('HeyGen template selected:', template);
+    // Convert HeyGen template to VideoTemplate format
+    const videoTemplate: VideoTemplate = {
+      id: template.template_id,
+      name: template.name,
+      description: template.description || '',
+      thumbnail: template.thumbnail_image_url || 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop',
+      category: template.category || 'custom',
+      duration: template.duration || '30s',
+      status: 'active' as const,
+      heygenTemplateId: template.template_id,
+      variables: [], // You would get these from template detail API
+      aspectRatio: template.aspect_ratio === 'portrait' ? 'portrait' : 'landscape'
+    };
+    setSelectedTemplateForCreation(videoTemplate);
+  };
+
   // Show error state if template fetching fails completely
   if (error) {
     toast({
@@ -127,17 +200,16 @@ export function VideoTemplatesTab() {
             <ArrowLeft className="h-4 w-4" />
             <span>Back to Templates</span>
           </Button>
-          <div>
-            <h2 className="text-lg font-semibold">Video Template for: {selectedProduct.name}</h2>
-            <p className="text-sm text-gray-600">Creating video template with selected product data</p>
+          <div className="text-sm text-gray-600">
+            Creating video for: <span className="font-medium">{selectedProduct.name}</span>
           </div>
         </div>
-        <VideoTemplateUtility selectedProduct={selectedProduct} />
+        <VideoTemplateUtility product={selectedProduct} />
       </div>
     );
   }
 
-  // Show template video creator if a template is selected for creation
+  // Show video creator if a template is selected
   if (selectedTemplateForCreation) {
     return (
       <div className="space-y-4">
@@ -150,21 +222,16 @@ export function VideoTemplatesTab() {
             <ArrowLeft className="h-4 w-4" />
             <span>Back to Templates</span>
           </Button>
-          <div>
-            <h2 className="text-lg font-semibold">Using Template: {selectedTemplateForCreation.name}</h2>
-            <p className="text-sm text-gray-600">Configure your video creation with this template</p>
+          <div className="text-sm text-gray-600">
+            Using template: <span className="font-medium">{selectedTemplateForCreation.name}</span>
           </div>
         </div>
-        <TemplateVideoCreator 
-          template={selectedTemplateForCreation}
-          onBack={handleBackToTemplates}
-        />
+        <TemplateVideoCreator template={selectedTemplateForCreation} />
       </div>
     );
   }
 
-  // If no product selected and no specific template selected, show the main template grid
-
+  // Show HeyGen templates by default
   return (
     <div className="space-y-6">
       <Card>
@@ -174,13 +241,163 @@ export function VideoTemplatesTab() {
           onRequestTemplate={handleRequestTemplate}
         />
         <CardContent>
-          {isLoading ? (
+          {heygenLoading ? (
             <TemplateLoadingState />
-          ) : templates && templates.length > 0 ? (
-            <TemplateGrid 
-              templates={templates} 
-              onTemplateSelect={handleTemplateSelect}
-            />
+          ) : heygenError ? (
+            <div className="text-center space-y-4">
+              <div className="text-red-500 text-lg">Failed to load HeyGen templates</div>
+              <div className="text-sm text-gray-600">
+                {heygenError instanceof Error ? heygenError.message : 'Unknown error occurred'}
+              </div>
+              <Button onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+            </div>
+          ) : heygenData?.templates && heygenData.templates.length > 0 ? (
+            <div className="space-y-4">
+              {/* Search and Filters */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search HeyGen templates..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-4 w-4 text-gray-400" />
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {['all', ...Array.from(new Set(heygenData.templates.map((t: HeyGenTemplate) => t.category).filter(Boolean)))].map(category => (
+                      <option key={category} value={category}>
+                        {category === 'all' ? 'All Categories' : category}
+                      </option>
+                    ))}
+                  </select>
+                  
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                  >
+                    <Grid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Templates Grid */}
+              <div className={viewMode === 'grid' 
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                : "space-y-4"
+              }>
+                {heygenData.templates
+                  .filter((template: HeyGenTemplate) => {
+                    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                         template.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory;
+                    return matchesSearch && matchesCategory;
+                  })
+                  .map((template: HeyGenTemplate) => (
+                  <Card key={template.template_id} className="overflow-hidden hover:shadow-lg transition-all duration-300">
+                    <div className="relative">
+                      <div className="aspect-video bg-gray-100">
+                        {template.thumbnail_image_url ? (
+                          <img
+                            src={template.thumbnail_image_url}
+                            alt={template.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.unsplash.com/photo-1649972904349-6e44c42644a7?w=400&h=200&fit=crop';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center">
+                            <div className="text-white text-center">
+                              <Eye className="h-8 w-8 mx-auto mb-2" />
+                              <div className="text-xs font-medium">Template Preview</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="absolute top-2 left-2 flex items-center space-x-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {template.aspect_ratio || 'landscape'}
+                        </Badge>
+                        {template.duration && (
+                          <Badge variant="outline" className="text-xs">
+                            {template.duration}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <CardContent className="pt-4">
+                      <h3 className="text-sm font-semibold line-clamp-2 mb-2">
+                        {template.name}
+                      </h3>
+                      
+                      {template.description && (
+                        <p className="text-xs text-gray-600 line-clamp-2 mb-3">
+                          {template.description}
+                        </p>
+                      )}
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          {template.category && (
+                            <Badge variant="outline" className="text-xs">
+                              {template.category}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleHeyGenTemplateSelect(template)}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Use
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddHeyGenTemplate(template)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Results Summary */}
+              <div className="text-sm text-gray-600 text-center">
+                Showing {heygenData.templates.filter((t: HeyGenTemplate) => {
+                  const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                       t.description?.toLowerCase().includes(searchTerm.toLowerCase());
+                  const matchesCategory = selectedCategory === 'all' || t.category === selectedCategory;
+                  return matchesSearch && matchesCategory;
+                }).length} of {heygenData.templates.length} HeyGen templates
+              </div>
+            </div>
           ) : (
             <EmptyTemplatesState
               onOpenOnboarding={() => setShowOnboardingDialog(true)}

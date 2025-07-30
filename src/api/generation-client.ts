@@ -41,21 +41,25 @@ apiClient.interceptors.response.use(
 
 // Generation API
 export const generationAPI = {
-  // HeyGen generation
+  // HeyGen generation (Video)
   generateWithHeyGen: (data: {
-    type: 'video';
-    instruction: string;
+    templateId: string;
     productId: string;
-    formatSpecs: any;
-    templateData: any;
+    instruction: string;
+    formatSpecs: {
+      channel?: string;
+      format?: string;
+      aspectRatio?: string;
+      duration?: string;
+    };
   }) => apiClient.post('/ai/heygen/generate', {
-    templateId: 'default',
+    templateId: data.templateId,
     productId: data.productId,
     instruction: data.instruction,
     formatSpecs: data.formatSpecs
   }),
 
-  // Runway generation
+  // RunwayML generation (Video/Image)
   generateWithRunway: (data: {
     type: 'image' | 'video';
     instruction: string;
@@ -63,33 +67,52 @@ export const generationAPI = {
       name: string;
       description: string;
     };
-    formatSpecs: any;
+    formatSpecs: {
+      width?: number;
+      height?: number;
+      duration?: string;
+    };
   }) => apiClient.post('/ai/runwayml/generate', {
     prompt: data.instruction,
     type: data.type,
     options: data.formatSpecs
   }),
 
-  // OpenAI generation
+  // OpenAI generation (Text/Image)
   generateWithOpenAI: (data: {
-    type: 'content';
+    type: 'text' | 'image';
     instruction: string;
     productInfo: {
       name: string;
       description: string;
     };
-    formatSpecs: any;
+    formatSpecs: {
+      maxTokens?: number;
+      temperature?: number;
+      size?: string;
+    };
   }) => apiClient.post('/ai/openai/generate', {
     prompt: data.instruction,
-    type: data.type === 'content' ? 'text' : data.type,
+    type: data.type,
     options: data.formatSpecs
   }),
 
-  // Get generation status
-  getStatus: (generationId: string) => apiClient.get(`/ai/heygen/status/${generationId}`),
 
-  // Cancel generation
-  cancelGeneration: (generationId: string) => apiClient.post(`/ai/generation-cancel/${generationId}`),
+
+  // Get HeyGen templates
+  getHeyGenTemplates: () => apiClient.get('/ai/heygen/templates'),
+
+  // Get generation status (HeyGen)
+  getStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
+
+  // Get AI generation statistics
+  getStats: () => apiClient.get('/ai/stats'),
+
+  // Test environment variables
+  testEnv: () => apiClient.get('/ai/test-env'),
+
+  // Test all services
+  testAll: () => apiClient.post('/ai/test-all'),
 };
 
 export default generationAPI; 

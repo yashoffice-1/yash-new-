@@ -124,7 +124,7 @@ router.post('/heygen/generate', async (req, res, next) => {
     }
 
     // Create HeyGen video generation request
-    const response = await axios.post('https://api.heygen.com/v1/video.generate', {
+    const response = await axios.post(' /v1/video.generate', {
       video_inputs: [
         {
           character: {
@@ -294,6 +294,7 @@ router.post('/runwayml/generate', async (req, res, next) => {
   }
 });
 
+
 // Get AI generation statistics
 router.get('/stats', async (req, res, next) => {
   try {
@@ -316,5 +317,35 @@ router.get('/stats', async (req, res, next) => {
     next(error);
   }
 });
+
+// Test environment variables and service availability
+router.get('/test-env', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      services: {
+        openai: {
+          configured: !!process.env.OPENAI_API_KEY,
+          keyLength: process.env.OPENAI_API_KEY?.length || 0
+        },
+        heygen: {
+          configured: !!process.env.HEYGEN_API_KEY,
+          keyLength: process.env.HEYGEN_API_KEY?.length || 0
+        },
+        runwayml: {
+          configured: !!process.env.RUNWAYML_API_KEY,
+          keyLength: process.env.RUNWAYML_API_KEY?.length || 0
+        },
+
+      },
+      totalConfigured: [
+        process.env.OPENAI_API_KEY,
+        process.env.HEYGEN_API_KEY,
+        process.env.RUNWAYML_API_KEY
+      ].filter(Boolean).length
+    }
+  });
+});
+
 
 export default router; 

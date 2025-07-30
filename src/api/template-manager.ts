@@ -148,24 +148,26 @@ class TemplateManager {
       console.log('MOBILE TEMPLATE DETECTED - FORCING API CALL FOR COMPLETE VARIABLES');
       
       try {
-        const { data, error } = await supabase.functions.invoke('heygen-template-detail', {
-          body: { templateId }
-        });
-
-        if (error) throw error;
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/detail/${templateId}`);
         
-        if (data?.success && data?.template) {
-          console.log('MOBILE TEMPLATE - API returned variables:', data.template.variables);
-          console.log('MOBILE TEMPLATE - Variable count from API:', data.template.variables.length);
+        if (!response.ok) {
+          throw new Error(`Backend API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data?.success && data?.data) {
+          console.log('MOBILE TEMPLATE - Backend returned variables:', data.data.variables);
+          console.log('MOBILE TEMPLATE - Variable count from backend:', data.data.variables.length);
           
           // Cache the result
-          this.templateCache.set(templateId, data.template);
+          this.templateCache.set(templateId, data.data);
           this.cacheExpiry.set(templateId, Date.now() + this.CACHE_DURATION);
           
-          return data.template;
+          return data.data;
         }
       } catch (apiError) {
-        console.error('MOBILE TEMPLATE - API call failed, falling back to database:', apiError);
+        console.error('MOBILE TEMPLATE - Backend API call failed, falling back to database:', apiError);
       }
     }
 
@@ -218,27 +220,31 @@ class TemplateManager {
     }
 
     try {
-      console.log(`Fetching fresh template detail for ${templateId}`);
+      console.log(`Fetching template detail for ${templateId} from backend API...`);
       
-      const { data, error } = await supabase.functions.invoke('heygen-template-detail', {
-        body: { templateId }
-      });
-
-      if (error) {
-        throw new Error(error.message);
+      // Use backend endpoint instead of Supabase Edge Function
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/detail/${templateId}`);
+      
+      if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
       }
-
+      
+      const data = await response.json();
+      
       if (!data.success) {
         throw new Error(data.error || 'Failed to fetch template detail');
       }
 
-      // Get variables from HeyGen API response
-      let variables = data.template.variableNames || data.template.variables || [];
-      let variableTypes = data.template.variableTypes || {};
+      // Get template data from backend response
+      const templateData = data.data;
       
-      // If HeyGen API returns no variables, try to use fallback variables
+      // Get variables from backend response
+      let variables = templateData.variables || [];
+      let variableTypes = templateData.variableTypes || {};
+      
+      // If backend returns no variables, try to use fallback variables
       if (!variables || variables.length === 0) {
-        console.log(`HeyGen API returned no variables for ${templateId}, checking for fallback variables`);
+        console.log(`Backend returned no variables for ${templateId}, checking for fallback variables`);
         
         try {
           // Try to get fallback variables from database first
@@ -275,21 +281,19 @@ class TemplateManager {
         }
       }
 
-      console.log('HeyGen template API response for duration:', {
+      console.log('Backend template API response:', {
         templateId,
-        rawDuration: data.template.duration,
-        videoDuration: data.template.video_duration,
-        length: data.template.length,
-        fullTemplate: data.template
+        templateData: templateData
       });
 
       const templateDetail: TemplateDetail = {
-        id: data.template.templateId || data.template.id || templateId,
-        name: data.template.name || `Template ${templateId.slice(-8)}`,
-        description: data.template.description || 'HeyGen video template',
-        thumbnail: data.template.thumbnail || data.template.preview_url || data.template.cover_image || `https://img.heygen.com/template/${templateId}/thumbnail.jpg`,
-        category: data.template.category || 'Custom',
-        duration: data.template.duration || data.template.video_duration || data.template.length || '30s',
+        id: templateData.id || templateId,
+        name: templateData.name || `Template ${templateId.slice(-8)}`,
+        description: templateData.description || 'HeyGen video template',
+        thumbnail: templateData.thumbnail || `https://img.heygen.com/template/${templateId}/thumbnail.jpg`,
+        category: templateData.category || 'Custom',
+        duration: templateData.duration || '30s',
+        aspectRatio: templateData.aspectRatio || 'landscape',
         variables: variables,
         variableTypes: variableTypes
       };
@@ -308,59 +312,79 @@ class TemplateManager {
   }
 
   async getClientTemplates(clientId: string = 'default'): Promise<TemplateDetail[]> {
-    const config = await this.getClientConfig(clientId);
-    
-    // First, try to get template list with names and thumbnails from heygen-templates
-    let templateBasicInfo: Record<string, { name: string; thumbnail: string; aspectRatio?: string; duration?: string }> = {};
-    
     try {
-      console.log('Fetching template list from heygen-templates API...');
-      const { data, error } = await supabase.functions.invoke('heygen-templates');
+      console.log(`Fetching client templates for ${clientId} from backend API...`);
       
-      if (!error && data.success && data.templates) {
-        // Build a map of template basic info
-        data.templates.forEach((template: any) => {
-          templateBasicInfo[template.template_id] = {
-            name: template.name,
-            thumbnail: template.thumbnail_image_url,
-            aspectRatio: template.aspect_ratio,
-            duration: template.duration || template.video_duration || template.length || '30s'
-          };
-        });
-        console.log('Successfully loaded template basic info:', templateBasicInfo);
+      // Use backend endpoint instead of Supabase Edge Function
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/client/${clientId}/templates`);
+      
+      if (!response.ok) {
+        throw new Error(`Backend API error: ${response.status}`);
       }
-    } catch (error) {
-      console.warn('Failed to fetch template list, will use fallback data:', error);
-    }
-    
-    const templates: TemplateDetail[] = [];
-    
-    for (const templateId of config.assignedTemplateIds) {
-      const template = await this.getTemplateDetail(templateId);
-      if (template) {
-        // Override with actual name, thumbnail, aspect ratio, and duration if available
-        if (templateBasicInfo[templateId]) {
-          template.name = templateBasicInfo[templateId].name;
-          template.thumbnail = templateBasicInfo[templateId].thumbnail;
-          // Map aspect_ratio correctly to aspectRatio
-          template.aspectRatio = templateBasicInfo[templateId].aspectRatio as 'landscape' | 'portrait' || 'landscape';
-          // Override duration with actual value from templates list API
-          if (templateBasicInfo[templateId].duration) {
-            template.duration = templateBasicInfo[templateId].duration;
-          }
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch templates');
+      }
+      
+      // If no templates found, try to initialize default templates
+      if (data.data.length === 0) {
+        console.log(`No templates found for client ${clientId}, initializing default templates...`);
+        await this.initializeDefaultTemplates(clientId);
+        
+        // Fetch templates again after initialization
+        const initResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/client/${clientId}/templates`);
+        const initData = await initResponse.json();
+        
+        if (initData.success) {
+          console.log(`Successfully loaded ${initData.data.length} templates for client ${clientId} after initialization`);
+          return initData.data;
         }
-        console.log(`Template ${templateId} processed:`, {
-          name: template.name,
-          aspectRatio: template.aspectRatio,
-          variableCount: template.variables.length,
-          thumbnail: template.thumbnail
-        });
-        templates.push(template);
       }
+      
+      console.log(`Successfully loaded ${data.data.length} templates for client ${clientId}`);
+      return data.data;
+      
+    } catch (error) {
+      console.error('Error fetching client templates from backend:', error);
+      
+      // Fallback to old method if backend fails
+      const config = await this.getClientConfig(clientId);
+      const templates: TemplateDetail[] = [];
+      
+      for (const templateId of config.assignedTemplateIds) {
+        const template = await this.getTemplateDetail(templateId);
+        if (template) {
+          templates.push(template);
+        }
+      }
+      
+      return templates;
     }
-    
-    console.log(`Successfully loaded ${templates.length} templates for client ${clientId}`);
-    return templates;
+  }
+
+  private async initializeDefaultTemplates(clientId: string): Promise<void> {
+    try {
+      console.log(`Initializing default templates for client ${clientId}...`);
+      
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/templates/client/${clientId}/initialize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to initialize templates: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Template initialization result:', data.message);
+      
+    } catch (error) {
+      console.error('Error initializing default templates:', error);
+    }
   }
 
   private isInCache(templateId: string): boolean {
