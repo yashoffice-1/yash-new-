@@ -128,7 +128,8 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
           title: uploadFormData.title,
           description: uploadFormData.description,
           tags: uploadFormData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-          privacy: uploadFormData.privacy
+          privacy: uploadFormData.privacy,
+          assetId: asset.id // Use the AssetLibrary ID for tracking
         })
       });
 

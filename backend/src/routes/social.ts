@@ -790,7 +790,7 @@ router.get('/:platform/stats', authenticateToken, async (req, res) => {
 // YouTube video upload endpoint
 router.post('/youtube/upload', authenticateToken, async (req, res) => {
   try {
-    const { videoUrl, title, description, tags, privacy } = req.body;
+    const { videoUrl, title, description, tags, privacy, assetId } = req.body;
     const userId = (req as any).user.userId;
 
     // Validate required fields
@@ -987,16 +987,25 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
         console.log('Resumable upload successful:', uploadResult);
 
         // Store upload record in database
-        const uploadRecord = await prisma.generatedAsset.create({
+        const uploadRecord = await prisma.socialMediaUpload.create({
           data: {
-            inventoryId: null, // Not tied to a specific product
-            channel: 'youtube',
-            format: 'mp4',
-            sourceSystem: 'youtube_upload',
-            assetType: 'video',
-            url: `https://www.youtube.com/watch?v=${uploadResult.id}`,
-            instruction: `Uploaded to YouTube: ${title}`,
-            status: 'completed'
+            profileId: userId,
+            platform: 'youtube',
+            contentType: 'video',
+            uploadUrl: `https://www.youtube.com/watch?v=${uploadResult.id}`,
+            platformId: uploadResult.id,
+            title: title,
+            description: description,
+            tags: tags || [],
+            metadata: {
+              videoId: uploadResult.id,
+              title: uploadResult.snippet.title,
+              description: uploadResult.snippet.description,
+              privacy: privacy,
+              categoryId: null // YouTube doesn't require category for uploads
+            },
+            status: 'uploaded',
+            assetId: assetId || null // Optional reference to original asset
           }
         });
 
@@ -1055,16 +1064,25 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
         console.log('Multipart upload successful:', uploadResult);
 
         // Store upload record in database
-        const uploadRecord = await prisma.generatedAsset.create({
+        const uploadRecord = await prisma.socialMediaUpload.create({
           data: {
-            inventoryId: null, // Not tied to a specific product
-            channel: 'youtube',
-            format: 'mp4',
-            sourceSystem: 'youtube_upload',
-            assetType: 'video',
-            url: `https://www.youtube.com/watch?v=${uploadResult.id}`,
-            instruction: `Uploaded to YouTube: ${title}`,
-            status: 'completed'
+            profileId: userId,
+            platform: 'youtube',
+            contentType: 'video',
+            uploadUrl: `https://www.youtube.com/watch?v=${uploadResult.id}`,
+            platformId: uploadResult.id,
+            title: title,
+            description: description,
+            tags: tags || [],
+            metadata: {
+              videoId: uploadResult.id,
+              title: uploadResult.snippet.title,
+              description: uploadResult.snippet.description,
+              privacy: privacy,
+              categoryId: null // YouTube doesn't require category for uploads
+            },
+            status: 'uploaded',
+            assetId: assetId || null // Optional reference to original asset
           }
         });
 
@@ -1108,6 +1126,94 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
       error: errorMessage,
       details: errorDetails
     });
+  }
+});
+
+// Get user's social media uploads
+router.get('/uploads', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { platform, contentType, status, page = '1', limit = '10' } = req.query;
+    
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {
+      profileId: userId
+    };
+    
+    if (platform) {
+      where.platform = platform;
+    }
+    
+    if (contentType) {
+      where.contentType = contentType;
+    }
+    
+    if (status) {
+      where.status = status;
+    }
+
+    const [uploads, total] = await Promise.all([
+      prisma.socialMediaUpload.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          asset: true // Include the original asset if it exists
+        }
+      }),
+      prisma.socialMediaUpload.count({ where })
+    ]);
+
+    return res.json({
+      success: true,
+      data: uploads,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting social media uploads:', error);
+    return res.status(500).json({ error: 'Failed to get social media uploads' });
+  }
+});
+
+// Get specific social media upload
+router.get('/uploads/:id', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { id } = req.params;
+    
+    const upload = await prisma.socialMediaUpload.findFirst({
+      where: {
+        id,
+        profileId: userId
+      },
+      include: {
+        asset: true
+      }
+    });
+
+    if (!upload) {
+      return res.status(404).json({
+        success: false,
+        error: 'Upload not found'
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: upload
+    });
+  } catch (error) {
+    console.error('Error getting social media upload:', error);
+    return res.status(500).json({ error: 'Failed to get social media upload' });
   }
 });
 

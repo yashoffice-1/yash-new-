@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model ApiKey {
@@ -33,6 +34,7 @@ model AssetLibrary {
   updatedAt       DateTime        @updatedAt @map("updated_at")
   originalAssetId String?         @map("original_asset_id")
   originalAsset   GeneratedAsset? @relation("AssetLibraryToGeneratedAsset", fields: [originalAssetId], references: [id])
+  socialMediaUploads SocialMediaUpload[]
 
   @@map("asset_library")
 }
@@ -120,6 +122,7 @@ model Profile {
   emailVerificationToken   String?                 @map("email_verification_token")
   emailVerified            Boolean                 @default(false) @map("email_verified")
   socialConnections        SocialMediaConnection[]
+  socialMediaUploads       SocialMediaUpload[]
 
   @@map("profiles")
 }
@@ -158,6 +161,32 @@ model SocialMediaCachedData {
 
   @@unique([connectionId, dataType])
   @@map("social_media_cached_data")
+}
+
+model SocialMediaUpload {
+  id            String   @id @default(cuid())
+  profileId     String   @map("profile_id")
+  platform      String   // 'youtube', 'instagram', 'tiktok', etc.
+  contentType   String   @map("content_type") // 'video', 'image', 'post'
+  uploadUrl     String   @map("upload_url") // Platform URL (e.g., YouTube video URL)
+  platformId    String   @map("platform_id") // Platform-specific ID (e.g., YouTube video ID)
+  title         String?
+  description   String?
+  tags          String[] @default([])
+  metadata      Json?    @default("{}") // Platform-specific metadata
+  status        String   @default("uploaded") // 'uploaded', 'failed', 'processing'
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  // Optional reference to the original asset that was uploaded
+  assetId       String?  @map("asset_id")
+  asset         AssetLibrary? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  
+  // Reference to the profile
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("social_media_uploads")
 }
 
 enum ProfileStatus {
