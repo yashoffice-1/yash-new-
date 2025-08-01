@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, BarChart3, Settings, Shield } from 'lucide-react';
+import { Users, BarChart3, Settings, Shield, Video, Image, TrendingUp, Activity } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SystemStats } from './SystemStats';
 import { AdminSettings } from './AdminSettings';
@@ -76,54 +76,76 @@ export function AdminDashboard() {
       {/* Quick Stats */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+          <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Users className="h-4 w-4 text-blue-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalUsers}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.verifiedUsers} verified, {stats.pendingUsers} pending
-              </p>
+              <div className="text-2xl font-bold text-blue-600">{stats.totalUsers}</div>
+              <div className="flex items-center space-x-2 mt-1">
+                <div className="flex items-center space-x-1 text-xs text-green-600">
+                  <TrendingUp className="h-3 w-3" />
+                  <span>{stats.verifiedUsers} verified</span>
+                </div>
+                <div className="flex items-center space-x-1 text-xs text-orange-600">
+                  <Activity className="h-3 w-3" />
+                  <span>{stats.pendingUsers} pending</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-green-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-green-100 rounded-full">
+                <BarChart3 className="h-4 w-4 text-green-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalAssets}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.totalVideos} videos, {stats.totalImages} images
-              </p>
+              <div className="text-2xl font-bold text-green-600">{stats.totalAssets}</div>
+              <div className="flex items-center space-x-2 mt-1">
+                <div className="flex items-center space-x-1 text-xs text-blue-600">
+                  <Video className="h-3 w-3" />
+                  <span>{stats.totalVideos} videos</span>
+                </div>
+                <div className="flex items-center space-x-1 text-xs text-purple-600">
+                  <Image className="h-3 w-3" />
+                  <span>{stats.totalImages} images</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-purple-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Videos</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-purple-100 rounded-full">
+                <Video className="h-4 w-4 text-purple-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalVideos}</div>
-              <p className="text-xs text-muted-foreground">
-                Generated videos
+              <div className="text-2xl font-bold text-purple-600">{stats.totalVideos}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.totalAssets > 0 ? Math.round((stats.totalVideos / stats.totalAssets) * 100) : 0}% of total assets
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-l-4 border-l-orange-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Images</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2 bg-orange-100 rounded-full">
+                <Image className="h-4 w-4 text-orange-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalImages}</div>
-              <p className="text-xs text-muted-foreground">
-                Generated images
+              <div className="text-2xl font-bold text-orange-600">{stats.totalImages}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.totalAssets > 0 ? Math.round((stats.totalImages / stats.totalAssets) * 100) : 0}% of total assets
               </p>
             </CardContent>
           </Card>
@@ -131,7 +153,7 @@ export function AdminDashboard() {
       )}
 
       {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'users' | 'settings')} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview" className="flex items-center space-x-2">
             <BarChart3 className="h-4 w-4" />

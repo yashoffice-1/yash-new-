@@ -56,7 +56,7 @@ router.patch('/users/:userId/role', authenticateToken, requireSuperadmin, async 
     const { role } = updateUserRoleSchema.parse(req.body);
     
     // Get the current user making the request
-    const currentUser = req.user;
+    const currentUser = (req as any).user;
     
     // Prevent superadmin from demoting themselves
     if (currentUser && currentUser.userId === userId && role !== 'superadmin') {
@@ -99,14 +99,14 @@ router.patch('/users/:userId/role', authenticateToken, requireSuperadmin, async 
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'User role updated successfully',
       data: updatedUser
     });
   } catch (error) {
     console.error('Error updating user role:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to update user role'
     });
@@ -155,7 +155,7 @@ router.get('/users/:userId/analytics', authenticateToken, requireAdmin, async (r
   try {
     const { userId } = req.params;
 
-    const [user, assets, uploads] = await Promise.all([
+    const [user, uploads, lastUpload] = await Promise.all([
       prisma.profile.findUnique({
         where: { id: userId },
         select: {
@@ -167,8 +167,12 @@ router.get('/users/:userId/analytics', authenticateToken, requireAdmin, async (r
           createdAt: true
         }
       }),
-      prisma.assetLibrary.count({ where: { createdBy: userId } }),
-      prisma.socialMediaUpload.count({ where: { profileId: userId } })
+      prisma.socialMediaUpload.count({ where: { profileId: userId } }),
+      prisma.socialMediaUpload.findFirst({
+        where: { profileId: userId },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true }
+      })
     ]);
 
     if (!user) {
@@ -178,20 +182,35 @@ router.get('/users/:userId/analytics', authenticateToken, requireAdmin, async (r
       });
     }
 
-    res.json({
+    // Calculate time since last upload
+    let lastUploadTime = null;
+    if (lastUpload) {
+      const now = new Date();
+      const lastUploadDate = new Date(lastUpload.createdAt);
+      const diffInHours = Math.floor((now.getTime() - lastUploadDate.getTime()) / (1000 * 60 * 60));
+      
+      if (diffInHours < 24) {
+        lastUploadTime = `${diffInHours}h ago`;
+      } else {
+        const diffInDays = Math.floor(diffInHours / 24);
+        lastUploadTime = `${diffInDays}d ago`;
+      }
+    }
+
+    return res.json({
       success: true,
       data: {
         user,
         analytics: {
-          totalAssets: assets,
           totalUploads: uploads,
-          accountAge: Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+          lastUpload: lastUploadTime,
+          hasUploads: uploads > 0
         }
       }
     });
   } catch (error) {
     console.error('Error fetching user analytics:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to fetch user analytics'
     });
@@ -242,14 +261,14 @@ router.post('/admins', authenticateToken, requireSuperadmin, async (req, res) =>
       }
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Admin account created successfully',
       data: admin
     });
   } catch (error) {
     console.error('Error creating admin:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Failed to create admin account'
     });
