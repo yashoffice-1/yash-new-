@@ -12,6 +12,8 @@ import { MainContent } from "@/components/MainContent";
 import { OAuthCallback } from "@/components/OAuthCallback";
 import SignIn from "@/pages/auth/SignIn";
 import SignUp from "@/pages/auth/SignUp";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
 import { EmailVerification } from "@/components/auth/EmailVerification";
 
 const queryClient = new QueryClient();
@@ -47,6 +49,26 @@ const App = () => (
                 element={
                   <ProtectedRoute requireAuth={false}>
                     <EmailVerification />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Forgot Password Route */}
+              <Route 
+                path="/auth/forgot-password" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <ForgotPassword />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Reset Password Route */}
+              <Route 
+                path="/auth/reset-password" 
+                element={
+                  <ProtectedRoute requireAuth={false}>
+                    <ResetPassword />
                   </ProtectedRoute>
                 } 
               />

@@ -123,7 +123,7 @@ router.post('/signup', async (req, res, next) => {
       });
     }
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Account created successfully. Please check your email to verify your account.',
       data: {
@@ -142,7 +142,7 @@ router.post('/signup', async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -192,7 +192,7 @@ router.post('/verify-email', async (req, res, next) => {
       { expiresIn: '7d' }
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Email verified successfully! You can now sign in to your account.',
       data: {
@@ -212,7 +212,7 @@ router.post('/verify-email', async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -269,13 +269,13 @@ router.post('/resend-verification', async (req, res, next) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Verification email sent successfully. Please check your inbox.'
     });
 
   } catch (error) {
-    next(error);
+   return  next(error);
   }
 });
 
@@ -328,7 +328,7 @@ router.post('/signin', async (req, res, next) => {
       { expiresIn: '7d' }
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Signed in successfully',
       data: {
@@ -349,7 +349,7 @@ router.post('/signin', async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -386,13 +386,13 @@ router.post('/forgot-password', async (req, res, next) => {
     // Send password reset email
     const emailSent = await sendPasswordResetEmail(email, profile.firstName, resetToken);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'If an account with this email exists, a password reset link has been sent.'
     });
 
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -431,13 +431,13 @@ router.post('/reset-password', async (req, res, next) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Password reset successfully. You can now sign in with your new password.'
     });
 
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -455,7 +455,7 @@ router.get('/profile', authenticateToken, async (req, res, next) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         user: {
@@ -473,7 +473,7 @@ router.get('/profile', authenticateToken, async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    return  next(error);
   }
 });
 
@@ -501,7 +501,7 @@ router.put('/profile', authenticateToken, async (req, res, next) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Profile updated successfully',
       data: {
@@ -520,7 +520,7 @@ router.put('/profile', authenticateToken, async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

@@ -14,7 +14,6 @@ import templateRoutes from './routes/templates';
 import aiRoutes from './routes/ai';
 import authRoutes from './routes/auth';
 import socialRoutes from './routes/social';
-import testRolesRoutes from './routes/test-roles';
 import adminRoutes from './routes/admin';
 
 // Import middleware
@@ -86,7 +85,6 @@ app.use('/api/templates', templateRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/social', socialRoutes);
-app.use('/api/test-roles', testRolesRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
