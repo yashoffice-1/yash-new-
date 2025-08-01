@@ -97,7 +97,7 @@ router.get('/', async (req, res, next) => {
       originalAsset: asset.originalAsset
     }));
 
-    res.json({
+    return res.json({
       success: true,
       data: transformedAssets,
       pagination: {
@@ -108,7 +108,7 @@ router.get('/', async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -150,12 +150,12 @@ router.get('/:id', async (req, res, next) => {
       originalAsset: asset.originalAsset
     };
 
-    res.json({
+    return res.json({
       success: true,
       data: transformedAsset
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -171,7 +171,7 @@ router.post('/', async (req, res, next) => {
       }
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: asset,
       message: 'Asset created successfully'
@@ -184,7 +184,7 @@ router.post('/', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -202,7 +202,7 @@ router.put('/:id', async (req, res, next) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: asset,
       message: 'Asset updated successfully'
@@ -215,7 +215,7 @@ router.put('/:id', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+   return  next(error);
   }
 });
 
@@ -228,12 +228,12 @@ router.delete('/:id', async (req, res, next) => {
       where: { id }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Asset deleted successfully'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -258,13 +258,13 @@ router.patch('/:id/favorite', async (req, res, next) => {
       data: { favorited: !currentAsset.favorited }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: asset,
       message: `Asset ${asset.favorited ? 'favorited' : 'unfavorited'} successfully`
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -312,7 +312,7 @@ router.get('/generated/all', async (req, res, next) => {
       prisma.generatedAsset.count({ where })
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: assets,
       pagination: {
@@ -323,7 +323,7 @@ router.get('/generated/all', async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -354,13 +354,13 @@ router.post('/generated', async (req, res, next) => {
       }
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: asset,
       message: 'Generated asset created successfully'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -375,13 +375,13 @@ router.patch('/generated/:id/approve', async (req, res, next) => {
       data: { approved }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: asset,
       message: `Asset ${approved ? 'approved' : 'unapproved'} successfully`
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -408,7 +408,7 @@ router.get('/stats/overview', async (req, res, next) => {
       })
     ]);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         totalAssets,
@@ -419,7 +419,7 @@ router.get('/stats/overview', async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

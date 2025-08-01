@@ -36,7 +36,7 @@ router.post('/openai/generate', async (req, res, next) => {
       });
     }
 
-    let result;
+    let result: string;
     
     if (type === 'text') {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
@@ -65,6 +65,8 @@ router.post('/openai/generate', async (req, res, next) => {
       });
       
       result = response.data.data[0].url;
+    } else {
+      throw new Error(`Unsupported content type: ${type}`);
     }
 
     // Store in generated assets
@@ -79,7 +81,7 @@ router.post('/openai/generate', async (req, res, next) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         result,
@@ -95,7 +97,7 @@ router.post('/openai/generate', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -194,7 +196,7 @@ router.post('/heygen/generate', async (req, res, next) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         videoId,
@@ -288,7 +290,7 @@ router.get('/heygen/status/:videoId', async (req, res, next) => {
       // Note: AssetLibrary doesn't have a status field, so we only update GeneratedAsset status
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         status,
@@ -298,7 +300,7 @@ router.get('/heygen/status/:videoId', async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -329,7 +331,7 @@ router.post('/runwayml/generate', async (req, res, next) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         assetId: asset.id,
@@ -345,7 +347,7 @@ router.post('/runwayml/generate', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -459,7 +461,7 @@ router.post('/heygen/recover-pending', async (req, res, next) => {
 
     const updatedCount = results.filter(r => r.updated).length;
     
-    res.json({
+    return res.json({
       success: true,
       message: `Recovery completed. ${updatedCount} videos updated.`,
       data: results
@@ -467,7 +469,7 @@ router.post('/heygen/recover-pending', async (req, res, next) => {
 
   } catch (error) {
     console.error('Error in bulk recovery:', error);
-    next(error);
+    return next(error);
   }
 });
 

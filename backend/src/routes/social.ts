@@ -203,7 +203,7 @@ router.post('/youtube/exchange-code', authenticateToken, async (req, res) => {
       hasRefreshToken: !!connection.refreshToken
     });
 
-    res.json({
+    return res.json({
       access_token: tokenData.access_token,
       refresh_token: tokenData.refresh_token,
       channelId: channel.id,
@@ -214,7 +214,7 @@ router.post('/youtube/exchange-code', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error exchanging authorization code:', error);
-    res.status(500).json({ error: 'Failed to exchange authorization code' });
+   return  res.status(500).json({ error: 'Failed to exchange authorization code' });
   }
 });
 
@@ -498,13 +498,13 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
             }
           });
 
-          res.json({ 
+          return res.json({ 
             stats,
             cached: false,
             lastUpdated: new Date()
           });
         } else {
-          res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
+          return res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
         }
       } else {
         // If force refresh is requested but API call failed, return error
@@ -519,14 +519,14 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
         
         // Return cached data if available, even if expired
         if (cachedStats) {
-          res.json({ 
+         return  res.json({ 
             stats: cachedStats.data,
             cached: true,
             lastUpdated: cachedStats.lastFetchedAt,
             note: 'Using cached data due to API error'
           });
         } else {
-          res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
+          return res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
         }
       }
     } catch (error) {
@@ -542,19 +542,19 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
       
       // Return cached data if available
       if (cachedStats) {
-        res.json({ 
+        return res.json({ 
           stats: cachedStats.data,
           cached: true,
           lastUpdated: cachedStats.lastFetchedAt,
           note: 'Using cached data due to API error'
         });
       } else {
-        res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
+       return  res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
       }
     }
   } catch (error) {
     console.error('Error getting YouTube stats:', error);
-    res.status(500).json({ error: 'Failed to get YouTube stats' });
+    return res.status(500).json({ error: 'Failed to get YouTube stats' });
   }
 });
 
@@ -585,10 +585,10 @@ router.get('/:platform/settings', authenticateToken, async (req, res) => {
       hashtagLimit: platform === 'youtube' ? 15 : 20
     };
 
-    res.json({ settings: defaultSettings });
+    return res.json({ settings: defaultSettings });
   } catch (error) {
     console.error('Error getting platform settings:', error);
-    res.status(500).json({ error: 'Failed to get platform settings' });
+    return res.status(500).json({ error: 'Failed to get platform settings' });
   }
 });
 
@@ -616,10 +616,10 @@ router.post('/:platform/settings', authenticateToken, async (req, res) => {
     // For now, just return success
     console.log('Saving settings for platform:', platform, settings);
 
-    res.json({ success: true, message: 'Settings saved successfully' });
+    return res.json({ success: true, message: 'Settings saved successfully' });
   } catch (error) {
     console.error('Error saving platform settings:', error);
-    res.status(500).json({ error: 'Failed to save platform settings' });
+    return res.status(500).json({ error: 'Failed to save platform settings' });
   }
 });
 
@@ -705,7 +705,7 @@ router.get('/:platform/activity', authenticateToken, async (req, res) => {
             }
           });
 
-          res.json({ 
+         return  res.json({ 
             activity,
             cached: false,
             lastUpdated: new Date()
@@ -713,35 +713,35 @@ router.get('/:platform/activity', authenticateToken, async (req, res) => {
         } else {
           // Return cached data if available
           if (cachedActivity) {
-            res.json({ 
+           return  res.json({ 
               activity: cachedActivity.data,
               cached: true,
               lastUpdated: cachedActivity.lastFetchedAt,
             });
           } else {
-            res.json({ activity: [] });
+            return res.json({ activity: [] });
           }
         }
       } catch (error) {
         console.error('Error fetching YouTube activity:', error);
         if (cachedActivity) {
-          res.json({ 
+         return  res.json({ 
             activity: cachedActivity.data,
             cached: true,
             lastUpdated: cachedActivity.lastFetchedAt,
             note: 'Using cached data due to API error'
           });
         } else {
-          res.json({ activity: [] });
+          return res.json({ activity: [] });
         }
       }
     } else {
       // For other platforms, return empty activity for now
-      res.json({ activity: [] });
+      return res.json({ activity: [] });
     }
   } catch (error) {
     console.error('Error getting platform activity:', error);
-    res.status(500).json({ error: 'Failed to get platform activity' });
+    return res.status(500).json({ error: 'Failed to get platform activity' });
   }
 });
 
@@ -767,7 +767,7 @@ router.get('/:platform/stats', authenticateToken, async (req, res) => {
     // For now, return empty stats for non-YouTube platforms
     // In the future, this would integrate with each platform's API
     if (platform !== 'youtube') {
-      res.json({ 
+      return res.json({ 
         stats: { 
           followers: 0, 
           posts: 0, 
@@ -775,15 +775,15 @@ router.get('/:platform/stats', authenticateToken, async (req, res) => {
           lastPost: 'N/A' 
         } 
       });
-      return;
+     
     }
 
     // For YouTube, use the existing YouTube stats logic
     // This will be handled by the specific /youtube/stats route
-    res.status(404).json({ error: 'Use /youtube/stats for YouTube statistics' });
+    return res.status(404).json({ error: 'Use /youtube/stats for YouTube statistics' });
   } catch (error) {
     console.error('Error getting platform stats:', error);
-    res.status(500).json({ error: 'Failed to get platform stats' });
+    return res.status(500).json({ error: 'Failed to get platform stats' });
   }
 });
 
@@ -1000,7 +1000,7 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
           }
         });
 
-        res.json({
+        return res.json({
           success: true,
           videoId: uploadResult.id,
           title: uploadResult.snippet.title,
@@ -1068,7 +1068,7 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
           }
         });
 
-        res.json({
+       return  res.json({
           success: true,
           videoId: uploadResult.id,
           title: uploadResult.snippet.title,
@@ -1104,7 +1104,7 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
       console.error('Standard error:', errorDetails);
     }
     
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: errorMessage,
       details: errorDetails
     });

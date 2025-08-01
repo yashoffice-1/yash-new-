@@ -308,8 +308,7 @@ export function AssetLibrary() {
 
   // Check if there are any pending HeyGen videos
   const hasPendingHeyGenVideos = assets.some(asset => 
-    (asset.source_system === "heygen" || asset.source_system === "heygen_zapier") &&
-    (asset.asset_url === "pending" || asset.asset_url === "processing" || asset.asset_url?.startsWith("pending_"))
+    (asset.source_system === "heygen") &&(asset.asset_url === "pending" || asset.asset_url === "processing" || asset.asset_url?.startsWith("pending_"))
   );
 
   return (
@@ -558,7 +557,7 @@ export function AssetLibrary() {
                       
                       <div className="flex space-x-1">
                         {/* Show refresh button for ALL HeyGen videos */}
-                        {(asset.source_system === "heygen" || asset.source_system === "heygen_zapier") && (
+                        {(asset.source_system === "heygen") && (
                           <Button
                             variant="outline"
                             size="sm"

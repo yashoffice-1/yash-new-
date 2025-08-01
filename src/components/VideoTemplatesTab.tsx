@@ -272,7 +272,7 @@ export function VideoTemplatesTab() {
             Creating video for: <span className="font-medium">{selectedProduct.name}</span>
           </div>
         </div>
-        <VideoTemplateUtility product={selectedProduct} />
+        <VideoTemplateUtility selectedProduct={selectedProduct} />
       </div>
     );
   }
@@ -342,7 +342,7 @@ export function VideoTemplatesTab() {
                     onChange={(e) => setSelectedCategory(e.target.value)}
                     className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    {['all', ...Array.from(new Set(heygenData.templates.map((t: HeyGenTemplate) => t.category).filter(Boolean)))].map(category => (
+                    {['all', ...Array.from(new Set(heygenData.templates.map((t: HeyGenTemplate) => t.category).filter(Boolean)))].map((category: string) => (
                       <option key={category} value={category}>
                         {category === 'all' ? 'All Categories' : category}
                       </option>
