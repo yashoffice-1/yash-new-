@@ -1,6 +1,8 @@
 import express from 'express';
 import { prisma } from '../index';
 import { authenticateToken } from '../middleware/auth';
+import axios from 'axios';
+import FormData from 'form-data';
 
 const router = express.Router();
 
@@ -782,6 +784,330 @@ router.get('/:platform/stats', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error getting platform stats:', error);
     res.status(500).json({ error: 'Failed to get platform stats' });
+  }
+});
+
+// YouTube video upload endpoint
+router.post('/youtube/upload', authenticateToken, async (req, res) => {
+  try {
+    const { videoUrl, title, description, tags, privacy } = req.body;
+    const userId = (req as any).user.userId;
+
+    // Validate required fields
+    if (!videoUrl || !title) {
+      return res.status(400).json({ 
+        error: 'Video URL and title are required' 
+      });
+    }
+
+
+    // Check if YouTube OAuth credentials are configured
+    if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET) {
+      console.error('YouTube OAuth credentials not configured');
+      return res.status(500).json({ 
+        error: 'YouTube OAuth credentials not configured. Please set YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET in your environment variables.' 
+      });
+    }
+
+    // Get the user's YouTube connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: 'youtube',
+        isActive: true
+      }
+    });
+
+
+    if (!connection) {
+      return res.status(404).json({ 
+        error: 'YouTube account not connected. Please connect your YouTube account first.' 
+      });
+    }
+
+    // Check if token is expired and refresh if needed
+    let accessToken = connection.accessToken;
+    if (connection.tokenExpiresAt && new Date() > connection.tokenExpiresAt) {
+      if (!connection.refreshToken) {
+        return res.status(401).json({ 
+          error: 'YouTube token expired and no refresh token available. Please reconnect your account.' 
+        });
+      }
+
+      const refreshResult = await refreshGoogleToken(connection.refreshToken);
+      if (!refreshResult) {
+        return res.status(401).json({ 
+          error: 'Failed to refresh YouTube token. Please reconnect your account.' 
+        });
+      }
+
+      // Update the connection with new token
+      await prisma.socialMediaConnection.update({
+        where: { id: connection.id },
+        data: {
+          accessToken: refreshResult.accessToken,
+          tokenExpiresAt: new Date(Date.now() + refreshResult.expiresIn * 1000)
+        }
+      });
+
+      accessToken = refreshResult.accessToken;
+    }
+
+    // Download the video from the URL
+    let videoBuffer: ArrayBuffer;
+    try {
+      const videoResponse = await axios.get(videoUrl, {
+        responseType: 'arraybuffer'
+      })  
+      
+    
+      
+      if (videoResponse.status !== 200) {
+        return res.status(400).json({ 
+          error: 'Failed to download video from the provided URL' 
+        });
+      }
+
+      videoBuffer = videoResponse.data;
+      console.log('Video buffer size:', videoBuffer.byteLength);
+      
+      // Check file size limits (YouTube has a 128GB limit, but we'll set a reasonable limit)
+      const maxSizeBytes = 100 * 1024 * 1024; // 100MB limit
+      if (videoBuffer.byteLength > maxSizeBytes) {
+        return res.status(400).json({ 
+          error: `Video file is too large (${Math.round(videoBuffer.byteLength / 1024 / 1024)}MB). Maximum size is 100MB.` 
+        });
+      }
+      
+      // Check if file is too small (likely not a valid video)
+      if (videoBuffer.byteLength < 1024 * 1024) { // Less than 1MB
+        return res.status(400).json({ 
+          error: 'Video file appears to be too small or invalid' 
+        });
+      }
+    } catch (downloadError) {
+      console.error('Error downloading video:', downloadError);
+      return res.status(400).json({ 
+        error: 'Failed to download video from the provided URL',
+        details: downloadError instanceof Error ? downloadError.message : 'Unknown download error'
+      });
+    }
+
+    // Prepare video metadata as JSON string - keep it minimal to avoid size issues
+    let videoMetadata = {
+      snippet: {
+        title: title.substring(0, 100), // Limit title to 100 characters
+        description: (description || '').substring(0, 500), // Limit description to 500 characters
+        categoryId: '22' // People & Blogs category
+      },
+      status: {
+        privacyStatus: privacy || 'private'
+      }
+    };
+
+    // Add metadata to form data
+    let metadataString = JSON.stringify(videoMetadata);
+    
+    // Check metadata size and reduce if needed (YouTube has strict limits)
+   
+    // If still too large, further reduce description
+    if (metadataString.length > 500) {
+      console.warn('Metadata size is still large, reducing description');
+      videoMetadata.snippet.description = videoMetadata.snippet.description.substring(0, 200);
+      metadataString = JSON.stringify(videoMetadata);
+    }
+    
+    // If still too large, remove description entirely
+    if (metadataString.length > 500) {
+      console.warn('Metadata size still too large, removing description');
+      delete videoMetadata.snippet.description;
+      metadataString = JSON.stringify(videoMetadata);
+    }
+    
+    // If still too large, reduce title
+    if (metadataString.length > 500) {
+      console.warn('Metadata size still too large, reducing title');
+      videoMetadata.snippet.title = videoMetadata.snippet.title.substring(0, 50);
+      metadataString = JSON.stringify(videoMetadata);
+    }
+    
+  
+    // Choose upload method based on file size
+    const isLargeFile = videoBuffer.byteLength > 10 * 1024 * 1024; // 10MB threshold
+    
+    if (isLargeFile) {
+      console.log('Using resumable upload for large file');
+      // Use resumable upload for large files
+      try {
+        // Step 1: Initialize resumable upload
+        const initResponse = await axios.post(
+          `https://www.googleapis.com/upload/youtube/v3/videos?part=snippet,status&uploadType=resumable`,
+          metadataString,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'X-Upload-Content-Length': videoBuffer.byteLength.toString(),
+              'X-Upload-Content-Type': 'video/mp4'
+            }
+          }
+        );
+
+        if (initResponse.status !== 200) {
+          console.error('Failed to initialize resumable upload:', initResponse.data);
+          return res.status(initResponse.status).json({ 
+            error: `Failed to initialize upload: ${initResponse.data?.error?.message || 'Unknown error'}` 
+          });
+        }
+
+        const uploadUrl = initResponse.headers.location;
+        console.log('Resumable upload URL:', uploadUrl);
+
+        // Step 2: Upload the video data
+        const uploadResponse = await axios.put(
+          uploadUrl,
+          videoBuffer,
+          {
+            headers: {
+              'Content-Type': 'video/mp4',
+              'Content-Length': videoBuffer.byteLength.toString()
+            }
+          }
+        );
+
+
+        if (uploadResponse.status !== 200) {
+          console.error('Resumable upload failed:', uploadResponse.data);
+          return res.status(uploadResponse.status).json({ 
+            error: `Upload failed: ${uploadResponse.data?.error?.message || 'Unknown error'}` 
+          });
+        }
+
+        const uploadResult = uploadResponse.data;
+        console.log('Resumable upload successful:', uploadResult);
+
+        // Store upload record in database
+        const uploadRecord = await prisma.generatedAsset.create({
+          data: {
+            inventoryId: null, // Not tied to a specific product
+            channel: 'youtube',
+            format: 'mp4',
+            sourceSystem: 'youtube_upload',
+            assetType: 'video',
+            url: `https://www.youtube.com/watch?v=${uploadResult.id}`,
+            instruction: `Uploaded to YouTube: ${title}`,
+            status: 'completed'
+          }
+        });
+
+        res.json({
+          success: true,
+          videoId: uploadResult.id,
+          title: uploadResult.snippet.title,
+          url: `https://www.youtube.com/watch?v=${uploadResult.id}`,
+          uploadRecord
+        });
+
+      } catch (uploadError) {
+        console.error('Resumable upload request failed:', uploadError);
+        if (axios.isAxiosError(uploadError)) {
+          console.error('YouTube API error response:', uploadError.response?.data);
+          console.error('YouTube API error status:', uploadError.response?.status);
+          return res.status(uploadError.response?.status || 500).json({ 
+            error: `Upload failed: ${uploadError.response?.data?.error?.message || uploadError.message}` 
+          });
+        }
+        throw uploadError;
+      }
+    } else {
+      console.log('Using multipart upload for small file');
+      // Use multipart upload for smaller files
+      const formData = new FormData();
+      formData.append('file', videoBuffer, {
+        filename: 'video.mp4',
+        contentType: 'video/mp4'
+      });
+      formData.append('metadata', metadataString);
+
+      try {
+        const uploadResponse = await axios.post(
+          `https://www.googleapis.com/upload/youtube/v3/videos?part=snippet,status&uploadType=multipart`,
+          formData,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              ...formData.getHeaders()
+            }
+          }
+        );
+
+              console.log('Multipart upload response status:', uploadResponse.status);
+        console.log('Multipart upload response data:', uploadResponse.data);
+
+        if (uploadResponse.status !== 200) {
+          console.error('Multipart upload error:', uploadResponse.data);
+          return res.status(uploadResponse.status).json({ 
+            error: `Upload failed: ${uploadResponse.data?.error?.message || 'Unknown error'}` 
+          });
+        }
+
+        const uploadResult = uploadResponse.data;
+        console.log('Multipart upload successful:', uploadResult);
+
+        // Store upload record in database
+        const uploadRecord = await prisma.generatedAsset.create({
+          data: {
+            inventoryId: null, // Not tied to a specific product
+            channel: 'youtube',
+            format: 'mp4',
+            sourceSystem: 'youtube_upload',
+            assetType: 'video',
+            url: `https://www.youtube.com/watch?v=${uploadResult.id}`,
+            instruction: `Uploaded to YouTube: ${title}`,
+            status: 'completed'
+          }
+        });
+
+        res.json({
+          success: true,
+          videoId: uploadResult.id,
+          title: uploadResult.snippet.title,
+          url: `https://www.youtube.com/watch?v=${uploadResult.id}`,
+          uploadRecord
+        });
+
+      } catch (uploadError) {
+        console.error('Multipart upload request failed:', uploadError);
+        if (axios.isAxiosError(uploadError)) {
+          console.error('YouTube API error response:', uploadError.response?.data);
+          console.error('YouTube API error status:', uploadError.response?.status);
+          return res.status(uploadError.response?.status || 500).json({ 
+            error: `Upload failed: ${uploadError.response?.data?.error?.message || uploadError.message}` 
+          });
+        }
+        throw uploadError;
+      }
+    }
+
+  } catch (error) {
+    console.error('Error uploading to YouTube:', error);
+    
+    // Provide more detailed error information
+    let errorMessage = 'Failed to upload video to YouTube';
+    let errorDetails = '';
+    
+    if (axios.isAxiosError(error)) {
+      errorDetails = `Status: ${error.response?.status}, Message: ${error.response?.data?.error?.message || error.message}`;
+      console.error('Axios error details:', errorDetails);
+    } else if (error instanceof Error) {
+      errorDetails = error.message;
+      console.error('Standard error:', errorDetails);
+    }
+    
+    res.status(500).json({ 
+      error: errorMessage,
+      details: errorDetails
+    });
   }
 });
 

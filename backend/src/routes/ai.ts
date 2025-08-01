@@ -445,7 +445,7 @@ router.post('/heygen/recover-pending', async (req, res, next) => {
           updated: status === 'completed' || status === 'failed'
         });
 
-      } catch (error) {
+      } catch (error:any) {
         console.error(`Error checking video ${asset.url}:`, error);
         results.push({
           assetId: asset.id,

@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw, Share2, Upload } from 'lucide-react';
 import { useAssetLibrary, AssetLibraryItem } from '@/hooks/useAssetLibrary';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { SocialMediaUpload } from './SocialMediaUpload';
 
 export function AssetLibrary() {
   const [assets, setAssets] = useState<AssetLibraryItem[]>([]);
@@ -16,6 +17,8 @@ export function AssetLibrary() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedAssetForUpload, setSelectedAssetForUpload] = useState<AssetLibraryItem | null>(null);
   
   const { getLibraryAssets, toggleFavorite, deleteFromLibrary, isLoading } = useAssetLibrary();
   const { toast } = useToast();
@@ -272,6 +275,28 @@ export function AssetLibrary() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleUpload = (asset: AssetLibraryItem) => {
+    if (asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending') {
+      setSelectedAssetForUpload(asset);
+      setShowUploadModal(true);
+    } else {
+      toast({
+        title: "Upload Not Available",
+        description: "Only completed videos can be uploaded to social media platforms.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUploadComplete = (result: any) => {
+    setShowUploadModal(false);
+    setSelectedAssetForUpload(null);
+    toast({
+      title: "Upload Successful!",
+      description: `Your video has been uploaded to ${result.platform || 'social media'}.`,
+    });
   };
 
   const assetCounts = {
@@ -564,6 +589,18 @@ export function AssetLibrary() {
                           </Button>
                         )}
                         
+                        {asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUpload(asset)}
+                            className="text-green-600 hover:text-green-700 border-green-200"
+                            title="Upload video to social media"
+                          >
+                            <Share2 className="h-4 w-4" />
+                          </Button>
+                        )}
+
                         <Button
                           variant="outline"
                           size="sm"
@@ -581,6 +618,18 @@ export function AssetLibrary() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Social Media Upload Modal */}
+      {showUploadModal && selectedAssetForUpload && (
+        <SocialMediaUpload
+          asset={selectedAssetForUpload}
+          onClose={() => {
+            setShowUploadModal(false);
+            setSelectedAssetForUpload(null);
+          }}
+          onUploadComplete={handleUploadComplete}
+        />
+      )}
     </div>
   );
 }
