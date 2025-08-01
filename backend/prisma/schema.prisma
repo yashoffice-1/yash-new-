@@ -115,6 +115,7 @@ model Profile {
   displayName              String?                 @map("display_name")
   initials                 String
   status                   ProfileStatus           @default(pending)
+  role                     UserRole                @default(user)
   createdAt                DateTime                @default(now()) @map("created_at")
   updatedAt                DateTime                @updatedAt @map("updated_at")
   password                 String
@@ -192,4 +193,10 @@ model SocialMediaUpload {
 enum ProfileStatus {
   pending
   verified
+}
+
+enum UserRole {
+  user
+  admin
+  superadmin
 }

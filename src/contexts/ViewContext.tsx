@@ -1,10 +1,13 @@
 
 import { createContext, useContext, ReactNode, useState } from 'react';
+import { useAuth } from './AuthContext';
 
 interface ViewContextType {
   isAdmin: boolean;
-  activeTab: 'inventory' | 'library' | 'templates' | 'user' | 'social';
-  setActiveTab: (tab: 'inventory' | 'library' | 'templates' | 'user' | 'social') => void;
+  isSuperadmin: boolean;
+  userRole: 'user' | 'admin' | 'superadmin';
+  activeTab: 'inventory' | 'library' | 'templates' | 'user' | 'social' | 'admin';
+  setActiveTab: (tab: 'inventory' | 'library' | 'templates' | 'user' | 'social' | 'admin') => void;
   selectedProduct: any | null;
   setSelectedProduct: (product: any | null) => void;
 }
@@ -12,14 +15,18 @@ interface ViewContextType {
 const ViewContext = createContext<ViewContextType | undefined>(undefined);
 
 export function ViewProvider({ children }: { children: ReactNode }) {
-  // Set to false to default to user mode, or true for admin mode
-  const isAdmin = false;
-  const [activeTab, setActiveTab] = useState<'inventory' | 'library' | 'templates' | 'user' | 'social'>('inventory');
+  const { user } = useAuth();
+  const userRole = user?.role || 'user';
+  const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+  const isSuperadmin = userRole === 'superadmin';
+  const [activeTab, setActiveTab] = useState<'inventory' | 'library' | 'templates' | 'user' | 'social' | 'admin'>('inventory');
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
 
   return (
     <ViewContext.Provider value={{ 
       isAdmin, 
+      isSuperadmin,
+      userRole,
       activeTab, 
       setActiveTab, 
       selectedProduct, 

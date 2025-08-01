@@ -11,6 +11,7 @@ export interface User {
   initials: string;
   emailVerified: boolean;
   status: 'pending' | 'verified';
+  role: 'user' | 'admin' | 'superadmin';
   createdAt?: string;
 }
 

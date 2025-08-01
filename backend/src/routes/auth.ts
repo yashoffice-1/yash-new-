@@ -321,7 +321,8 @@ router.post('/signin', async (req, res, next) => {
         email: profile.email,
         firstName: profile.firstName,
         lastName: profile.lastName,
-        initials: profile.initials
+        initials: profile.initials,
+        role: profile.role
       },
       process.env.JWT_SECRET || 'fallback-secret',
       { expiresIn: '7d' }
@@ -340,6 +341,7 @@ router.post('/signin', async (req, res, next) => {
           initials: profile.initials,
           emailVerified: profile.emailVerified,
           status: profile.status,
+          role: profile.role,
           createdAt: profile.createdAt.toISOString(),
         },
         token

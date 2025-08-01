@@ -63,6 +63,7 @@ export function MainContent() {
     return null;
   }
 
+  // Show admin dashboard for admin and superadmin users
   if (isAdmin) {
     return <AdminDashboard />;
   }

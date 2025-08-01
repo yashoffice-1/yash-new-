@@ -8,6 +8,7 @@ export interface AuthenticatedRequest extends Request {
     firstName: string;
     lastName: string;
     initials: string;
+    role: 'user' | 'admin' | 'superadmin';
   };
 }
 
@@ -32,6 +33,7 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
       firstName: string;
       lastName: string;
       initials: string;
+      role: 'user' | 'admin' | 'superadmin';
     };
     req.user = decoded;
     next();
@@ -40,4 +42,24 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     res.status(403).json({ error: 'Invalid or expired token' });
     return;
   }
-}; 
+};
+
+// Role-based middleware
+export const requireRole = (roles: string[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    
+    next();
+  };
+};
+
+// Convenience middleware for specific roles
+export const requireSuperadmin = requireRole(['superadmin']);
+export const requireAdmin = requireRole(['admin', 'superadmin']);
+export const requireUser = requireRole(['user', 'admin', 'superadmin']); 
