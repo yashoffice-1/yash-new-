@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../index';
 import { z } from 'zod';
 import axios from 'axios';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -24,7 +25,7 @@ const heygenGenerateSchema = z.object({
 });
 
 // OpenAI Integration
-router.post('/openai/generate', async (req, res, next) => {
+router.post('/openai/generate', authenticateToken, async (req, res, next) => {
   try {
     const { prompt, type, options } = generateContentSchema.parse(req.body);
     
@@ -102,7 +103,7 @@ router.post('/openai/generate', async (req, res, next) => {
 });
 
 // HeyGen Integration
-router.post('/heygen/generate', async (req, res, next) => {
+router.post('/heygen/generate', authenticateToken, async (req, res, next) => {
   try {
     const { templateId, productId, instruction, variables, formatSpecs } = heygenGenerateSchema.parse(req.body);
     
