@@ -26,12 +26,12 @@ router.get('/clients', async (req, res, next) => {
       }
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: clients
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -47,7 +47,7 @@ router.post('/clients', async (req, res, next) => {
       }
     });
 
-    res.status(201).json({
+   return res.status(201).json({
       success: true,
       data: client,
       message: 'Client configuration created successfully'
@@ -60,7 +60,7 @@ router.post('/clients', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -83,12 +83,12 @@ router.get('/clients/:clientId/assignments', async (req, res, next) => {
       });
     }
 
-    res.json({
+   return res.json({
       success: true,
       data: client.templateAssignments
     });
   } catch (error) {
-    next(error);
+   return next(error);
   }
 });
 
@@ -116,7 +116,7 @@ router.post('/clients/:clientId/assignments', async (req, res, next) => {
       }
     });
 
-    res.status(201).json({
+   return res.status(201).json({
       success: true,
       data: assignment,
       message: 'Template assigned successfully'
@@ -129,7 +129,7 @@ router.post('/clients/:clientId/assignments', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+   return next(error);
   }
 });
 
@@ -143,12 +143,12 @@ router.get('/fallback-variables/:templateId', async (req, res, next) => {
       orderBy: { variableOrder: 'asc' }
     });
 
-    res.json({
+   return res.json({
       success: true,
       data: variables
     });
   } catch (error) {
-    next(error);
+   return next(error);
   }
 });
 
@@ -172,13 +172,13 @@ router.post('/fallback-variables', async (req, res, next) => {
       }))
     });
 
-    res.status(201).json({
+   return  res.status(201).json({
       success: true,
       data: { count: createdVariables.count },
       message: `${createdVariables.count} variables created successfully`
     });
   } catch (error) {
-    next(error);
+   return next(error);
   }
 });
 
@@ -216,12 +216,12 @@ router.get('/available', async (req, res, next) => {
       }
     ];
 
-    res.json({
+  return  res.json({
       success: true,
       data: templates
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -234,7 +234,7 @@ router.get('/stats', async (req, res, next) => {
       prisma.templateFallbackVariable.count()
     ]);
 
-    res.json({
+  return  res.json({
       success: true,
       data: {
         totalClients,
@@ -243,7 +243,7 @@ router.get('/stats', async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+   return  next(error);
   }
 });
 
@@ -280,7 +280,7 @@ router.get('/heygen/list', async (req, res, next) => {
     });
     console.log('First template structure:', JSON.stringify(templates[0], null, 2));
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         templates: templates,
@@ -289,7 +289,7 @@ router.get('/heygen/list', async (req, res, next) => {
     });
   } catch (error) {
     console.error('Error fetching HeyGen templates:', error);
-    next(error);
+    return next(error);
   }
 });
 
@@ -324,13 +324,13 @@ router.get('/heygen/detail/:templateId', async (req, res, next) => {
     console.log('Successfully fetched template details from HeyGen');
     console.log('Template data structure:', JSON.stringify(templateData, null, 2));
 
-    res.json({
+    return res.json({
       success: true,
       data: templateData
     });
   } catch (error) {
     console.error('Error fetching HeyGen template details:', error);
-    next(error);
+   return next(error);
   }
 });
 
@@ -364,7 +364,7 @@ router.get('/list', async (req, res, next) => {
       };
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         templates: enhancedTemplates,
@@ -372,7 +372,7 @@ router.get('/list', async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+   return next(error);
   }
 });
 
@@ -422,12 +422,12 @@ router.get('/detail/:templateId', async (req, res, next) => {
       variableTypes: variableTypes
     };
 
-    res.json({
+    return res.json({
       success: true,
       data: templateDetail
     });
   } catch (error) {
-    next(error);
+   return  next(error);
   }
 });
 
@@ -534,7 +534,12 @@ router.get('/client/:clientId/templates', async (req, res, next) => {
         }
       });
     }
-
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        error: 'Client not found'
+      });
+    }
     // Get template details for each assigned template
     const templateDetails = await Promise.all(
       client.templateAssignments.map(async (assignment) => {
@@ -560,12 +565,12 @@ router.get('/client/:clientId/templates', async (req, res, next) => {
       })
     );
 
-    res.json({
+  return  res.json({
       success: true,
       data: templateDetails
     });
   } catch (error) {
-    next(error);
+   return next(error);
   }
 });
 
@@ -665,13 +670,13 @@ router.post('/client/:clientId/initialize', async (req, res, next) => {
       )
     );
 
-    res.status(201).json({
+   return  res.status(201).json({
       success: true,
       data: templateAssignments,
       message: `Initialized ${templateAssignments.length} default templates for client ${clientId}`
     });
   } catch (error) {
-    next(error);
+   return next(error);
   }
 });
 

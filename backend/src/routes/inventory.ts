@@ -53,7 +53,7 @@ router.get('/', async (req, res, next) => {
         orderBy: { createdAt: 'desc' }
       });
 
-      res.json({
+      return res.json({
         success: true,
         data: inventory,
         total: inventory.length
@@ -69,7 +69,7 @@ router.get('/', async (req, res, next) => {
         prisma.inventory.count({ where })
       ]);
 
-      res.json({
+      return res.json({
         success: true,
         data: inventory,
         pagination: {
@@ -81,7 +81,7 @@ router.get('/', async (req, res, next) => {
       });
     }
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -101,12 +101,12 @@ router.get('/categories', async (req, res, next) => {
       .map(item => item.category)
       .filter(Boolean);
 
-    res.json({
+    return res.json({
       success: true,
       data: uniqueCategories
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -126,12 +126,12 @@ router.get('/:id', async (req, res, next) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: inventory
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -144,7 +144,7 @@ router.post('/', async (req, res, next) => {
       data: validatedData
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: inventory,
       message: 'Inventory item created successfully'
@@ -157,7 +157,7 @@ router.post('/', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+   return next(error);
   }
 });
 
@@ -172,7 +172,7 @@ router.put('/:id', async (req, res, next) => {
       data: validatedData
     });
 
-    res.json({
+    return res.json({
       success: true,
       data: inventory,
       message: 'Inventory item updated successfully'
@@ -185,7 +185,7 @@ router.put('/:id', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+    return next(error);
   }
 });
 
@@ -198,12 +198,12 @@ router.delete('/:id', async (req, res, next) => {
       where: { id }
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Inventory item deleted successfully'
     });
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 
@@ -225,7 +225,7 @@ router.post('/bulk', async (req, res, next) => {
       data: validatedItems
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: { count: createdItems.count },
       message: `${createdItems.count} inventory items created successfully`
@@ -238,7 +238,7 @@ router.post('/bulk', async (req, res, next) => {
         details: error.errors
       });
     }
-    next(error);
+    return next(error);
   }
 });
 

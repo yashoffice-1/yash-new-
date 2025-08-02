@@ -9,18 +9,18 @@ import { useToast } from "@/hooks/use-toast";
 
 interface ProductCardProps {
   product: {
-    id: string;
-    name: string;
-    description: string | null;
-    price: number | null;
-    sku: string | null;
-    category: string | null;
-    brand: string | null;
-    images: string[];
-    metadata: any;
-    status: string;
-    created_at: string;
-    updated_at: string;
+  id: string;
+  name: string;
+  description: string | null;
+  price: number | null;
+  sku: string | null;
+  category: string | null;
+  brand: string | null;
+  images: string[];
+  metadata: any;
+  status: string;
+  created_at: string;
+  updated_at: string;
   };
   onEdit: () => void;
   onDelete: () => void;
@@ -46,7 +46,7 @@ export function ProductCard({
     console.log('ProductCard handleSelect:', product.id, checked);
     onSelect?.(product.id, checked);
   };
-
+  
   return (
     <Card 
       className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg group ${
@@ -85,32 +85,31 @@ export function ProductCard({
         </div>
       )}
 
-      {/* Product Image */}
+        {/* Product Image */}
       <div className="relative aspect-square overflow-hidden bg-gray-100 rounded-lg">
         {product.images && product.images.length > 0 ? (
-          <img
+            <img
             src={product.images[0]}
-            alt={product.name}
+              alt={product.name}
             className={`w-full h-full object-cover transition-all duration-300 ${
               isSelected ? 'scale-105' : 'group-hover:scale-105'
             }`}
-          />
-        ) : (
+            />
+          ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
-            <div className="text-gray-400 text-4xl">📦</div>
-          </div>
-        )}
+            <div className="text-gray-400 text-4xl">📦</div>          </div>
+          )}
         
         {/* Image Overlay */}
         <div className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-300 ${
           isHovered || isSelected ? 'opacity-100' : ''
         }`} />
-      </div>
+        </div>
 
       <CardContent className="p-4">
         {/* Product Info */}
         <div className="space-y-3">
-          <div className="space-y-2">
+        <div className="space-y-2">
             <h3 className={`font-semibold text-lg truncate transition-colors duration-200 ${
               isSelected ? 'text-blue-700' : 'text-gray-900'
             }`}>
@@ -154,27 +153,27 @@ export function ProductCard({
           {/* Action Buttons */}
           <div className="flex items-center justify-between pt-3">
             <div className="flex space-x-1">
-              <Button
-                size="sm"
+            <Button
+              size="sm"
                 variant="ghost"
                 onClick={onEdit}
                 className="flex items-center space-x-1 h-8 px-2 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-all duration-200 group"
-              >
+            >
                 <Edit className="w-3 h-3 group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-medium">Edit</span>
-              </Button>
-              
-              <Button
-                size="sm"
+            </Button>
+            
+            <Button
+              size="sm"
                 variant="ghost"
                 onClick={onDelete}
                 className="flex items-center space-x-1 h-8 px-2 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-all duration-200 group"
               >
                 <Trash2 className="w-3 h-3 group-hover:scale-110 transition-transform" />
                 <span className="text-xs font-medium">Delete</span>
-              </Button>
+            </Button>
             </div>
-
+            
             <Button
               size="sm"
               onClick={() => onUseForGeneration(product)}

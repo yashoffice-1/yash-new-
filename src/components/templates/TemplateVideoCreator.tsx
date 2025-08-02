@@ -190,13 +190,13 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
         }
       } else {
         // For non-HeyGen templates, use the generic video generation
-        const instruction = `Create video using template ${template.id} with product: ${Object.entries(variableValues).map(([key, value]) => `${key}: ${value}`).join(', ')}`;
-        await generateVideo(instruction, undefined, 'heygen');
-        
-        toast({
-          title: "✅ Request Sent Successfully",
-          description: `Video generation request sent to HeyGen using template "${template.name}". Check the Asset Library to monitor progress!`,
-        });
+      const instruction = `Create video using template ${template.id} with product: ${Object.entries(variableValues).map(([key, value]) => `${key}: ${value}`).join(', ')}`;
+      await generateVideo(instruction, undefined, 'heygen');
+      
+      toast({
+        title: "✅ Request Sent Successfully",
+        description: `Video generation request sent to HeyGen using template "${template.name}". Check the Asset Library to monitor progress!`,
+      });
       }
     } catch (error) {
       console.error('Error creating video:', error);
@@ -273,9 +273,9 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
     return (
       <Card>
         <CardHeader>
-          <div>
-            <CardTitle>Loading Template...</CardTitle>
-            <CardDescription>Fetching template details</CardDescription>
+            <div>
+              <CardTitle>Loading Template...</CardTitle>
+              <CardDescription>Fetching template details</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -292,12 +292,12 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
   return (
     <Card>
       <CardHeader>
-        <div>
-          <CardTitle className="flex items-center space-x-2">
-            <Video className="h-5 w-5" />
-            <span>Create Video: {template.name}</span>
-          </CardTitle>
-          <CardDescription>{template.description}</CardDescription>
+          <div>
+            <CardTitle className="flex items-center space-x-2">
+              <Video className="h-5 w-5" />
+              <span>Create Video: {template.name}</span>
+            </CardTitle>
+            <CardDescription>{template.description}</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -388,15 +388,15 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
           )}
           
           {generationStatus === 'idle' && (
-            <Button
-              onClick={handleCreateVideo}
-              disabled={isGenerating || !canCreateVideo}
-              size="lg"
-              className="px-8"
-            >
-              <Video className="h-4 w-4 mr-2" />
-              {isGenerating ? "Creating Video..." : "Create Video"}
-            </Button>
+          <Button
+            onClick={handleCreateVideo}
+            disabled={isGenerating || !canCreateVideo}
+            size="lg"
+            className="px-8"
+          >
+            <Video className="h-4 w-4 mr-2" />
+            {isGenerating ? "Creating Video..." : "Create Video"}
+          </Button>
           )}
         </div>
 

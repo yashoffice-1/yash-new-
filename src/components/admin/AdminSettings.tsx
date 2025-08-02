@@ -1,199 +1,210 @@
-import React, { useState } from 'react';
+// src/components/admin/AdminSettings.tsx
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Shield, Bell, Database, Globe } from 'lucide-react';
+import { Settings, Shield, Bell, Database, Globe, Save, RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { settingsAPI, SystemSetting } from '@/api/settings-client';
+
+interface SettingsFormData {
+  [key: string]: string | boolean;
+}
 
 export function AdminSettings() {
-  const [settings, setSettings] = useState({
-    emailNotifications: true,
-    systemMaintenance: false,
-    debugMode: false,
-    maxFileSize: '10',
-    sessionTimeout: '24'
-  });
+  const { toast } = useToast();
+  const [settings, setSettings] = useState<SystemSetting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState<SettingsFormData>({});
+
+  // Load settings on component mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Loading settings from API...');
+      const fetchedSettings = await settingsAPI.getAllSettings();
+      console.log('✅ Fetched settings:', fetchedSettings);
+      setSettings(fetchedSettings);
+      
+      // Initialize form data with current settings
+      const initialFormData: SettingsFormData = {};
+      fetchedSettings.forEach(setting => {
+        initialFormData[setting.key] = setting.value;
+      });
+      setFormData(initialFormData);
+    } catch (error) {
+      console.error('❌ Error loading settings:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load settings',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSettingChange = (key: string, value: string | boolean) => {
-    setSettings(prev => ({
+    setFormData(prev => ({
       ...prev,
       [key]: value
     }));
   };
 
   const saveSettings = async () => {
-    // TODO: Implement settings save to backend
-    console.log('Saving settings:', settings);
+    try {
+      setSaving(true);
+      console.log(' Saving settings...');
+      
+      // Update all changed settings
+      const updatePromises = settings.map(async (setting) => {
+        const newValue = formData[setting.key];
+        if (newValue !== undefined && newValue !== setting.value) {
+          console.log(`🔄 Updating setting ${setting.key}: ${setting.value} -> ${newValue}`);
+          return settingsAPI.updateSetting(setting.key, {
+            value: String(newValue)
+          });
+        }
+        return null;
+      });
+
+      const results = await Promise.all(updatePromises);
+      const updatedCount = results.filter(Boolean).length;
+
+      console.log(`✅ Updated ${updatedCount} settings`);
+      toast({
+        title: 'Success',
+        description: `Updated ${updatedCount} settings successfully`,
+      });
+
+      // Reload settings to get fresh data
+      await loadSettings();
+    } catch (error) {
+      console.error('❌ Error saving settings:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save settings',
+        variant: 'destructive'
+      });
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const getSettingsByCategory = (category: string) => {
+    return settings.filter(setting => setting.category === category);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center space-x-2">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          <span>Loading settings...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* General Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Settings className="h-5 w-5" />
-            <span>General Settings</span>
-          </CardTitle>
-          <CardDescription>
-            Configure basic system settings and preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Email Notifications</Label>
-              <p className="text-sm text-gray-500">
-                Send email notifications for system events
-              </p>
-            </div>
-            <Switch
-              checked={settings.emailNotifications}
-              onCheckedChange={(checked) => handleSettingChange('emailNotifications', checked)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>System Maintenance Mode</Label>
-              <p className="text-sm text-gray-500">
-                Enable maintenance mode to restrict user access
-              </p>
-            </div>
-            <Switch
-              checked={settings.systemMaintenance}
-              onCheckedChange={(checked) => handleSettingChange('systemMaintenance', checked)}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Debug Mode</Label>
-              <p className="text-sm text-gray-500">
-                Enable detailed logging for troubleshooting
-              </p>
-            </div>
-            <Switch
-              checked={settings.debugMode}
-              onCheckedChange={(checked) => handleSettingChange('debugMode', checked)}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* File Upload Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Database className="h-5 w-5" />
-            <span>File Upload Settings</span>
-          </CardTitle>
-          <CardDescription>
-            Configure file upload limits and restrictions
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="maxFileSize">Maximum File Size (MB)</Label>
-              <Input
-                id="maxFileSize"
-                type="number"
-                value={settings.maxFileSize}
-                onChange={(e) => handleSettingChange('maxFileSize', e.target.value)}
-                placeholder="10"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sessionTimeout">Session Timeout (hours)</Label>
-              <Input
-                id="sessionTimeout"
-                type="number"
-                value={settings.sessionTimeout}
-                onChange={(e) => handleSettingChange('sessionTimeout', e.target.value)}
-                placeholder="24"
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Security Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Shield className="h-5 w-5" />
-            <span>Security Settings</span>
-          </CardTitle>
-          <CardDescription>
-            Configure security and access control settings
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Password Policy</Label>
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <Badge variant="outline" className="text-xs">Minimum 8 characters</Badge>
-                <Badge variant="outline" className="text-xs">Require uppercase</Badge>
-                <Badge variant="outline" className="text-xs">Require numbers</Badge>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Session Management</Label>
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <Badge variant="outline" className="text-xs">JWT tokens</Badge>
-                <Badge variant="outline" className="text-xs">7-day expiration</Badge>
-                <Badge variant="outline" className="text-xs">Secure cookies</Badge>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* System Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Globe className="h-5 w-5" />
-            <span>System Information</span>
-          </CardTitle>
-          <CardDescription>
-            Current system status and version information
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Environment</Label>
-              <div className="flex items-center space-x-2">
-                <Badge variant="default" className="bg-green-600">Production</Badge>
-                <span className="text-sm text-gray-500">v1.0.0</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Database</Label>
-              <div className="flex items-center space-x-2">
-                <Badge variant="outline">PostgreSQL</Badge>
-                <span className="text-sm text-gray-500">Connected</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Save Button */}
-      <div className="flex justify-end">
-        <Button onClick={saveSettings} className="flex items-center space-x-2">
-          <Settings className="h-4 w-4" />
-          <span>Save Settings</span>
-        </Button>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">System Settings</h2>
+          <p className="text-gray-500">Manage system-wide configuration settings</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={loadSettings} disabled={loading}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button onClick={saveSettings} disabled={saving}>
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
+
+      {/* Settings by Category */}
+      {['general', 'security', 'upload', 'email', 'system'].map(category => {
+        const categorySettings = getSettingsByCategory(category);
+        if (categorySettings.length === 0) return null;
+
+        const categoryIcons = {
+          general: Settings,
+          security: Shield,
+          upload: Database,
+          email: Bell,
+          system: Globe
+        };
+
+        const Icon = categoryIcons[category as keyof typeof categoryIcons];
+
+        return (
+          <Card key={category}>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Icon className="h-5 w-5" />
+                <span>{category.charAt(0).toUpperCase() + category.slice(1)} Settings</span>
+              </CardTitle>
+              <CardDescription>
+                {category} configuration settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {categorySettings.map(setting => (
+                <div key={setting.key} className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>{setting.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</Label>
+                    <p className="text-sm text-gray-500">{setting.description}</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {setting.value === 'true' || setting.value === 'false' ? (
+                      <Switch
+                        checked={formData[setting.key] === 'true' || setting.value === 'true'}
+                        onCheckedChange={(checked) => handleSettingChange(setting.key, checked)}
+                      />
+                    ) : (
+                      <Input
+                        value={formData[setting.key] || setting.value}
+                        onChange={(e) => handleSettingChange(setting.key, e.target.value)}
+                        className="w-48"
+                      />
+                    )}
+                    <Badge variant={setting.isPublic ? "default" : "secondary"}>
+                      {setting.isPublic ? "Public" : "Private"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {/* Debug Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Debug Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-500">
+            Total Settings: {settings.length}
+          </p>
+          <p className="text-sm text-gray-500">
+            Categories: {Array.from(new Set(settings.map(s => s.category))).join(', ')}
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
-} 
+}

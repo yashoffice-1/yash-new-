@@ -15,6 +15,7 @@ import aiRoutes from './routes/ai';
 import authRoutes from './routes/auth';
 import socialRoutes from './routes/social';
 import adminRoutes from './routes/admin';
+import settingsRoutes from './routes/settings';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -86,6 +87,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);

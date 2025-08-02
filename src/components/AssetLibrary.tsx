@@ -198,7 +198,7 @@ export function AssetLibrary() {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         const { status, videoUrl, errorMessage } = data.data;
         
@@ -214,10 +214,10 @@ export function AssetLibrary() {
             variant: "destructive",
           });
         } else {
-          toast({
+        toast({
             title: "⏳ Still Processing",
             description: `Video is still being generated. Status: ${status}`,
-          });
+        });
         }
         
         // Reload assets to show the updated status
@@ -330,15 +330,15 @@ export function AssetLibrary() {
               <span>Recover Videos</span>
             </Button>
           )}
-          <Button
-            variant="outline"
-            onClick={handleManualRefresh}
-            disabled={isLoading}
-            className="flex items-center space-x-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </Button>
+        <Button
+          variant="outline"
+          onClick={handleManualRefresh}
+          disabled={isLoading}
+          className="flex items-center space-x-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <span>Refresh</span>
+        </Button>
         </div>
       </div>
 
@@ -555,38 +555,38 @@ export function AssetLibrary() {
                         {new Date(asset.created_at).toLocaleDateString()}
                       </span>
                       
-                      <div className="flex space-x-1">
-                        {/* Show refresh button for ALL HeyGen videos */}
+                        <div className="flex space-x-1">
+                          {/* Show refresh button for ALL HeyGen videos */}
                         {(asset.source_system === "heygen") && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRefreshVideo(asset.id)}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRefreshVideo(asset.id)}
                             className="text-blue-600 hover:text-blue-700 border-blue-200"
                             title="Check video status from HeyGen"
-                          >
+                            >
                             <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        )}
+                            </Button>
+                          )}
                          
-                        {asset.asset_type === 'content' && asset.content ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCopyContent(asset.content!, asset.title)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownload(asset)}
-                            disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        )}
+                         {asset.asset_type === 'content' && asset.content ? (
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleCopyContent(asset.content!, asset.title)}
+                           >
+                             <Copy className="h-4 w-4" />
+                           </Button>
+                         ) : (
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handleDownload(asset)}
+                             disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
+                           >
+                             <Download className="h-4 w-4" />
+                           </Button>
+                         )}
                         
                         {asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending' && (
                           <Button
@@ -599,7 +599,7 @@ export function AssetLibrary() {
                             <Share2 className="h-4 w-4" />
                           </Button>
                         )}
-
+                        
                         <Button
                           variant="outline"
                           size="sm"
