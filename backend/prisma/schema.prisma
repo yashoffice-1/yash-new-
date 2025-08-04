@@ -9,34 +9,15 @@ datasource db {
 }
 
 model ApiKey {
-  id        String   @id @default(cuid())
-  keyValue  String   @map("key_value")
-  provider  String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(cuid())
+  name        String
+  key         String   @unique
+  permissions String[]
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("api_keys")
-}
-
-model AssetLibrary {
-  id              String          @id @default(cuid())
-  title           String
-  description     String?
-  tags            String[]
-  assetType       String          @map("asset_type")
-  assetUrl        String          @map("asset_url")
-  gifUrl          String?         @map("gif_url")
-  content         String?
-  instruction     String
-  sourceSystem    String          @map("source_system")
-  favorited       Boolean?        @default(false)
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
-  originalAssetId String?         @map("original_asset_id")
-  originalAsset   GeneratedAsset? @relation("AssetLibraryToGeneratedAsset", fields: [originalAssetId], references: [id])
-  socialMediaUploads SocialMediaUpload[]
-
-  @@map("asset_library")
 }
 
 model ClientConfig {
@@ -44,7 +25,7 @@ model ClientConfig {
   clientId            String                     @unique @map("client_id")
   clientName          String                     @map("client_name")
   createdAt           DateTime?                  @default(now()) @map("created_at")
-  updatedAt           DateTime?                  @updatedAt @map("updated_at")
+  updatedAt           DateTime                @updatedAt @map("updated_at")
   templateAssignments ClientTemplateAssignment[]
 
   @@map("client_configs")
@@ -64,6 +45,7 @@ model ClientTemplateAssignment {
 
 model GeneratedAsset {
   id             String         @id @default(cuid())
+  profileId      String         @map("profile_id")
   inventoryId    String?        @map("inventory_id")
   channel        String
   format         String
@@ -75,7 +57,21 @@ model GeneratedAsset {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
   status         String?        @default("pending")
-  assetLibraries AssetLibrary[] @relation("AssetLibraryToGeneratedAsset")
+  
+  // Template-specific fields
+  templateAccessId String?      @map("template_access_id") // Reference to UserTemplateAccess
+  variables      Json?          // Variables used for this generation
+  
+  // User management fields
+  favorited      Boolean?       @default(false)
+  title          String?
+  description    String?
+  tags           String[]       @default([])
+  
+  // Relations
+  profile        Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  templateAccess UserTemplateAccess? @relation(fields: [templateAccessId], references: [id])
+  socialMediaUploads SocialMediaUpload[]
 
   @@map("generated_assets")
 }
@@ -97,14 +93,57 @@ model Inventory {
   @@map("inventory")
 }
 
-model TemplateFallbackVariable {
-  id            String    @id @default(cuid())
-  templateId    String    @map("template_id")
-  variableName  String    @map("variable_name")
-  variableOrder Int?      @default(0) @map("variable_order")
-  createdAt     DateTime? @default(now()) @map("created_at")
+model UserTemplateAccess {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  
+  // External template info (from HeyGen/Runway)
+  sourceSystem    String   @map("source_system") // 'heygen', 'runway'
+  externalId      String   @map("external_id") // Original template ID from HeyGen/Runway
+  
+  // Template metadata (cached for display)
+  templateName    String   @map("template_name")
+  templateDescription String? @map("template_description")
+  thumbnailUrl    String?  @map("thumbnail_url")
+  category        String?
+  aspectRatio     String?  @map("aspect_ratio")
+  
+  // Access control
+  canUse      Boolean  @default(true) @map("can_use")
+  
+  // Usage tracking
+  usageCount  Int      @default(0) @map("usage_count")
+  lastUsedAt  DateTime? @map("last_used_at")
+  
+  // Timestamps
+  selectedAt  DateTime @default(now()) @map("selected_at") // When user selected this template
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user        Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generatedAssets GeneratedAsset[]
+  variables   TemplateVariable[]
 
-  @@map("template_fallback_variables")
+  @@unique([userId, sourceSystem, externalId])
+  @@map("user_template_access")
+}
+
+model TemplateVariable {
+  id              String   @id @default(cuid())
+  templateAccessId String  @map("template_access_id")
+  name            String
+  type            String   // 'text', 'image', 'number'
+  required        Boolean  @default(true)
+  defaultValue    String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  templateAccess  UserTemplateAccess @relation(fields: [templateAccessId], references: [id], onDelete: Cascade)
+  
+  @@map("template_variables")
 }
 
 model Profile {
@@ -124,6 +163,8 @@ model Profile {
   emailVerified            Boolean                 @default(false) @map("email_verified")
   socialConnections        SocialMediaConnection[]
   socialMediaUploads       SocialMediaUpload[]
+  generatedAssets          GeneratedAsset[]
+  templateAccess           UserTemplateAccess[] // NEW
 
   @@map("profiles")
 }
@@ -182,7 +223,7 @@ model SocialMediaUpload {
   
   // Optional reference to the original asset that was uploaded
   assetId       String?  @map("asset_id")
-  asset         AssetLibrary? @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  asset         GeneratedAsset? @relation(fields: [assetId], references: [id], onDelete: SetNull)
   
   // Reference to the profile
   profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
