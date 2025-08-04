@@ -9,16 +9,25 @@ export interface AssetLibraryItem {
   title: string;
   description?: string;
   tags?: string[];
-  asset_type: 'image' | 'video' | 'content' | 'formats' | 'ad';
+  asset_type: 'image' | 'video' | 'content';
   asset_url: string;
-  gif_url?: string;
   content?: string;
   instruction: string;
   source_system: 'runway' | 'heygen' | 'openai';
-  original_asset_id?: string;
   favorited: boolean;
   created_at: string;
   updated_at: string;
+  profile?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  };
+  templateAccess?: {
+    id: string;
+    templateName: string;
+    externalId: string;
+  };
 }
 
 export function useAssetLibrary() {
@@ -29,20 +38,20 @@ export function useAssetLibrary() {
     title: string;
     description?: string;
     tags?: string[];
-    asset_type: 'image' | 'video' | 'content' | 'formats' | 'ad';
+    asset_type: 'image' | 'video' | 'content';
     asset_url: string;
     content?: string;
     instruction: string;
     source_system: 'runway' | 'heygen' | 'openai';
-    original_asset_id?: string;
+    profileId: string;
   }) => {
     setIsLoading(true);
     try {
       let finalAssetUrl = asset.asset_url;
       let storedFileName: string | undefined;
 
-      // Only download and store if it's not a content/formats type and the URL is external
-      if (asset.asset_type !== 'content' && asset.asset_type !== 'formats' && asset.asset_url && !asset.asset_url.includes('supabase')) {
+      // Only download and store if it's not a content type and the URL is external
+      if (asset.asset_type !== 'content' && asset.asset_url && !asset.asset_url.includes('supabase')) {
         toast({
           title: "Processing Asset",
           description: "Downloading and storing your asset...",
@@ -51,7 +60,7 @@ export function useAssetLibrary() {
         try {
           const downloadedAsset = await downloadAndStoreAsset(
             asset.asset_url,
-            asset.asset_type === 'ad' ? 'image' : asset.asset_type, // Map 'ad' to 'image' for storage
+            asset.asset_type, // Use asset type directly
             `${asset.title.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`
           );
           finalAssetUrl = downloadedAsset.url;
@@ -63,8 +72,14 @@ export function useAssetLibrary() {
       }
 
       const response = await assetsAPI.create({
-        ...asset,
-        asset_url: finalAssetUrl
+        title: asset.title,
+        description: asset.description,
+        tags: asset.tags,
+        assetType: asset.asset_type,
+        url: finalAssetUrl,
+        instruction: asset.instruction,
+        sourceSystem: asset.source_system,
+        profileId: asset.profileId
       });
 
       const data = response.data.data;

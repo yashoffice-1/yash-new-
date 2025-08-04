@@ -98,23 +98,6 @@ export const assetsAPI = {
   // Toggle favorite status
   toggleFavorite: (id: string) => apiClient.patch(`/assets/${id}/favorite`),
 
-  // Get generated assets
-  getGenerated: (params?: {
-    page?: number;
-    limit?: number;
-    assetType?: string;
-    sourceSystem?: string;
-    channel?: string;
-    approved?: boolean;
-  }) => apiClient.get('/assets/generated/all', { params }),
-
-  // Create generated asset
-  createGenerated: (data: any) => apiClient.post('/assets/generated', data),
-
-  // Update generated asset approval status
-  updateApproval: (id: string, approved: boolean) =>
-    apiClient.patch(`/assets/generated/${id}/approve`, { approved }),
-
   // Get asset statistics
   getStats: () => apiClient.get('/assets/stats/overview'),
 };
@@ -133,9 +116,12 @@ export const aiAPI = {
     templateId: string;
     productId?: string;
     instruction: string;
+    variables?: Record<string, string>;
     formatSpecs?: {
       channel?: string;
       format?: string;
+      aspectRatio?: string;
+      backgroundColor?: string;
     };
   }) => apiClient.post('/ai/heygen/generate', data),
 

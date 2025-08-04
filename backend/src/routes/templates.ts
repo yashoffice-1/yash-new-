@@ -1,124 +1,257 @@
-import { Router } from 'express';
-import { prisma } from '../index';
+import express from 'express';
 import { z } from 'zod';
+import { prisma } from '../index';
+import { authenticateToken, requireAdmin } from '../middleware/auth';
+import { templateService } from '../services/template-service';
 import axios from 'axios';
 
-const router = Router();
+const router = express.Router();
 
 // Validation schemas
-const createClientConfigSchema = z.object({
-  clientId: z.string().min(1, 'Client ID is required'),
-  clientName: z.string().min(1, 'Client name is required')
-});
-
 const assignTemplateSchema = z.object({
+  userId: z.string().min(1, 'User ID is required'),
   templateId: z.string().min(1, 'Template ID is required'),
-  templateName: z.string().optional(),
-  isActive: z.boolean().default(true)
+  templateName: z.string().min(1, 'Template name is required'),
+  templateDescription: z.string().optional(),
+  thumbnailUrl: z.string().url().optional(),
+  category: z.string().optional(),
+  aspectRatio: z.string().optional(),
+  variables: z.array(z.object({
+    name: z.string(),
+    type: z.enum(['text', 'image', 'number']),
+    required: z.boolean().default(true),
+    defaultValue: z.string().optional()
+  })).optional(),
+  expiresAt: z.string().datetime().optional()
 });
 
-// Get all client configurations
-router.get('/clients', async (req, res, next) => {
+const updateTemplateSchema = z.object({
+  templateName: z.string().optional(),
+  templateDescription: z.string().optional(),
+  thumbnailUrl: z.string().url().optional(),
+  category: z.string().optional(),
+  aspectRatio: z.string().optional(),
+  variables: z.array(z.object({
+    name: z.string(),
+    type: z.enum(['text', 'image', 'number']),
+    required: z.boolean().default(true),
+    defaultValue: z.string().optional()
+  })).optional(),
+  canUse: z.boolean().optional(),
+  expiresAt: z.string().datetime().optional()
+});
+
+// GET /api/templates - Get user's assigned templates
+router.get('/', authenticateToken, async (req, res) => {
   try {
-    const clients = await prisma.clientConfig.findMany({
-      include: {
-        templateAssignments: true
-      }
-    });
+    const userId = (req as any).user.id;
+    const templates = await templateService.getUserTemplates(userId);
 
     return res.json({
       success: true,
-      data: clients
+      data: templates
     });
   } catch (error) {
-    return next(error);
+    console.error('Error fetching user templates:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch templates'
+    });
   }
 });
 
-// Create client configuration
-router.post('/clients', async (req, res, next) => {
+// GET /api/templates/client/default/templates - Get user's default templates (client endpoint)
+router.get('/client/default/templates', authenticateToken, async (req, res) => {
   try {
-    const validatedData = createClientConfigSchema.parse(req.body);
-    
-    const client = await prisma.clientConfig.create({
-      data: validatedData,
-      include: {
-        templateAssignments: true
+    const userId = (req as any).user.id;
+    const templates = await templateService.getUserTemplates(userId);
+
+    return res.json({
+      success: true,
+      data: templates
+    });
+  } catch (error) {
+    console.error('Error fetching user default templates:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch default templates'
+    });
+  }
+});
+
+// GET /api/templates/heygen/list - Fetch HeyGen templates (admin only)
+router.get('/heygen/list', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const heygenApiKey = process.env.HEYGEN_API_KEY;
+    if (!heygenApiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'HeyGen API key not configured'
+      });
+    }
+
+    // Fetch templates from HeyGen API
+    const response = await axios.get('https://api.heygen.com/v2/templates', {
+      headers: {
+        'X-Api-Key': heygenApiKey,
+        'Content-Type': 'application/json'
       }
     });
 
-   return res.status(201).json({
+    const templates = response.data.data?.templates || [];
+
+    return res.json({
       success: true,
-      data: client,
-      message: 'Client configuration created successfully'
+      data: {
+        source: 'heygen',
+        templates,
+        total: templates.length
+      }
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
+    console.error('Error fetching HeyGen templates:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch HeyGen templates'
+    });
+  }
+});
+
+// GET /api/templates/admin/all-available - Get all available templates from all sources (admin only)
+router.get('/admin/all-available', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const heygenApiKey = process.env.HEYGEN_API_KEY;
+    let allTemplates: any[] = [];
+
+    // Fetch HeyGen templates
+    if (heygenApiKey) {
+      try {
+        const heygenResponse = await axios.get('https://api.heygen.com/v2/templates', {
+          headers: {
+            'X-Api-Key': heygenApiKey,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const heygenTemplates = (heygenResponse.data.data?.templates || []).map((template: any) => ({
+          ...template,
+          source: 'heygen'
+        }));
+        
+        allTemplates = [...allTemplates, ...heygenTemplates];
+      } catch (error) {
+        console.error('Error fetching HeyGen templates:', error);
+      }
+    }
+
+    // TODO: Add Runway templates when API is available
+    // const runwayTemplates = await fetchRunwayTemplates();
+    // allTemplates = [...allTemplates, ...runwayTemplates];
+
+    return res.json({
+      success: true,
+      data: {
+        templates: allTemplates,
+        total: allTemplates.length,
+        sources: ['heygen'] // Add 'runway' when available
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching all available templates:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch all available templates'
+    });
+  }
+});
+
+// GET /api/templates/admin/fetch-external - Fetch templates from external APIs (admin only)
+router.get('/admin/fetch-external', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { source } = req.query; // 'heygen' or 'runway'
+    
+    if (!source || (source !== 'heygen' && source !== 'runway')) {
       return res.status(400).json({
         success: false,
-        error: 'Validation error',
-        details: error.errors
+        error: 'Source must be "heygen" or "runway"'
       });
     }
-    return next(error);
-  }
-});
 
-// Get template assignments for a client
-router.get('/clients/:clientId/assignments', async (req, res, next) => {
-  try {
-    const { clientId } = req.params;
+    let templates = [];
     
-    const client = await prisma.clientConfig.findUnique({
-      where: { clientId },
-      include: {
-        templateAssignments: true
+    if (source === 'heygen') {
+      const heygenApiKey = process.env.HEYGEN_API_KEY;
+      if (!heygenApiKey) {
+        return res.status(500).json({
+          success: false,
+          error: 'HeyGen API key not configured'
+        });
       }
-    });
 
-    if (!client) {
-      return res.status(404).json({
-        success: false,
-        error: 'Client not found'
+      // Fetch templates from HeyGen API
+      const response = await axios.get('https://api.heygen.com/v2/templates', {
+        headers: {
+          'X-Api-Key': heygenApiKey,
+          'Content-Type': 'application/json'
+        }
       });
+
+      templates = response.data.data?.templates || [];
     }
 
-   return res.json({
+    return res.json({
       success: true,
-      data: client.templateAssignments
+      data: {
+        source,
+        templates,
+        total: templates.length
+      }
     });
   } catch (error) {
-   return next(error);
+    console.error('Error fetching external templates:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch external templates'
+    });
   }
 });
 
-// Assign template to client
-router.post('/clients/:clientId/assignments', async (req, res, next) => {
+// POST /api/templates/admin/assign - Assign template to user (admin only)
+router.post('/admin/assign', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { clientId } = req.params;
-    const validatedData = assignTemplateSchema.parse(req.body);
+    const data = assignTemplateSchema.parse(req.body);
     
-    const client = await prisma.clientConfig.findUnique({
-      where: { clientId }
-    });
+    // Convert expiresAt string to Date if provided
+    const templateData = {
+      userId: data.userId,
+      sourceSystem: 'heygen', // Default to heygen for now
+      externalId: data.templateId,
+      templateName: data.templateName,
+      templateDescription: data.templateDescription,
+      thumbnailUrl: data.thumbnailUrl,
+      category: data.category,
+      aspectRatio: data.aspectRatio,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined
+    };
 
-    if (!client) {
-      return res.status(404).json({
-        success: false,
-        error: 'Client not found'
+    const template = await templateService.grantTemplateAccess(templateData);
+
+    // Store template variables if provided
+    if (data.variables && data.variables.length > 0) {
+      await prisma.templateVariable.createMany({
+        data: data.variables.map(variable => ({
+          templateAccessId: template.id,
+          name: variable.name,
+          type: variable.type,
+          required: variable.required,
+          defaultValue: variable.defaultValue
+        }))
       });
     }
 
-    const assignment = await prisma.clientTemplateAssignment.create({
-      data: {
-        ...validatedData,
-        clientConfigId: client.id
-      }
-    });
-
-   return res.status(201).json({
+    return res.status(201).json({
       success: true,
-      data: assignment,
+      data: template,
       message: 'Template assigned successfully'
     });
   } catch (error) {
@@ -129,602 +262,173 @@ router.post('/clients/:clientId/assignments', async (req, res, next) => {
         details: error.errors
       });
     }
-   return next(error);
+
+    console.error('Error assigning template:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to assign template'
+    });
   }
 });
 
-// Get fallback variables for a template
-router.get('/fallback-variables/:templateId', async (req, res, next) => {
+// GET /api/templates/:id/variables - Get template variables
+router.get('/:id/variables', authenticateToken, async (req, res) => {
   try {
-    const { templateId } = req.params;
-    
-    const variables = await prisma.templateFallbackVariable.findMany({
-      where: { templateId },
-      orderBy: { variableOrder: 'asc' }
+    const { id } = req.params;
+    const userId = (req as any).user.id;
+
+    // Check if user has access to this template
+    const template = await templateService.getTemplateAccess(id);
+    if (!template || template.userId !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    // Get template variables
+    const variables = await prisma.templateVariable.findMany({
+      where: { templateAccessId: id },
+      orderBy: { name: 'asc' }
     });
 
-   return res.json({
+    return res.json({
       success: true,
       data: variables
     });
   } catch (error) {
-   return next(error);
+    console.error('Error fetching template variables:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch template variables'
+    });
   }
 });
 
-// Create fallback variables for a template
-router.post('/fallback-variables', async (req, res, next) => {
+// PUT /api/templates/:id - Update template (admin only)
+router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { templateId, variables } = req.body;
-    
-    if (!Array.isArray(variables)) {
+    const { id } = req.params;
+    const data = updateTemplateSchema.parse(req.body);
+
+    // Convert expiresAt string to Date if provided
+    const { variables, ...updateData } = data;
+    const finalUpdateData = {
+      ...updateData,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt) : undefined
+    };
+
+    const updatedTemplate = await prisma.userTemplateAccess.update({
+      where: { id },
+      data: finalUpdateData
+    });
+
+    // Update variables if provided
+    if (variables) {
+      // Delete existing variables
+      await prisma.templateVariable.deleteMany({
+        where: { templateAccessId: id }
+      });
+
+      // Create new variables
+      if (variables.length > 0) {
+        await prisma.templateVariable.createMany({
+          data: variables.map(variable => ({
+            templateAccessId: id,
+            name: variable.name,
+            type: variable.type,
+            required: variable.required,
+            defaultValue: variable.defaultValue
+          }))
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: updatedTemplate,
+      message: 'Template updated successfully'
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
-        error: 'Variables must be an array'
+        error: 'Validation error',
+        details: error.errors
       });
     }
 
-    const createdVariables = await prisma.templateFallbackVariable.createMany({
-      data: variables.map((variable: any, index: number) => ({
-        templateId,
-        variableName: variable.name,
-        variableOrder: variable.order || index + 1
-      }))
+    console.error('Error updating template:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to update template'
     });
-
-   return  res.status(201).json({
-      success: true,
-      data: { count: createdVariables.count },
-      message: `${createdVariables.count} variables created successfully`
-    });
-  } catch (error) {
-   return next(error);
   }
 });
 
-// Get available templates (hardcoded for now)
-router.get('/available', async (req, res, next) => {
+// DELETE /api/templates/:id - Revoke template access (admin only)
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const templates = [
-      {
-        id: 'bccf8cfb2b1e422dbc425755f1b7dc67',
-        name: 'Product Showcase Template',
-        description: 'Perfect for showcasing product features and benefits',
-        category: 'product',
-        variables: ['product_name', 'product_price', 'product_discount', 'category_name', 'feature_one', 'feature_two', 'feature_three', 'website_description', 'product_image']
-      },
-      {
-        id: '3bb2bf2276754c0ea6b235db9409f508',
-        name: 'Feature Highlight Template',
-        description: 'Focus on key product features and benefits',
-        category: 'feature',
-        variables: ['product_name', 'main_feature', 'benefit_one', 'benefit_two', 'call_to_action', 'brand_name', 'product_image']
-      },
-      {
-        id: '47a53273dcd0428bbe7bf960b8bf7f02',
-        name: 'Brand Story Template',
-        description: 'Tell your brand story and connect with customers',
-        category: 'brand',
-        variables: ['brand_name', 'product_name', 'brand_story', 'unique_value', 'customer_testimonial', 'product_image', 'website_url']
-      },
-      {
-        id: 'aeec955f97a6476d88e4547adfeb3c97',
-        name: 'Promotional Template',
-        description: 'Perfect for sales and promotional campaigns',
-        category: 'promotional',
-        variables: ['product_name', 'product_price', 'discount_percent', 'brand_name', 'urgency_text', 'product_image', 'cta_text']
-      }
-    ];
+    const { id } = req.params;
 
-  return  res.json({
-      success: true,
-      data: templates
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// Get template statistics
-router.get('/stats', async (req, res, next) => {
-  try {
-    const [totalClients, totalAssignments, totalVariables] = await Promise.all([
-      prisma.clientConfig.count(),
-      prisma.clientTemplateAssignment.count(),
-      prisma.templateFallbackVariable.count()
-    ]);
-
-  return  res.json({
-      success: true,
-      data: {
-        totalClients,
-        totalAssignments,
-        totalVariables
-      }
-    });
-  } catch (error) {
-   return  next(error);
-  }
-});
-
-// NEW: Get HeyGen templates list (calls external API and caches)
-router.get('/heygen/list', async (req, res, next) => {
-  try {
-    const heygenApiKey = process.env.HEYGEN_API_KEY;
-    
-    if (!heygenApiKey) {
-      return res.status(500).json({
-        success: false,
-        error: 'HeyGen API key not configured'
-      });
-    }
-
-    console.log('Fetching templates from HeyGen API');
-
-    const response = await axios.get('https://api.heygen.com/v2/templates', {
-      headers: {
-        'accept': 'application/json',
-        'x-api-key': heygenApiKey
-      }
-    });
-
-    if (response.status !== 200) {
-      throw new Error(`HeyGen API error: ${response.status} - ${response.statusText}`);
-    }
-
-    const templates = response.data.data?.templates || [];
-    
-    console.log('Successfully fetched templates from HeyGen:', {
-      totalTemplates: templates.length,
-      firstTemplate: templates[0]?.name || 'none'
-    });
-    console.log('First template structure:', JSON.stringify(templates[0], null, 2));
-
-    return res.json({
-      success: true,
-      data: {
-        templates: templates,
-        total: templates.length
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching HeyGen templates:', error);
-    return next(error);
-  }
-});
-
-// NEW: Get HeyGen template details (calls external API and caches)
-router.get('/heygen/detail/:templateId', async (req, res, next) => {
-  try {
-    const { templateId } = req.params;
-    const heygenApiKey = process.env.HEYGEN_API_KEY;
-    
-    if (!heygenApiKey) {
-      return res.status(500).json({
-        success: false,
-        error: 'HeyGen API key not configured'
-      });
-    }
-
-    console.log(`Fetching template details for ID: ${templateId}`);
-
-    const response = await axios.get(`https://api.heygen.com/v2/template/${templateId}`, {
-      headers: {
-        'accept': 'application/json',
-        'x-api-key': heygenApiKey
-      }
-    });
-
-    if (response.status !== 200) {
-      throw new Error(`HeyGen API error: ${response.status} - ${response.statusText}`);
-    }
-
-    const templateData = response.data.data;
-    
-    console.log('Successfully fetched template details from HeyGen');
-    console.log('Template data structure:', JSON.stringify(templateData, null, 2));
-
-    return res.json({
-      success: true,
-      data: templateData
-    });
-  } catch (error) {
-    console.error('Error fetching HeyGen template details:', error);
-   return next(error);
-  }
-});
-
-// NEW: Get template list (replaces external HeyGen API)
-router.get('/list', async (req, res, next) => {
-  try {
-    // Get templates from our database with enhanced info
-    const templates = await prisma.templateFallbackVariable.groupBy({
-      by: ['templateId'],
-      _count: {
-        variableName: true
-      }
-    });
-
-    // Enhanced template data with metadata
-    const enhancedTemplates = templates.map(template => {
-      const templateId = template.templateId;
-      
-      // Get template metadata from our hardcoded list
-      const templateMetadata = getTemplateMetadata(templateId);
-      
-      return {
-        template_id: templateId,
-        name: templateMetadata.name,
-        description: templateMetadata.description,
-        thumbnail_image_url: templateMetadata.thumbnail,
-        aspect_ratio: templateMetadata.aspectRatio,
-        duration: templateMetadata.duration,
-        category: templateMetadata.category,
-        variable_count: template._count.variableName
-      };
-    });
-
-    return res.json({
-      success: true,
-      data: {
-        templates: enhancedTemplates,
-        total: enhancedTemplates.length
-      }
-    });
-  } catch (error) {
-   return next(error);
-  }
-});
-
-// NEW: Get template details (replaces external HeyGen API)
-router.get('/detail/:templateId', async (req, res, next) => {
-  try {
-    const { templateId } = req.params;
-    
-    // Get template variables from database
-    const variables = await prisma.templateFallbackVariable.findMany({
-      where: { templateId },
-      orderBy: { variableOrder: 'asc' },
-      select: { variableName: true }
-    });
-
-    if (variables.length === 0) {
+    // Get template to get user and template info
+    const template = await templateService.getTemplateAccess(id);
+    if (!template) {
       return res.status(404).json({
         success: false,
         error: 'Template not found'
       });
     }
 
-    // Get template metadata
-    const templateMetadata = getTemplateMetadata(templateId);
-    
-    // Build variable types
-    const variableTypes = variables.reduce((acc, variable) => {
-      acc[variable.variableName] = {
-        name: variable.variableName,
-        type: variable.variableName.includes('image') ? 'image_url' : 
-              variable.variableName.includes('url') ? 'url' : 'text',
-        charLimit: variable.variableName.includes('image') || variable.variableName.includes('url') ? 500 : 100,
-        required: true
-      };
-      return acc;
-    }, {} as Record<string, any>);
-
-    const templateDetail = {
-      id: templateId,
-      name: templateMetadata.name,
-      description: templateMetadata.description,
-      thumbnail: templateMetadata.thumbnail,
-      category: templateMetadata.category,
-      duration: templateMetadata.duration,
-      aspectRatio: templateMetadata.aspectRatio,
-      variables: variables.map(v => v.variableName),
-      variableTypes: variableTypes
-    };
+    await templateService.revokeTemplateAccess(template.userId, template.sourceSystem, template.externalId);
 
     return res.json({
       success: true,
-      data: templateDetail
+      message: 'Template access revoked successfully'
     });
   } catch (error) {
-   return  next(error);
+    console.error('Error revoking template access:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to revoke template access'
+    });
   }
 });
 
-// NEW: Get client templates with full details
-router.get('/client/:clientId/templates', async (req, res, next) => {
+// GET /api/templates/admin/all - Get all template assignments (admin only)
+router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { clientId } = req.params;
-    
-    // Get client config
-    let client = await prisma.clientConfig.findUnique({
-      where: { clientId },
+    const templates = await prisma.userTemplateAccess.findMany({
       include: {
-        templateAssignments: {
-          where: { isActive: true }
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true
+          }
+        },
+        variables: {
+          orderBy: { name: 'asc' }
         }
+      },
+      orderBy: {
+        createdAt: 'desc'
       }
     });
 
-    // If client doesn't exist, create it with default templates
-    if (!client) {
-      console.log(`Client ${clientId} not found, creating with default templates...`);
-      
-      // Create the client
-      client = await prisma.clientConfig.create({
-        data: {
-          clientId,
-          clientName: clientId === 'default' ? 'Default Client' : `Client ${clientId}`
-        },
-        include: {
-          templateAssignments: {
-            where: { isActive: true }
-          }
-        }
-      });
-
-      // Initialize default templates
-      const defaultTemplates = [
-        {
-          templateId: 'bccf8cfb2b1e422dbc425755f1b7dc67',
-          templateName: 'Product Showcase Template'
-        },
-        {
-          templateId: '3bb2bf2276754c0ea6b235db9409f508',
-          templateName: 'Feature Highlight Template'
-        },
-        {
-          templateId: '47a53273dcd0428bbe7bf960b8bf7f02',
-          templateName: 'Brand Story Template'
-        },
-        {
-          templateId: 'aeec955f97a6476d88e4547adfeb3c97',
-          templateName: 'Promotional Template'
-        }
-      ];
-
-      // Create template assignments
-      await Promise.all(
-        defaultTemplates.map(template => 
-          prisma.clientTemplateAssignment.create({
-            data: {
-              clientConfigId: client!.id,
-              templateId: template.templateId,
-              templateName: template.templateName,
-              isActive: true
-            }
-          })
-        )
-      );
-
-      // Create fallback variables for each template
-      const fallbackVariables = [
-        // Product Showcase Template
-        { templateId: 'bccf8cfb2b1e422dbc425755f1b7dc67', variables: ['product_name', 'main_feature', 'benefit_one', 'benefit_two', 'call_to_action', 'brand_name', 'product_image'] },
-        // Feature Highlight Template  
-        { templateId: '3bb2bf2276754c0ea6b235db9409f508', variables: ['product_name', 'main_feature', 'benefit_one', 'benefit_two', 'call_to_action', 'brand_name', 'product_image'] },
-        // Brand Story Template
-        { templateId: '47a53273dcd0428bbe7bf960b8bf7f02', variables: ['brand_name', 'product_name', 'brand_story', 'unique_value', 'customer_testimonial', 'product_image', 'website_url'] },
-        // Promotional Template
-        { templateId: 'aeec955f97a6476d88e4547adfeb3c97', variables: ['product_name', 'product_price', 'discount_percent', 'brand_name', 'urgency_text', 'product_image', 'cta_text'] }
-      ];
-
-      // Create fallback variables
-      await Promise.all(
-        fallbackVariables.flatMap(template => 
-          template.variables.map((variable, index) => 
-            prisma.templateFallbackVariable.create({
-              data: {
-                templateId: template.templateId,
-                variableName: variable,
-                variableOrder: index
-              }
-            })
-          )
-        )
-      );
-
-      // Refresh client data after creating templates
-      client = await prisma.clientConfig.findUnique({
-        where: { clientId },
-        include: {
-          templateAssignments: {
-            where: { isActive: true }
-          }
-        }
-      });
-    }
-    if (!client) {
-      return res.status(404).json({
-        success: false,
-        error: 'Client not found'
-      });
-    }
-    // Get template details for each assigned template
-    const templateDetails = await Promise.all(
-      client.templateAssignments.map(async (assignment) => {
-        const variables = await prisma.templateFallbackVariable.findMany({
-          where: { templateId: assignment.templateId },
-          orderBy: { variableOrder: 'asc' },
-          select: { variableName: true }
-        });
-
-        const templateMetadata = getTemplateMetadata(assignment.templateId);
-        
-        return {
-          id: assignment.templateId,
-          name: templateMetadata.name,
-          description: templateMetadata.description,
-          thumbnail: templateMetadata.thumbnail,
-          category: templateMetadata.category,
-          duration: templateMetadata.duration,
-          aspectRatio: templateMetadata.aspectRatio,
-          variables: variables.map(v => v.variableName),
-          status: 'active' as const
-        };
-      })
-    );
-
-  return  res.json({
+    return res.json({
       success: true,
-      data: templateDetails
+      data: templates
     });
   } catch (error) {
-   return next(error);
+    console.error('Error fetching all templates:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch all templates'
+    });
   }
 });
-
-// Initialize default templates for a client if none exist
-router.post('/client/:clientId/initialize', async (req, res, next) => {
-  try {
-    const { clientId } = req.params;
-    
-    // Check if client exists
-    let client = await prisma.clientConfig.findUnique({
-      where: { clientId },
-      include: {
-        templateAssignments: true
-      }
-    });
-
-    // Create client if it doesn't exist
-    if (!client) {
-      client = await prisma.clientConfig.create({
-        data: {
-          clientId,
-          clientName: clientId === 'default' ? 'Default Client' : `Client ${clientId}`
-        },
-        include: {
-          templateAssignments: true
-        }
-      });
-    }
-
-    // If client already has templates, return existing ones
-    if (client.templateAssignments.length > 0) {
-      return res.json({
-        success: true,
-        data: client.templateAssignments,
-        message: 'Client already has templates configured'
-      });
-    }
-
-    // Define default templates
-    const defaultTemplates = [
-      {
-        templateId: 'bccf8cfb2b1e422dbc425755f1b7dc67',
-        templateName: 'Product Showcase Template'
-      },
-      {
-        templateId: '3bb2bf2276754c0ea6b235db9409f508',
-        templateName: 'Feature Highlight Template'
-      },
-      {
-        templateId: '47a53273dcd0428bbe7bf960b8bf7f02',
-        templateName: 'Brand Story Template'
-      },
-      {
-        templateId: 'aeec955f97a6476d88e4547adfeb3c97',
-        templateName: 'Promotional Template'
-      }
-    ];
-
-    // Create template assignments
-    const templateAssignments = await Promise.all(
-      defaultTemplates.map(template => 
-        prisma.clientTemplateAssignment.create({
-          data: {
-            clientConfigId: client!.id,
-            templateId: template.templateId,
-            templateName: template.templateName,
-            isActive: true
-          }
-        })
-      )
-    );
-
-    // Create fallback variables for each template
-    const fallbackVariables = [
-      // Product Showcase Template
-      { templateId: 'bccf8cfb2b1e422dbc425755f1b7dc67', variables: ['product_name', 'main_feature', 'benefit_one', 'benefit_two', 'call_to_action', 'brand_name', 'product_image'] },
-      // Feature Highlight Template  
-      { templateId: '3bb2bf2276754c0ea6b235db9409f508', variables: ['product_name', 'main_feature', 'benefit_one', 'benefit_two', 'call_to_action', 'brand_name', 'product_image'] },
-      // Brand Story Template
-      { templateId: '47a53273dcd0428bbe7bf960b8bf7f02', variables: ['brand_name', 'product_name', 'brand_story', 'unique_value', 'customer_testimonial', 'product_image', 'website_url'] },
-      // Promotional Template
-      { templateId: 'aeec955f97a6476d88e4547adfeb3c97', variables: ['product_name', 'product_price', 'discount_percent', 'brand_name', 'urgency_text', 'product_image', 'cta_text'] }
-    ];
-
-    // Create fallback variables
-    await Promise.all(
-      fallbackVariables.flatMap(template => 
-        template.variables.map((variable, index) => 
-          prisma.templateFallbackVariable.create({
-            data: {
-              templateId: template.templateId,
-              variableName: variable,
-              variableOrder: index
-            }
-          })
-        )
-      )
-    );
-
-   return  res.status(201).json({
-      success: true,
-      data: templateAssignments,
-      message: `Initialized ${templateAssignments.length} default templates for client ${clientId}`
-    });
-  } catch (error) {
-   return next(error);
-  }
-});
-
-// Helper function to get template metadata
-function getTemplateMetadata(templateId: string) {
-  const templateMap: Record<string, any> = {
-    'bccf8cfb2b1e422dbc425755f1b7dc67': {
-      name: 'Product Showcase Template',
-      description: 'Perfect for showcasing product features and benefits',
-      category: 'product',
-      thumbnail: 'https://img.heygen.com/template/bccf8cfb2b1e422dbc425755f1b7dc67/thumbnail.jpg',
-      duration: '30s',
-      aspectRatio: 'landscape'
-    },
-    '3bb2bf2276754c0ea6b235db9409f508': {
-      name: 'Feature Highlight Template',
-      description: 'Focus on key product features and benefits',
-      category: 'feature',
-      thumbnail: 'https://img.heygen.com/template/3bb2bf2276754c0ea6b235db9409f508/thumbnail.jpg',
-      duration: '30s',
-      aspectRatio: 'portrait'
-    },
-    '47a53273dcd0428bbe7bf960b8bf7f02': {
-      name: 'Brand Story Template',
-      description: 'Tell your brand story and connect with customers',
-      category: 'brand',
-      thumbnail: 'https://img.heygen.com/template/47a53273dcd0428bbe7bf960b8bf7f02/thumbnail.jpg',
-      duration: '30s',
-      aspectRatio: 'landscape'
-    },
-    'aeec955f97a6476d88e4547adfeb3c97': {
-      name: 'Promotional Template',
-      description: 'Perfect for sales and promotional campaigns',
-      category: 'promotional',
-      thumbnail: 'https://img.heygen.com/template/aeec955f97a6476d88e4547adfeb3c97/thumbnail.jpg',
-      duration: '30s',
-      aspectRatio: 'landscape'
-    }
-  };
-
-  return templateMap[templateId] || {
-    name: `Template ${templateId.slice(-8)}`,
-    description: 'HeyGen video template',
-    category: 'custom',
-    thumbnail: `https://img.heygen.com/template/${templateId}/thumbnail.jpg`,
-    duration: '30s',
-    aspectRatio: 'landscape'
-  };
-}
 
 export default router; 

@@ -87,7 +87,7 @@ The Prisma schema includes all tables from the original Supabase setup:
 
 - **Inventory** - Product management
 - **GeneratedAssets** - AI-generated content
-- **AssetLibrary** - Saved assets with metadata
+- **GeneratedAsset** - All generated assets with user management features (favorites, titles, descriptions, tags)
 - **ClientConfigs** - Client management
 - **ClientTemplateAssignments** - Template assignments
 - **TemplateFallbackVariables** - Template variables

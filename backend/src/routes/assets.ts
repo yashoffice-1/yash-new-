@@ -10,13 +10,14 @@ const createAssetSchema = z.object({
   description: z.string().optional(),
   tags: z.array(z.string()).optional(),
   assetType: z.enum(['image', 'video', 'content']),
-  assetUrl: z.string().url('Valid URL is required'),
-  gifUrl: z.string().url().optional(),
-  content: z.string().optional(),
+  url: z.string().url('Valid URL is required'),
   instruction: z.string().min(1, 'Instruction is required'),
   sourceSystem: z.enum(['openai', 'runway', 'heygen']),
+  channel: z.string().optional(),
+  format: z.string().optional(),
+  inventoryId: z.string().optional(),
   favorited: z.boolean().default(false),
-  originalAssetId: z.string().optional()
+  profileId: z.string()
 });
 
 const updateAssetSchema = createAssetSchema.partial();
@@ -56,7 +57,7 @@ router.get('/', async (req, res, next) => {
       where.OR = [
         { title: { contains: search as string, mode: 'insensitive' } },
         { description: { contains: search as string, mode: 'insensitive' } },
-        { content: { contains: search as string, mode: 'insensitive' } }
+        { instruction: { contains: search as string, mode: 'insensitive' } }
       ];
     }
     
@@ -66,16 +67,24 @@ router.get('/', async (req, res, next) => {
     }
 
     const [assets, total] = await Promise.all([
-      prisma.assetLibrary.findMany({
+      prisma.generatedAsset.findMany({
         where,
         skip,
         take: limitNum,
         orderBy: { createdAt: 'desc' },
         include: {
-          originalAsset: true
+          profile: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          templateAccess: true
         }
       }),
-      prisma.assetLibrary.count({ where })
+      prisma.generatedAsset.count({ where })
     ]);
 
     // Transform the data to match frontend expectations
@@ -85,16 +94,15 @@ router.get('/', async (req, res, next) => {
       description: asset.description,
       tags: asset.tags,
       asset_type: asset.assetType,
-      asset_url: asset.assetUrl,
-      gif_url: asset.gifUrl,
-      content: asset.content,
+      asset_url: asset.url,
+      content: asset.instruction,
       instruction: asset.instruction,
       source_system: asset.sourceSystem,
       favorited: asset.favorited,
       created_at: asset.createdAt.toISOString(),
       updated_at: asset.updatedAt.toISOString(),
-      original_asset_id: asset.originalAssetId,
-      originalAsset: asset.originalAsset
+      profile: asset.profile,
+      templateAccess: asset.templateAccess
     }));
 
     return res.json({
@@ -117,10 +125,18 @@ router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    const asset = await prisma.assetLibrary.findUnique({
+    const asset = await prisma.generatedAsset.findUnique({
       where: { id },
       include: {
-        originalAsset: true
+        profile: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        templateAccess: true
       }
     });
 
@@ -138,16 +154,15 @@ router.get('/:id', async (req, res, next) => {
       description: asset.description,
       tags: asset.tags,
       asset_type: asset.assetType,
-      asset_url: asset.assetUrl,
-      gif_url: asset.gifUrl,
-      content: asset.content,
+      asset_url: asset.url,
+      content: asset.instruction,
       instruction: asset.instruction,
       source_system: asset.sourceSystem,
       favorited: asset.favorited,
       created_at: asset.createdAt.toISOString(),
       updated_at: asset.updatedAt.toISOString(),
-      original_asset_id: asset.originalAssetId,
-      originalAsset: asset.originalAsset
+      profile: asset.profile,
+      templateAccess: asset.templateAccess
     };
 
     return res.json({
@@ -164,10 +179,29 @@ router.post('/', async (req, res, next) => {
   try {
     const validatedData = createAssetSchema.parse(req.body);
     
-    const asset = await prisma.assetLibrary.create({
-      data: validatedData,
+    // Filter out undefined optional fields and provide defaults for required fields
+    const { channel, format, inventoryId, description, tags, ...requiredData } = validatedData;
+    const createData = {
+      ...requiredData,
+      channel: channel || 'social_media', // Default channel
+      format: format || 'mp4', // Default format
+      ...(inventoryId && { inventoryId }),
+      ...(description && { description }),
+      ...(tags && { tags })
+    };
+    
+    const asset = await prisma.generatedAsset.create({
+      data: createData,
       include: {
-        originalAsset: true
+        profile: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        templateAccess: true
       }
     });
 
@@ -194,11 +228,19 @@ router.put('/:id', async (req, res, next) => {
     const { id } = req.params;
     const validatedData = updateAssetSchema.parse(req.body);
     
-    const asset = await prisma.assetLibrary.update({
+    const asset = await prisma.generatedAsset.update({
       where: { id },
       data: validatedData,
       include: {
-        originalAsset: true
+        profile: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        templateAccess: true
       }
     });
 
@@ -215,7 +257,7 @@ router.put('/:id', async (req, res, next) => {
         details: error.errors
       });
     }
-   return  next(error);
+    return next(error);
   }
 });
 
@@ -224,7 +266,7 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    await prisma.assetLibrary.delete({
+    await prisma.generatedAsset.delete({
       where: { id }
     });
 
@@ -242,7 +284,7 @@ router.patch('/:id/favorite', async (req, res, next) => {
   try {
     const { id } = req.params;
     
-    const currentAsset = await prisma.assetLibrary.findUnique({
+    const currentAsset = await prisma.generatedAsset.findUnique({
       where: { id }
     });
 
@@ -253,9 +295,20 @@ router.patch('/:id/favorite', async (req, res, next) => {
       });
     }
 
-    const asset = await prisma.assetLibrary.update({
+    const asset = await prisma.generatedAsset.update({
       where: { id },
-      data: { favorited: !currentAsset.favorited }
+      data: { favorited: !currentAsset.favorited },
+      include: {
+        profile: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        templateAccess: true
+      }
     });
 
     return res.json({
@@ -268,141 +321,22 @@ router.patch('/:id/favorite', async (req, res, next) => {
   }
 });
 
-// Get generated assets
-router.get('/generated/all', async (req, res, next) => {
-  try {
-    const { 
-      page = '1', 
-      limit = '10', 
-      assetType, 
-      sourceSystem, 
-      channel,
-      approved 
-    } = req.query;
-    
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
-
-    const where: any = {};
-    
-    if (assetType) {
-      where.assetType = assetType;
-    }
-    
-    if (sourceSystem) {
-      where.sourceSystem = sourceSystem;
-    }
-    
-    if (channel) {
-      where.channel = channel;
-    }
-    
-    if (approved !== undefined) {
-      where.approved = approved === 'true';
-    }
-
-    const [assets, total] = await Promise.all([
-      prisma.generatedAsset.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy: { createdAt: 'desc' }
-      }),
-      prisma.generatedAsset.count({ where })
-    ]);
-
-    return res.json({
-      success: true,
-      data: assets,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
-      }
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// Create generated asset
-router.post('/generated', async (req, res, next) => {
-  try {
-    const { 
-      inventoryId, 
-      channel, 
-      format, 
-      sourceSystem, 
-      assetType, 
-      url, 
-      instruction, 
-      approved = false 
-    } = req.body;
-
-    const asset = await prisma.generatedAsset.create({
-      data: {
-        inventoryId,
-        channel,
-        format,
-        sourceSystem,
-        assetType,
-        url,
-        instruction,
-        approved
-      }
-    });
-
-    return res.status(201).json({
-      success: true,
-      data: asset,
-      message: 'Generated asset created successfully'
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
-// Update generated asset approval status
-router.patch('/generated/:id/approve', async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { approved } = req.body;
-    
-    const asset = await prisma.generatedAsset.update({
-      where: { id },
-      data: { approved }
-    });
-
-    return res.json({
-      success: true,
-      data: asset,
-      message: `Asset ${approved ? 'approved' : 'unapproved'} successfully`
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
-
 // Get asset statistics
 router.get('/stats/overview', async (req, res, next) => {
   try {
     const [
       totalAssets,
-      totalGenerated,
-      favoritedCount,
+      favoritedAssets,
       assetsByType,
       assetsBySource
     ] = await Promise.all([
-      prisma.assetLibrary.count(),
       prisma.generatedAsset.count(),
-      prisma.assetLibrary.count({ where: { favorited: true } }),
-      prisma.assetLibrary.groupBy({
+      prisma.generatedAsset.count({ where: { favorited: true } }),
+      prisma.generatedAsset.groupBy({
         by: ['assetType'],
         _count: { assetType: true }
       }),
-      prisma.assetLibrary.groupBy({
+      prisma.generatedAsset.groupBy({
         by: ['sourceSystem'],
         _count: { sourceSystem: true }
       })
@@ -412,10 +346,15 @@ router.get('/stats/overview', async (req, res, next) => {
       success: true,
       data: {
         totalAssets,
-        totalGenerated,
-        favoritedCount,
-        assetsByType,
-        assetsBySource
+        favoritedAssets,
+        assetsByType: assetsByType.map(item => ({
+          type: item.assetType,
+          count: item._count.assetType
+        })),
+        assetsBySource: assetsBySource.map(item => ({
+          source: item.sourceSystem,
+          count: item._count.sourceSystem
+        }))
       }
     });
   } catch (error) {

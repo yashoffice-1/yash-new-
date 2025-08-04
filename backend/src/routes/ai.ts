@@ -3,6 +3,7 @@ import { prisma } from '../index';
 import { z } from 'zod';
 import axios from 'axios';
 import { authenticateToken } from '../middleware/auth';
+import { validateAndUpdateTemplateUsage } from '../middleware/template-access';
 
 const router = Router();
 
@@ -17,10 +18,12 @@ const heygenGenerateSchema = z.object({
   templateId: z.string(),
   productId: z.string().optional(),
   instruction: z.string(),
-  variables: z.record(z.string()).optional(), // Template variables
+  variables: z.record(z.string()).optional(), // Template variables like {{name}}, {{company}}, etc.
   formatSpecs: z.object({
     channel: z.string().optional(),
-    format: z.string().optional()
+    format: z.string().optional(),
+    aspectRatio: z.string().optional(),
+    backgroundColor: z.string().optional()
   }).optional()
 });
 
@@ -73,6 +76,7 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
     // Store in generated assets
     const asset = await prisma.generatedAsset.create({
       data: {
+        profileId: (req as any).user.id,
         channel: 'social_media',
         format: type === 'image' ? 'png' : 'text',
         sourceSystem: 'openai',
@@ -103,9 +107,10 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
 });
 
 // HeyGen Integration
-router.post('/heygen/generate', authenticateToken, async (req, res, next) => {
+router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsage('heygen', 'templateId'), async (req, res, next) => {
   try {
-    const { templateId, productId, instruction, variables, formatSpecs } = heygenGenerateSchema.parse(req.body);
+    const { templateId, instruction, variables, formatSpecs } = heygenGenerateSchema.parse(req.body);
+    const userId = (req as any).user.id;
     
     const heygenApiKey = process.env.HEYGEN_API_KEY;
     if (!heygenApiKey) {
@@ -115,22 +120,28 @@ router.post('/heygen/generate', authenticateToken, async (req, res, next) => {
       });
     }
 
-    // Get product name if productId provided
-    let productName = 'Product';
-    if (productId) {
-      const product = await prisma.inventory.findUnique({
-        where: { id: productId },
-        select: { name: true }
-      });
-      if (product) {
-        productName = product.name;
+    // Get the template access record to link the generation
+    const templateAccess = await prisma.userTemplateAccess.findUnique({
+      where: {
+        userId_sourceSystem_externalId: {
+          userId,
+          sourceSystem: 'heygen',
+          externalId: templateId
+        }
       }
+    });
+
+    if (!templateAccess) {
+      return res.status(400).json({
+        success: false,
+        error: 'Template access not found or not granted'
+      });
     }
 
     // Prepare the request body according to HeyGen API v2 template generation
     const requestBody: any = {
       test: false,
-      aspect_ratio: "16:9"
+      aspect_ratio: formatSpecs?.aspectRatio || "16:9"
     };
 
     // Add variables if provided - this is the key part for template-based generation
@@ -149,18 +160,12 @@ router.post('/heygen/generate', authenticateToken, async (req, res, next) => {
       requestBody.variables = formattedVariables;
     }
 
-    // For v2 API, we don't need video_inputs for template-based generation
-    // The template handles everything, and variables are passed directly
-    // Only add video_inputs if we want to override template settings (which we don't for templates)
-
     console.log('HeyGen API Request Body:', JSON.stringify(requestBody, null, 2));
-    console.log('HeyGen API Key Length:', heygenApiKey?.length || 0);
     console.log('Template ID:', templateId);
     console.log('Variables:', variables);
 
     // Create HeyGen video generation request using template
     // According to HeyGen API v2 documentation, use the template-specific endpoint
-    console.log('Making request to HeyGen API v2...');
     const response = await axios.post(`https://api.heygen.com/v2/template/${templateId}/generate`, requestBody, {
       headers: {
         'X-Api-Key': heygenApiKey,
@@ -169,38 +174,27 @@ router.post('/heygen/generate', authenticateToken, async (req, res, next) => {
       timeout: 30000 // 30 second timeout
     });
 
-    const videoId = response.data.data.video_id;
-
-    // Store generation request
+    const { video_id } = response.data.data;
+    
+    // Store in generated assets with pending status
     const asset = await prisma.generatedAsset.create({
       data: {
-        inventoryId: productId,
-        channel: formatSpecs?.channel || 'social_media',
-        format: formatSpecs?.format || 'mp4',
+        profileId: userId,
+        channel: 'social_media',
+        format: 'mp4',
         sourceSystem: 'heygen',
         assetType: 'video',
-        url: `pending_${videoId}`,
-        instruction
-      }
-    });
-
-    // Also store in asset library
-    await prisma.assetLibrary.create({
-      data: {
-        title: `HeyGen Video - ${productName}`,
-        assetType: 'video',
-        assetUrl: `pending_${videoId}`,
-        instruction,
-        sourceSystem: 'heygen',
-        description: `Generated using HeyGen template ${templateId} for product: ${productName}`,
-        originalAssetId: asset.id
+        url: `pending_${video_id}`, // Mark as pending
+        instruction: instruction,
+        templateAccessId: templateAccess?.id, // Link to template access
+        variables: variables || {}
       }
     });
 
     return res.json({
       success: true,
       data: {
-        videoId,
+        videoId: video_id,
         assetId: asset.id,
         status: 'processing'
       },
@@ -274,21 +268,12 @@ router.get('/heygen/status/:videoId', async (req, res, next) => {
           status: 'completed'
         }
       });
-
-      await prisma.assetLibrary.updateMany({
-        where: { assetUrl: `pending_${videoId}` },
-        data: { 
-          assetUrl: videoUrl
-        }
-      });
     } else if (status === 'failed') {
       // Update status to failed
       await prisma.generatedAsset.updateMany({
         where: { url: `pending_${videoId}` },
         data: { status: 'failed' }
       });
-
-      // Note: AssetLibrary doesn't have a status field, so we only update GeneratedAsset status
     }
 
     return res.json({
@@ -323,6 +308,7 @@ router.post('/runwayml/generate', async (req, res, next) => {
     
     const asset = await prisma.generatedAsset.create({
       data: {
+        profileId: (req as any).user.id,
         channel: 'social_media',
         format: 'mp4',
         sourceSystem: 'runwayml',
@@ -369,10 +355,17 @@ router.post('/heygen/recover-pending', async (req, res, next) => {
         sourceSystem: 'heygen',
         url: { startsWith: 'pending_' }
       },
-      include: {
-        assetLibraries: true
-      }
-    });
+              include: {
+          profile: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
+      });
 
     if (pendingAssets.length === 0) {
       return res.json({
@@ -418,13 +411,7 @@ router.post('/heygen/recover-pending', async (req, res, next) => {
             }
           });
 
-          // Update asset library entries
-          for (const libraryAsset of asset.assetLibraries) {
-            await prisma.assetLibrary.update({
-              where: { id: libraryAsset.id },
-              data: { assetUrl: videoUrl }
-            });
-          }
+          // Asset library entries are no longer needed since we unified under GeneratedAsset
 
           updateData = { url: videoUrl, status: 'completed' };
           message = 'Video completed and updated';

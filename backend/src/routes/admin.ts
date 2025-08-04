@@ -125,9 +125,9 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
     ] = await Promise.all([
       prisma.profile.count(),
       prisma.profile.count({ where: { emailVerified: true } }),
-      prisma.assetLibrary.count(),
-      prisma.assetLibrary.count({ where: { assetType: 'video' } }),
-      prisma.assetLibrary.count({ where: { assetType: 'image' } })
+      prisma.generatedAsset.count(),
+      prisma.generatedAsset.count({ where: { assetType: 'video' } }),
+      prisma.generatedAsset.count({ where: { assetType: 'image' } })
     ]);
 
     res.json({

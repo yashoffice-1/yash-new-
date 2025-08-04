@@ -23,16 +23,16 @@ interface InventoryItem {
 
 interface InventoryItemRowProps {
   product: InventoryItem;
-  onGenerate: (productId: string, type: 'image' | 'video' | 'content' | 'formats') => void;
+  onGenerate: (productId: string, type: 'image' | 'video' | 'content') => void;
 }
 
 export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps) {
   const [showModal, setShowModal] = useState(false);
-  const [generationType, setGenerationType] = useState<'image' | 'video' | 'content' | 'formats'>('image');
+  const [generationType, setGenerationType] = useState<'image' | 'video' | 'content'>('image');
   
   const primaryImage = product.images?.[0];
 
-  const handleGenerateClick = (type: 'image' | 'video' | 'content' | 'formats') => {
+  const handleGenerateClick = (type: 'image' | 'video' | 'content') => {
     setGenerationType(type);
     setShowModal(true);
   };
@@ -54,7 +54,7 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
         return 'Video Generation';
       case 'content':
         return 'Content Generation';
-      case 'formats':
+      case 'content':
         return 'Format Generation';
       default:
         return 'Generation';
@@ -143,11 +143,11 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleGenerateClick('formats')}
+                onClick={() => handleGenerateClick('content')}
                 className="flex items-center space-x-1"
               >
                 <Layers className="h-4 w-4" />
-                <span className="hidden sm:inline">Formats</span>
+                <span className="hidden sm:inline">Content</span>
               </Button>
             </div>
           </div>

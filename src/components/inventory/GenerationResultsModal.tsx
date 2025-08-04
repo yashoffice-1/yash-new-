@@ -24,7 +24,7 @@ interface InventoryItem {
 
 interface GeneratedAsset {
   id: string;
-  type: 'image' | 'video' | 'content' | 'formats';
+  type: 'image' | 'video' | 'content';
   url?: string;
   content?: string;
   instruction: string;

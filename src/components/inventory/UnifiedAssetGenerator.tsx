@@ -31,7 +31,7 @@ interface InventoryItem {
 
 interface AssetGenerationConfig {
   channel: string;
-  asset_type: 'image' | 'video' | 'content' | 'ad';
+  asset_type: 'image' | 'video' | 'content';
   type: string;
   specification: string;
   description: string;
@@ -41,7 +41,7 @@ interface UnifiedAssetGeneratorProps {
   isOpen: boolean;
   onClose: () => void;
   selectedProducts: InventoryItem[];
-  initialAssetType: 'image' | 'video' | 'content' | 'ad';
+  initialAssetType: 'image' | 'video' | 'content';
 }
 
 interface GeneratedAsset {
@@ -71,8 +71,7 @@ const CHANNELS = [
 const ASSET_TYPES = [
   { value: 'image', label: 'Image' },
   { value: 'video', label: 'Video' },
-  { value: 'content', label: 'Content' },
-  { value: 'ad', label: 'Ad (Visual + Copy)' }
+  { value: 'content', label: 'Content' }
 ];
 
 const TYPE_OPTIONS = {
@@ -334,7 +333,7 @@ function ProductConfig({
       </div>
 
       {/* Format Specification Selector - Only show for image/video/ad assets */}
-      {(config.asset_type === 'image' || config.asset_type === 'video' || config.asset_type === 'ad') && (
+      {(config.asset_type === 'image' || config.asset_type === 'video') && (
         <div className="space-y-2">
           <Label>🎯 Format Specifications</Label>
           <FormatSpecSelector
@@ -431,7 +430,7 @@ export function UnifiedAssetGenerator({
       const specification = SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
 
       // Enhanced context for advertising-focused content
-      const advertisingContext = config.asset_type === 'ad' ||
+      const advertisingContext = config.type.toLowerCase().includes('ad') ||
         config.type.toLowerCase().includes('ad') ||
         config.channel === 'google-ads' ||
         config.type.includes('Story') ||
@@ -508,7 +507,7 @@ export function UnifiedAssetGenerator({
     } catch (error) {
       console.error('Error generating initial instruction:', error);
       const specification = SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
-      const isAd = config.asset_type === 'ad' || config.type.toLowerCase().includes('ad');
+      const isAd = config.type.toLowerCase().includes('ad');
       return isAd
         ? `Create compelling ${config.asset_type} ad for ${product.name} with strong CTA, emojis, and urgency for ${config.channel} ${config.type} (${specification})`
         : `Create compelling ${config.asset_type} content for ${product.name} optimized for ${config.channel} ${config.type} format (${specification})`;
@@ -604,7 +603,7 @@ export function UnifiedAssetGenerator({
 
   const generateTaggedInstruction = (config: AssetGenerationConfig, product: InventoryItem): string => {
     const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
-    const isAdvertising = config.asset_type === 'ad' ||
+    const isAdvertising = config.type.toLowerCase().includes('ad') ||
       config.type.toLowerCase().includes('ad') ||
       config.channel === 'google-ads' ||
       config.type.includes('Story') ||
@@ -738,7 +737,7 @@ export function UnifiedAssetGenerator({
           content: data.result,
           instruction: fullInstruction
         };
-      } else if (config.asset_type === 'ad') {
+      } else if (config.type.toLowerCase().includes('ad')) {
         // Generate both visual asset and ad copy for ads
         toast({
           title: "Generating Ad Package",
@@ -912,12 +911,12 @@ export function UnifiedAssetGenerator({
       setGeneratedAssets(prev => ({ ...prev, [productId]: result }));
 
       const formatInfo = currentFormatSpecs ?
-        `${currentFormatSpecs.aspectRatio} (${currentFormatSpecs.dimensions})${config.asset_type === 'video' || config.asset_type === 'ad' ? `, ${currentFormatSpecs.duration}` : ''}` :
+        `${currentFormatSpecs.aspectRatio} (${currentFormatSpecs.dimensions})${config.asset_type === 'video' ? `, ${currentFormatSpecs.duration}` : ''}` :
         specification;
 
       toast({
         title: "Generation Successful",
-        description: config.asset_type === 'ad'
+        description: config.type.toLowerCase().includes('ad')
           ? `Your ad package (visual + copy) has been generated with format: ${formatInfo}`
           : `Your ${config.asset_type} has been generated with format: ${formatInfo}`,
       });
@@ -1172,7 +1171,7 @@ export function UnifiedAssetGenerator({
         <DialogHeader>
           <DialogTitle>Unified Asset Generator</DialogTitle>
           <DialogDescription>
-            Generate {initialAssetType === 'ad' ? 'ads (visual + copy)' : `${initialAssetType}s`} for {selectedProducts.length} selected product{selectedProducts.length > 1 ? 's' : ''}
+            Generate {`${initialAssetType}s`} for {selectedProducts.length} selected product{selectedProducts.length > 1 ? 's' : ''}
           </DialogDescription>
         </DialogHeader>
 
