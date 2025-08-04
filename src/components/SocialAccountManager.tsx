@@ -152,7 +152,7 @@ export function SocialAccountManager() {
       setLoading(true);
       setConnectionLoading(true);
       
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('http://localhost:3001/api/social/connections', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -186,7 +186,7 @@ export function SocialAccountManager() {
   const fetchPlatformStats = async (conn: SocialConnection, forceRefresh = false) => {
     try {
       setLoadingStats(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       
       const url = forceRefresh 
         ? `http://localhost:3001/api/social/${platform}/stats?refresh=true`
@@ -222,7 +222,7 @@ export function SocialAccountManager() {
   const fetchRecentActivity = async (forceRefresh = false) => {
     try {
       setLoadingActivity(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       
       const url = forceRefresh 
         ? `http://localhost:3001/api/social/${platform}/activity?refresh=true`
@@ -265,7 +265,7 @@ export function SocialAccountManager() {
 
   const saveYouTubeConnection = async (oauthResult: any) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('http://localhost:3001/api/social/youtube/connect', {
         method: 'POST',
         headers: {
@@ -300,7 +300,7 @@ export function SocialAccountManager() {
 
   const handleDisconnect = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`http://localhost:3001/api/social/connections/${platform}`, {
         method: 'DELETE',
         headers: {

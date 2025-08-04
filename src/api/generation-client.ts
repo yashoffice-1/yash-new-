@@ -33,7 +33,10 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Handle unauthorized access
       localStorage.removeItem('auth_token');
-      window.location.href = '/login';
+      // Check if we're not already on a login page to avoid infinite redirects
+      if (!window.location.pathname.includes('/auth/')) {
+        window.location.href = '/auth/signin';
+      }
     }
     return Promise.reject(error);
   }

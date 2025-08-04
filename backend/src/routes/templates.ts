@@ -431,4 +431,31 @@ router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/templates/heygen/variables/:templateId - Fetch variables for a HeyGen template (admin only)
+router.get('/heygen/variables/:templateId', authenticateToken, requireAdmin, async (req, res) => {
+  const { templateId } = req.params;
+  try {
+    const heygenApiKey = process.env.HEYGEN_API_KEY;
+    if (!heygenApiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'HeyGen API key not configured'
+      });
+    }
+    const response = await axios.get(`https://api.heygen.com/v2/template/${templateId}`, {
+      headers: {
+        'X-Api-Key': heygenApiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    return res.json({
+      success: true,
+      variables: response.data?.data?.variables || {}
+    });
+  } catch (error) {
+    console.error('Error fetching HeyGen variables:', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch variables' });
+  }
+});
+
 export default router; 

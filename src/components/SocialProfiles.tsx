@@ -53,7 +53,7 @@ export function SocialProfiles() {
   const fetchConnections = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('http://localhost:3001/api/social/connections', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -95,7 +95,7 @@ export function SocialProfiles() {
 
   const handleDisconnect = async (platform: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`http://localhost:3001/api/social/connections/${platform}`, {
         method: 'DELETE',
         headers: {

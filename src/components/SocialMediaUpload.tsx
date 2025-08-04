@@ -64,7 +64,7 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
   const fetchConnections = async () => {
     try {
       setIsLoadingConnections(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('http://localhost:3001/api/social/connections', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -116,7 +116,7 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
     }, 500);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('http://localhost:3001/api/social/youtube/upload', {
         method: 'POST',
         headers: {

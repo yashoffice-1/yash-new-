@@ -31,7 +31,7 @@ export function SocialMediaSettings() {
   const fetchConnections = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('http://localhost:3001/api/social/connections', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -60,7 +60,7 @@ export function SocialMediaSettings() {
 
   const saveYouTubeConnection = async (oauthResult: any) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch('http://localhost:3001/api/social/youtube/connect', {
         method: 'POST',
         headers: {
@@ -88,7 +88,7 @@ export function SocialMediaSettings() {
 
   const handleDisconnect = async (platform: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`http://localhost:3001/api/social/connections/${platform}`, {
         method: 'DELETE',
         headers: {

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export interface SystemSetting {
   id: string;
@@ -22,14 +22,14 @@ export interface UpdateSettingData {
 
 class SettingsAPI {
   private getAuthHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
   // Get all settings (admin only)
   async getAllSettings(): Promise<SystemSetting[]> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/settings`, {
+      const response = await axios.get(`${API_BASE_URL}/api/settings`, {
         headers: this.getAuthHeaders(),
       });
       return response.data.data;
@@ -42,7 +42,7 @@ class SettingsAPI {
   // Get public settings (any authenticated user)
   async getPublicSettings(): Promise<SystemSetting[]> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/settings/public`, {
+      const response = await axios.get(`${API_BASE_URL}/api/settings/public`, {
         headers: this.getAuthHeaders(),
       });
       return response.data.data;
@@ -59,7 +59,7 @@ class SettingsAPI {
     videoGenerationLimit: number;
   }> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/settings/upload-limits`, {
+      const response = await axios.get(`${API_BASE_URL}/api/settings/upload-limits`, {
         headers: this.getAuthHeaders(),
       });
       return response.data.data;
@@ -76,7 +76,7 @@ class SettingsAPI {
     windowMinutes: number;
   }> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/settings/rate-limits`, {
+      const response = await axios.get(`${API_BASE_URL}/api/settings/rate-limits`, {
         headers: this.getAuthHeaders(),
       });
       return response.data.data;
@@ -89,7 +89,7 @@ class SettingsAPI {
   // Get a specific setting by key
   async getSetting(key: string): Promise<SystemSetting> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/settings/${key}`, {
+      const response = await axios.get(`${API_BASE_URL}/api/settings/${key}`, {
         headers: this.getAuthHeaders(),
       });
       return response.data.data;
@@ -102,7 +102,7 @@ class SettingsAPI {
   // Update a setting (admin only)
   async updateSetting(key: string, data: UpdateSettingData): Promise<SystemSetting> {
     try {
-      const response = await axios.put(`${API_BASE_URL}/settings/${key}`, data, {
+      const response = await axios.put(`${API_BASE_URL}/api/settings/${key}`, data, {
         headers: this.getAuthHeaders(),
       });
       return response.data.data;

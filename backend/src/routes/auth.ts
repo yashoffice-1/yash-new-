@@ -467,6 +467,7 @@ router.get('/profile', authenticateToken, async (req, res, next) => {
           initials: profile.initials,
           emailVerified: profile.emailVerified,
           status: profile.status,
+          role: profile.role,
           createdAt: profile.createdAt.toISOString(),
         }
       }
@@ -514,6 +515,7 @@ router.put('/profile', authenticateToken, async (req, res, next) => {
           initials: updatedProfile.initials,
           emailVerified: updatedProfile.emailVerified,
           status: updatedProfile.status,
+          role: updatedProfile.role,
           createdAt: updatedProfile.createdAt.toISOString(),
         }
       }

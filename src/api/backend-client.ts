@@ -33,7 +33,10 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       // Handle unauthorized access
       localStorage.removeItem('auth_token');
-      window.location.href = '/login';
+      // Check if we're not already on a login page to avoid infinite redirects
+      if (!window.location.pathname.includes('/auth/')) {
+        window.location.href = '/auth/signin';
+      }
     }
     return Promise.reject(error);
   }
@@ -171,6 +174,66 @@ export const templatesAPI = {
 
   // Get template statistics
   getStats: () => apiClient.get('/templates/stats'),
+
+  // Get HeyGen templates list (admin only)
+  getHeyGenTemplates: () => apiClient.get('/templates/heygen/list'),
+
+  // Get user's assigned templates
+  getUserTemplates: () => apiClient.get('/templates'),
+
+  // Get all template assignments (admin only)
+  getAllAssignments: () => apiClient.get('/templates/admin/all'),
+
+  // Assign template to user (admin only)
+  assignTemplateToUser: (data: {
+    userId: string;
+    templateId: string;
+    templateName: string;
+    templateDescription?: string;
+    thumbnailUrl?: string;
+    category?: string;
+    aspectRatio?: string;
+    expiresAt?: string;
+    variables?: any[];
+  }) => apiClient.post('/templates/admin/assign', data),
+
+  // Update template assignment
+  updateTemplateAssignment: (assignmentId: string, data: {
+    templateName?: string;
+    templateDescription?: string;
+    thumbnailUrl?: string;
+    category?: string;
+    aspectRatio?: string;
+    canUse?: boolean;
+    expiresAt?: string;
+    variables?: any[];
+  }) => apiClient.put(`/templates/${assignmentId}`, data),
+
+  // Delete template assignment
+  deleteTemplateAssignment: (assignmentId: string) => apiClient.delete(`/templates/${assignmentId}`),
+
+  // Get all available templates from all sources (admin only)
+  getAllAvailableTemplates: () => apiClient.get('/templates/admin/all-available'),
+
+  // Fetch HeyGen template variables (admin only)
+  getHeyGenTemplateVariables: (templateId: string) =>
+    apiClient.get(`/templates/heygen/variables/${templateId}`),
+};
+
+// Admin API
+export const adminAPI = {
+  // Get all users
+  getUsers: () => apiClient.get('/admin/users'),
+
+  // Update user role
+  updateUserRole: (userId: string, role: string) => 
+    apiClient.patch(`/admin/users/${userId}/role`, { role }),
+
+  // Get system statistics
+  getStats: () => apiClient.get('/admin/stats'),
+
+  // Get user analytics
+  getUserAnalytics: (userId: string) => apiClient.get(`/admin/users/${userId}/analytics`),
 };
 
 // Auth API

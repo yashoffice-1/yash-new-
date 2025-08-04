@@ -175,7 +175,7 @@ export function AdminSettings() {
                       />
                     ) : (
                       <Input
-                        value={formData[setting.key] || setting.value}
+                        value={String(formData[setting.key] || setting.value)}
                         onChange={(e) => handleSettingChange(setting.key, e.target.value)}
                         className="w-48"
                       />

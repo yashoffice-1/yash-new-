@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, BarChart3, Settings, Shield, Video, Image, TrendingUp, Activity } from 'lucide-react';
+import { Users, BarChart3, Settings, Shield, Video, Image, TrendingUp, Activity, FileVideo } from 'lucide-react';
 import { UserManagement } from './UserManagement';
 import { SystemStats } from './SystemStats';
 import { AdminSettings } from './AdminSettings';
+import { TemplateManager } from './TemplateManager';
+import { adminAPI } from '@/api/backend-client';
 
 interface SystemStatsData {
   totalUsers: number;
@@ -19,7 +21,7 @@ interface SystemStatsData {
 }
 
 export function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'settings' | 'templates'>('overview');
   const [stats, setStats] = useState<SystemStatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,17 +31,10 @@ export function AdminDashboard() {
 
   const fetchSystemStats = async () => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/stats`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setStats(data.data);
-        }
+      const response = await adminAPI.getStats();
+      
+      if (response.data.success) {
+        setStats(response.data.data);
       }
     } catch (error) {
       console.error('Error fetching system stats:', error);
@@ -152,20 +147,24 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {/* Main Content */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'users' | 'settings')} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview" className="flex items-center space-x-2">
+      {/* Main Content Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'users' | 'settings' | 'templates')}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
-            <span>Overview</span>
+            Overview
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center space-x-2">
+          <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            <span>User Management</span>
+            Users
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center space-x-2">
+          <TabsTrigger value="templates" className="flex items-center gap-2">
+            <FileVideo className="h-4 w-4" />
+            Templates
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            <span>Settings</span>
+            Settings
           </TabsTrigger>
         </TabsList>
 
@@ -175,6 +174,10 @@ export function AdminDashboard() {
 
         <TabsContent value="users" className="space-y-4">
           <UserManagement />
+        </TabsContent>
+
+        <TabsContent value="templates" className="space-y-4">
+          <TemplateManager />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

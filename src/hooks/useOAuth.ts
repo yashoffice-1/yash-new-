@@ -100,7 +100,7 @@ export const useOAuth = () => {
 
   const handleYouTubeOAuthCallback = useCallback(async (code: string): Promise<boolean> => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       if (!token) {
         return false;
       }

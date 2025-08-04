@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BACKEND_URL = 'http://localhost:3001';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export interface User {
   id: string;
@@ -49,7 +49,7 @@ const authClient = axios.create({
 // Request interceptor to add auth token
 authClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -65,7 +65,7 @@ authClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
+      localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
     }
     return Promise.reject(error);
@@ -92,7 +92,7 @@ export const authAPI = {
     const result = response.data;
 
     if (result.success && result.data?.user && result.data?.token) {
-      localStorage.setItem('token', result.data.token);
+      localStorage.setItem('auth_token', result.data.token);
       localStorage.setItem('user', JSON.stringify(result.data.user));
     }
 
@@ -111,7 +111,7 @@ export const authAPI = {
     const result = response.data;
     
     if (result.success && result.data?.token) {
-      localStorage.setItem('token', result.data.token);
+      localStorage.setItem('auth_token', result.data.token);
       localStorage.setItem('user', JSON.stringify(result.data.user));
     }
     
@@ -150,7 +150,7 @@ export const authAPI = {
 
   // Sign out
   signOut: () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
   },
 
@@ -162,7 +162,7 @@ export const authAPI = {
 
   // Check if user is authenticated
   isAuthenticated: (): boolean => {
-    return !!localStorage.getItem('token');
+    return !!localStorage.getItem('auth_token');
   }
 };
 
