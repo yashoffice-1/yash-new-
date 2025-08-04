@@ -218,6 +218,9 @@ export const templatesAPI = {
   // Fetch HeyGen template variables (admin only)
   getHeyGenTemplateVariables: (templateId: string) =>
     apiClient.get(`/templates/heygen/variables/${templateId}`),
+
+  // Clean up expired templates (admin only)
+  cleanupExpiredTemplates: () => apiClient.post('/templates/admin/cleanup-expired'),
 };
 
 // Admin API

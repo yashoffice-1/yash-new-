@@ -458,4 +458,22 @@ router.get('/heygen/variables/:templateId', authenticateToken, requireAdmin, asy
   }
 });
 
+// POST /api/templates/admin/cleanup-expired - Clean up expired templates (admin only)
+router.post('/admin/cleanup-expired', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const cleanedCount = await templateService.cleanupExpiredTemplates();
+    return res.json({
+      success: true,
+      message: `Cleaned up ${cleanedCount} expired templates`,
+      cleanedCount
+    });
+  } catch (error) {
+    console.error('Error cleaning up expired templates:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to clean up expired templates'
+    });
+  }
+});
+
 export default router; 

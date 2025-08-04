@@ -370,10 +370,68 @@ export function TemplateManager() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Template Management</h2>
-        <Badge variant="outline">
-          {assignments.length} Active Assignments
-        </Badge>
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Template Management</h2>
+          <p className="text-gray-600">
+            Browse, assign, and manage video templates for your users
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="text-2xl font-bold text-blue-600">
+                {templates.length}
+              </div>
+              <div className="text-sm text-gray-500">Templates</div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-green-600">
+                {assignments.length}
+              </div>
+              <div className="text-sm text-gray-500">Assignments</div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-purple-600">
+                {users.length}
+              </div>
+              <div className="text-sm text-gray-500">Users</div>
+            </div>
+          </div>
+          <div className="h-8 w-px bg-gray-300"></div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                setLoading(true);
+                const response = await templatesAPI.cleanupExpiredTemplates();
+                if (response.data.success) {
+                  toast({
+                    title: "Cleanup Complete",
+                    description: response.data.message,
+                  });
+                  fetchAssignments(); // Refresh assignments
+                }
+              } catch (error) {
+                toast({
+                  title: "Cleanup Failed",
+                  description: "Failed to clean up expired templates",
+                  variant: "destructive",
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Settings className="h-4 w-4" />
+            )}
+            <span className="ml-2">Cleanup Expired</span>
+          </Button>
+        </div>
       </div>
 
       {!isAdmin ? (
@@ -415,50 +473,69 @@ export function TemplateManager() {
                       <span className="ml-2">Loading templates...</span>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {templates.map((template) => (
-                        <Card key={template.template_id} className="overflow-hidden">
-                          <div className="aspect-video bg-gray-100 relative">
+                        <Card key={template.template_id} className="overflow-hidden hover:shadow-lg transition-all duration-200 border-0 shadow-md group">
+                          <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative">
                             {template.thumbnail_image_url ? (
                               <img
                                 src={template.thumbnail_image_url}
                                 alt={template.name}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <span className="text-gray-400">No Preview</span>
+                                <div className="text-center">
+                                  <Eye className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                  <span className="text-gray-500 text-sm">No Preview</span>
+                                </div>
                               </div>
                             )}
+                            <div className="absolute top-2 right-2">
+                              <Badge variant="secondary" className="text-xs bg-white/90 backdrop-blur">
+                                HeyGen
+                              </Badge>
+                            </div>
                           </div>
-                          <CardContent className="p-4">
-                            <h3 className="font-semibold text-sm mb-2">{template.name}</h3>
+                          <CardContent className="p-5">
+                            <div className="flex items-start justify-between mb-3">
+                              <h3 className="font-semibold text-gray-900 line-clamp-2 leading-tight">
+                                {template.name}
+                              </h3>
+                            </div>
+                            
                             {template.description && (
-                              <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                              <p className="text-sm text-gray-600 mb-4 line-clamp-2 leading-relaxed">
                                 {template.description}
                               </p>
                             )}
-                            <div className="flex items-center justify-between">
-                              <div className="flex gap-1">
-                                {template.category && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {template.category}
-                                  </Badge>
-                                )}
-                                {template.aspect_ratio && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {template.aspect_ratio}
-                                  </Badge>
-                                )}
-                              </div>
-                              <Button
-                                size="sm"
-                                onClick={() => handleSelectTemplateForAssignment(template)}
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Assign
-                              </Button>
+
+                            <div className="flex items-center gap-2 mb-4">
+                              {template.category && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {template.category}
+                                </Badge>
+                              )}
+                              {template.aspect_ratio && (
+                                <Badge variant="outline" className="text-xs">
+                                  {template.aspect_ratio}
+                                </Badge>
+                              )}
+                              {template.duration && (
+                                <Badge variant="outline" className="text-xs">
+                                  {template.duration}s
+                                </Badge>
+                              )}
                             </div>
+
+                            <Button
+                              size="sm"
+                              onClick={() => handleSelectTemplateForAssignment(template)}
+                              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Assign Template
+                            </Button>
                           </CardContent>
                         </Card>
                       ))}
@@ -672,100 +749,211 @@ export function TemplateManager() {
 
           {/* Assignment Dialog */}
           <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Assign Template</DialogTitle>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader className="space-y-2">
+                <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                  <Plus className="h-5 w-5 text-blue-600" />
+                  Assign Template to User
+                </DialogTitle>
+                <p className="text-sm text-gray-600">
+                  Give a user access to this template for video generation
+                </p>
               </DialogHeader>
               
-              <div className="space-y-4">
-                <div>
-                  <Label>Template</Label>
-                  <p className="text-sm font-medium">{selectedTemplate?.name}</p>
-                </div>
+              <div className="space-y-6">
+                {/* Template Info Section */}
+                {selectedTemplate && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                    <div className="flex items-start gap-4">
+                      {selectedTemplate.thumbnail_image_url && (
+                        <div className="w-20 h-15 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                          <img
+                            src={selectedTemplate.thumbnail_image_url}
+                            alt={selectedTemplate.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 mb-1">
+                          {selectedTemplate.name}
+                        </h3>
+                        {selectedTemplate.description && (
+                          <p className="text-sm text-gray-600 line-clamp-2 mb-2">
+                            {selectedTemplate.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          {selectedTemplate.category && (
+                            <Badge variant="secondary" className="text-xs">
+                              {selectedTemplate.category}
+                            </Badge>
+                          )}
+                          {selectedTemplate.aspect_ratio && (
+                            <Badge variant="outline" className="text-xs">
+                              {selectedTemplate.aspect_ratio}
+                            </Badge>
+                          )}
+                          {selectedTemplate.duration && (
+                            <Badge variant="outline" className="text-xs">
+                              {selectedTemplate.duration}s
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                <div>
-                  <Label>User</Label>
+                {/* User Selection Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                    <Label className="text-base font-medium">Select User</Label>
+                  </div>
                   <Select
                     value={assignForm.userId}
                     onValueChange={(value) => setAssignForm({ ...assignForm, userId: value })}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a user" />
+                    <SelectTrigger className="transition-all duration-200 focus:ring-2 focus:ring-blue-500">
+                      <SelectValue placeholder="Choose a user to assign this template to" />
                     </SelectTrigger>
                     <SelectContent>
                       {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.firstName} {user.lastName} ({user.email})
+                        <SelectItem key={user.id} value={user.id} className="cursor-pointer">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-blue-700">
+                                {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="font-medium">{user.firstName} {user.lastName}</div>
+                              <div className="text-xs text-gray-500">{user.email}</div>
+                            </div>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {users.length === 0 && (
+                    <p className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
+                      No users found. Make sure users are registered in the system.
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <Label>Expiration Date (Optional)</Label>
-                  <Input
-                    type="datetime-local"
-                    value={assignForm.expiresAt}
-                    onChange={(e) => setAssignForm({ ...assignForm, expiresAt: e.target.value })}
-                  />
+                {/* Expiration Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-orange-600 rounded-full"></div>
+                    <Label className="text-base font-medium">Access Duration</Label>
+                    <Badge variant="outline" className="text-xs">Optional</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <Input
+                      type="datetime-local"
+                      value={assignForm.expiresAt}
+                      onChange={(e) => setAssignForm({ ...assignForm, expiresAt: e.target.value })}
+                      className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Leave empty for unlimited access, or set an expiration date
+                    </p>
+                  </div>
                 </div>
 
                 {/* Template Variables Section */}
-                <div className="mt-4">
-                  <Label>Template Variables</Label>
-                  <p className="text-sm text-gray-600 mb-2">
-                    Variables automatically fetched from HeyGen template
-                  </p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-purple-600 rounded-full"></div>
+                    <Label className="text-base font-medium">Template Variables</Label>
+                    <Badge variant="outline" className="text-xs">
+                      Auto-fetched from HeyGen
+                    </Badge>
+                  </div>
+                  
                   <div className="space-y-2">
                     {variablesLoading ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        <span className="text-sm text-gray-500">Loading variables...</span>
+                      <div className="flex items-center justify-center py-6 bg-gray-50 rounded-lg">
+                        <Loader2 className="h-5 w-5 animate-spin text-blue-600 mr-2" />
+                        <span className="text-sm text-gray-600">Fetching template variables...</span>
                       </div>
                     ) : assignForm.variables.length > 0 ? (
-                      assignForm.variables.map((variable, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 border rounded bg-gray-50">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{variable.name}</p>
-                            <p className="text-xs text-gray-500">Type: {variable.type}</p>
-                            {variable.defaultValue && (
-                              <p className="text-xs text-gray-500">Default: {variable.defaultValue}</p>
-                            )}
+                      <div className="grid gap-2">
+                        {assignForm.variables.map((variable, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="text-sm font-medium">{variable.name}</p>
+                                <Badge variant={variable.required ? "default" : "secondary"} className="text-xs">
+                                  {variable.required ? "Required" : "Optional"}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-500">Type: {variable.type}</p>
+                              {variable.defaultValue && (
+                                <p className="text-xs text-gray-500">Default: {variable.defaultValue}</p>
+                              )}
+                            </div>
+                            <div className="w-2 h-2 bg-purple-400 rounded-full"></div>
                           </div>
-                          <Badge variant={variable.required ? "default" : "secondary"}>
-                            {variable.required ? "Required" : "Optional"}
-                          </Badge>
-                        </div>
-                      ))
+                        ))}
+                      </div>
                     ) : (
-                      <p className="text-sm text-gray-500 italic">No variables found for this template</p>
+                      <div className="text-center py-6 bg-gray-50 rounded-lg">
+                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <span className="text-xs text-gray-500">?</span>
+                        </div>
+                        <p className="text-sm text-gray-500">No variables found for this template</p>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-4 border-t border-gray-200">
                   <Button
                     onClick={handleAssignTemplate}
                     disabled={loading || !assignForm.userId}
-                    className="flex-1"
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
+                    size="lg"
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Assigning...
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Assigning Template...
                       </>
                     ) : (
-                      "Assign Template"
+                      <>
+                        <Plus className="h-5 w-5 mr-2" />
+                        Assign Template
+                      </>
                     )}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => setShowAssignDialog(false)}
+                    size="lg"
+                    className="px-6"
                   >
                     Cancel
                   </Button>
                 </div>
+
+                {/* Assignment Status */}
+                {loading && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                      <div>
+                        <p className="font-medium text-blue-900">Assigning template...</p>
+                        <p className="text-sm text-blue-700">
+                          Setting up access for the selected user
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </DialogContent>
           </Dialog>
