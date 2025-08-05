@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserTemplateLibrary } from '@/components/templates/UserTemplateLibrary';
+import { UserTemplateLibrary } from '@/components/templates/library/UserTemplateLibrary';
 
 export default function UserTemplatesPage() {
   return (

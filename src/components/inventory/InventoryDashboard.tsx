@@ -1,5 +1,4 @@
-
-import { InventoryManager } from "./InventoryManager";
+import { InventoryManager } from "./managers/InventoryManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, TrendingUp, DollarSign, ShoppingCart } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";

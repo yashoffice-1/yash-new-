@@ -1,5 +1,5 @@
 
-import { MainContent } from "@/components/MainContent";
+import { MainContent } from "@/components/user/MainContent";
 
 const Index = () => {
   return <MainContent />;

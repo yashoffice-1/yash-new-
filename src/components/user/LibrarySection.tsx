@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LibraryAssetCard } from "./library/LibraryAssetCard";
-import { useAssetLibrary } from "@/hooks/useAssetLibrary";
+import { useAssetLibrary } from "@/hooks/data/useAssetLibrary";
 import { Loader2 } from "lucide-react";
 
 interface LibraryAsset {
