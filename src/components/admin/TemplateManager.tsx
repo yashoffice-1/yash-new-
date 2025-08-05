@@ -52,6 +52,8 @@ interface TemplateVariable {
   type: string;
   required: boolean;
   defaultValue?: string;
+  charLimit?: number;
+  customCharLimit?: number; // Allow admin to override HeyGen limits
 }
 
 interface User {
@@ -94,13 +96,22 @@ export function TemplateManager() {
     setVariablesLoading(true);
     try {
       const response = await templatesAPI.getHeyGenTemplateVariables(templateId);
-      if (response.data.success && response.data.variables) {
-        const variables = Object.entries(response.data.variables).map(([key, variable]: [string, any]) => ({
-          name: key,
-          type: variable.type || 'text',
-          required: true,
-          defaultValue: variable.properties?.content || ''
+      if (response.data.success && response.data.data) {
+        const templateData = response.data.data;
+        const variables = templateData.variables || [];
+        
+        // Update assign form with template details
+        setAssignForm(prev => ({
+          ...prev,
+          templateId: templateData.templateId,
+          templateName: templateData.templateName,
+          templateDescription: templateData.templateDescription || '',
+          thumbnailUrl: templateData.thumbnailUrl || '',
+          category: templateData.category || '',
+          aspectRatio: templateData.aspectRatio || '',
+          variables: variables
         }));
+        
         return variables;
       }
     } catch (error) {
@@ -882,17 +893,119 @@ export function TemplateManager() {
                     ) : assignForm.variables.length > 0 ? (
                       <div className="grid gap-2">
                         {assignForm.variables.map((variable, index) => (
-                          <div key={index} className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                          <div key={index} className="flex items-start gap-3 p-4 border rounded-lg bg-white hover:bg-gray-50 transition-colors shadow-sm">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="text-sm font-medium">{variable.name}</p>
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="text-sm font-semibold text-gray-900">{variable.name}</h4>
                                 <Badge variant={variable.required ? "default" : "secondary"} className="text-xs">
                                   {variable.required ? "Required" : "Optional"}
                                 </Badge>
+                                <Badge variant="outline" className="text-xs text-gray-600 bg-gray-50">
+                                  {variable.type}
+                                </Badge>
                               </div>
-                              <p className="text-xs text-gray-500">Type: {variable.type}</p>
-                              {variable.defaultValue && (
-                                <p className="text-xs text-gray-500">Default: {variable.defaultValue}</p>
+                              
+                              <div className="space-y-1">
+                                {variable.charLimit && (
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs text-blue-600 bg-blue-50">
+                                      HeyGen: {variable.charLimit} chars
+                                    </Badge>
+                                    {variable.customCharLimit && (
+                                      <Badge variant="outline" className="text-xs text-green-600 bg-green-50">
+                                        Custom: {variable.customCharLimit} chars
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                                {!variable.charLimit && variable.customCharLimit && (
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs text-green-600 bg-green-50">
+                                      Custom: {variable.customCharLimit} chars
+                                    </Badge>
+                                  </div>
+                                )}
+                                
+                                {variable.defaultValue && (
+                                  <p className="text-xs text-gray-500">
+                                    Default: <span className="font-mono bg-gray-100 px-1 rounded text-xs">{variable.defaultValue}</span>
+                                  </p>
+                                )}
+                              </div>
+                              
+                              {/* Custom Character Limit Input for Text Variables */}
+                              {variable.type === 'text' && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-sm font-medium text-gray-700">
+                                      Custom Character Limit (Max: {variable.charLimit || 500})
+                                    </Label>
+                                    <Badge variant="outline" className="text-xs">
+                                      {variable.customCharLimit || variable.charLimit || 'Default'} chars
+                                    </Badge>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                                                              <Input
+                                          type="number"
+                                          min="1"
+                                          max={variable.charLimit || 500}
+                                          placeholder={`Max ${variable.charLimit || 500} chars`}
+                                          value={variable.customCharLimit || ''}
+                                          onChange={(e) => {
+                                            const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                            const maxAllowed = variable.charLimit || 500;
+                                            
+                                            // Don't allow custom limit to exceed HeyGen limit or system default
+                                            if (value && value > maxAllowed) {
+                                              return; // Don't update if over limit
+                                            }
+                                            
+                                            const updatedVariables = [...assignForm.variables];
+                                            updatedVariables[index] = {
+                                              ...variable,
+                                              customCharLimit: value
+                                            };
+                                            setAssignForm({
+                                              ...assignForm,
+                                              variables: updatedVariables
+                                            });
+                                          }}
+                                          className="h-8 text-sm"
+                                        />
+                                    </div>
+                                    
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        const updatedVariables = [...assignForm.variables];
+                                        updatedVariables[index] = {
+                                          ...variable,
+                                          customCharLimit: undefined
+                                        };
+                                        setAssignForm({
+                                          ...assignForm,
+                                          variables: updatedVariables
+                                        });
+                                      }}
+                                      className="h-8 px-2 text-xs"
+                                    >
+                                      Reset
+                                    </Button>
+                                  </div>
+                                  
+                                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                                    <span>HeyGen limit: {variable.charLimit || 'Not set'}</span>
+                                    {variable.customCharLimit && (
+                                      <Badge variant="outline" className="text-xs text-green-600">
+                                        Custom: {variable.customCharLimit} chars
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
                               )}
                             </div>
                             <div className="w-2 h-2 bg-purple-400 rounded-full"></div>

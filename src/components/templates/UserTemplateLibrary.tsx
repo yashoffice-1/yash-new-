@@ -31,6 +31,7 @@ interface TemplateVariable {
   type: string;
   required: boolean;
   defaultValue?: string;
+  charLimit?: number;
 }
 
 interface TemplateGenerationForm {
@@ -112,7 +113,7 @@ export function UserTemplateLibrary() {
             .filter(v => v.required && !generationForm.variables[v.name])
             .map(v => v.name)
         : [];
-
+  
       if (missingRequired.length > 0) {
         toast({
           title: "Missing Required Variables",
@@ -125,6 +126,25 @@ export function UserTemplateLibrary() {
         return;
       }
 
+      const exceededLimits = selectedTemplate.variables
+        ? selectedTemplate.variables
+            .filter(v => v.charLimit && generationForm.variables[v.name])
+            .filter(v => generationForm.variables[v.name].length > v.charLimit)
+            .map(v => `${v.name} (${generationForm.variables[v.name].length}/${v.charLimit})`)
+        : [];
+  
+      if (exceededLimits.length > 0) {
+        toast({
+          title: "Character Limit Exceeded",
+          description: `Please shorten: ${exceededLimits.join(', ')}`,
+          variant: "destructive",
+        });
+        setGenerationStatus('idle');
+        setIsGenerating(false);
+        setLoading(false);
+        return;
+      }
+  
       // Call the generation API
       const response = await templatesAPI.generateTemplate({
         templateId: selectedTemplate.externalId || selectedTemplate.id,
@@ -502,27 +522,44 @@ export function UserTemplateLibrary() {
                         </div>
                         
                         {variable.type === 'text' && (
-                          <div className="space-y-1">
-                            <Input
-                              value={generationForm.variables[variable.name] || ''}
-                              onChange={(e) => setGenerationForm({
+                        <div className="space-y-1">
+                          <Input
+                            value={generationForm.variables[variable.name] || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              // Check character limit if defined
+                              if (variable.charLimit && value.length > variable.charLimit) {
+                                return; // Don't update if over limit
+                              }
+                              setGenerationForm({
                                 ...generationForm,
                                 variables: {
                                   ...generationForm.variables,
-                                  [variable.name]: e.target.value
+                                  [variable.name]: value
                                 }
-                              })}
-                              placeholder={variable.defaultValue || `Enter ${variable.name}`}
-                              required={variable.required}
-                              className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
-                            />
+                              });
+                            }}
+                            placeholder={variable.defaultValue || `Enter ${variable.name}`}
+                            required={variable.required}
+                            maxLength={variable.charLimit || undefined}
+                            className="transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                          />
+                          <div className="flex items-center justify-between text-xs text-gray-500">
                             {variable.defaultValue && (
-                              <p className="text-xs text-gray-500">
-                                Default: {variable.defaultValue}
-                              </p>
+                              <span>Default: {variable.defaultValue}</span>
+                            )}
+                            {variable.charLimit && (
+                              <span className={`${
+                                (generationForm.variables[variable.name] || '').length > variable.charLimit * 0.9 
+                                  ? 'text-orange-500' 
+                                  : 'text-gray-500'
+                              }`}>
+                                {(generationForm.variables[variable.name] || '').length}/{variable.charLimit} characters
+                              </span>
                             )}
                           </div>
-                        )}
+                        </div>
+                      )}
                         
                         {variable.type === 'image' && (
                           <div className="space-y-1">

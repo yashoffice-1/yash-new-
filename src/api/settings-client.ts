@@ -111,6 +111,37 @@ class SettingsAPI {
       throw error;
     }
   }
+
+  /**
+   * Get the system default character limit for template variables
+   * Used when HeyGen doesn't provide a limit for text variables
+   * @returns Current system default character limit
+   */
+  async getDefaultCharLimit(): Promise<{ defaultCharLimit: number }> {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/settings/default-char-limit`, {
+        headers: this.getAuthHeaders(),
+      });
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching default character limit:', error);
+      throw error;
+    }
+  }
+
+  // Update default character limit (admin only)
+  async updateDefaultCharLimit(defaultCharLimit: number): Promise<{ defaultCharLimit: number; message: string }> {
+    try {
+      const response = await axios.put(`${API_BASE_URL}/api/settings/default-char-limit`, 
+        { defaultCharLimit }, 
+        { headers: this.getAuthHeaders() }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('Error updating default character limit:', error);
+      throw error;
+    }
+  }
 }
 
 export const settingsAPI = new SettingsAPI(); 

@@ -50,6 +50,9 @@ export const templateAPI = {
   // Get HeyGen template details (via backend)
   getHeyGenTemplateDetail: (templateId: string) => apiClient.get(`/templates/heygen/detail/${templateId}`),
 
+  // Get HeyGen template variables with character limits (via backend)
+  getHeyGenTemplateVariables: (templateId: string) => apiClient.get(`/templates/heygen/variables/${templateId}`),
+
   // Get template list (internal)
   getTemplateList: () => apiClient.get('/templates/list'),
 

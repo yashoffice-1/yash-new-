@@ -20,7 +20,9 @@ const assignTemplateSchema = z.object({
     name: z.string(),
     type: z.enum(['text', 'image', 'number']),
     required: z.boolean().default(true),
-    defaultValue: z.string().optional()
+    defaultValue: z.string().optional(),
+    charLimit: z.number().optional(),
+    customCharLimit: z.number().optional()
   })).optional(),
   expiresAt: z.string().datetime().optional()
 });
@@ -35,7 +37,9 @@ const updateTemplateSchema = z.object({
     name: z.string(),
     type: z.enum(['text', 'image', 'number']),
     required: z.boolean().default(true),
-    defaultValue: z.string().optional()
+    defaultValue: z.string().optional(),
+    charLimit: z.number().optional(),
+    customCharLimit: z.number().optional()
   })).optional(),
   canUse: z.boolean().optional(),
   expiresAt: z.string().datetime().optional()
@@ -221,6 +225,18 @@ router.post('/admin/assign', authenticateToken, requireAdmin, async (req, res) =
   try {
     const data = assignTemplateSchema.parse(req.body);
     
+    // Validate custom character limits don't exceed HeyGen limits
+    if (data.variables) {
+      for (const variable of data.variables) {
+        if (variable.customCharLimit && variable.charLimit && variable.customCharLimit > variable.charLimit) {
+          return res.status(400).json({
+            success: false,
+            error: `Custom character limit (${variable.customCharLimit}) cannot exceed HeyGen limit (${variable.charLimit}) for variable '${variable.name}'`
+          });
+        }
+      }
+    }
+    
     // Convert expiresAt string to Date if provided
     const templateData = {
       userId: data.userId,
@@ -244,7 +260,8 @@ router.post('/admin/assign', authenticateToken, requireAdmin, async (req, res) =
           name: variable.name,
           type: variable.type,
           required: variable.required,
-          defaultValue: variable.defaultValue
+          defaultValue: variable.defaultValue,
+          charLimit: variable.customCharLimit || variable.charLimit // Use custom limit if provided (validated to not exceed HeyGen limit), otherwise use HeyGen limit
         }))
       });
     }
@@ -442,15 +459,56 @@ router.get('/heygen/variables/:templateId', authenticateToken, requireAdmin, asy
         error: 'HeyGen API key not configured'
       });
     }
+    
     const response = await axios.get(`https://api.heygen.com/v2/template/${templateId}`, {
       headers: {
         'X-Api-Key': heygenApiKey,
         'Content-Type': 'application/json'
       }
     });
+
+    const templateData = response.data?.data;
+    const rawVariables = templateData?.variables || {};
+    console.log("Response ->", response.data.data.variables);
+    // Get system default character limit from settings
+    const systemSettings = await prisma.systemSettings.findUnique({
+      where: { key: 'default_char_limit' }
+    });
+    const defaultCharLimit = systemSettings ? parseInt(systemSettings.value) : 500;
+    
+    // Transform HeyGen variables to our format with character limits
+    const processedVariables = Object.entries(rawVariables).map(([name, variable]: [string, any]) => {
+      const baseVariable = {
+        name,
+        type: variable.type || 'text',
+        required: variable.required !== false, // Default to true unless explicitly false
+        defaultValue: variable.default_value || undefined
+      };
+
+      // Add character limit for text variables
+      if (variable.type === 'text' || variable.type === 'string') {
+        return {
+          ...baseVariable,
+          charLimit: variable.max_length || variable.char_limit || defaultCharLimit, // Use HeyGen limit or system default
+          customCharLimit: undefined // Allow admin to set custom limit
+        };
+      }
+
+      return baseVariable;
+    });
+
     return res.json({
       success: true,
-      variables: response.data?.data?.variables || {}
+      data: {
+        templateId,
+        templateName: templateData?.name || 'Unknown Template',
+        templateDescription: templateData?.description || '',
+        thumbnailUrl: templateData?.thumbnail_url || templateData?.cover_url || '',
+        category: templateData?.category || '',
+        aspectRatio: templateData?.aspect_ratio || '',
+        variables: processedVariables,
+        systemDefaultCharLimit: defaultCharLimit
+      }
     });
   } catch (error) {
     console.error('Error fetching HeyGen variables:', error);

@@ -21,6 +21,10 @@ const updateSettingSchema = z.object({
   isPublic: z.boolean().optional(),
 });
 
+const updateDefaultCharLimitSchema = z.object({
+  defaultCharLimit: z.number().min(1, 'Character limit must be at least 1').max(2000, 'Character limit cannot exceed 2000')
+});
+
 // GET /api/settings - Get all settings (admin only)
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -223,6 +227,75 @@ router.delete('/:key', authenticateToken, requireAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       error: 'Failed to delete setting'
+    });
+  }
+});
+
+// GET /api/settings/default-char-limit - Get default character limit
+router.get('/default-char-limit', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const setting = await prisma.systemSettings.findUnique({
+      where: { key: 'default_char_limit' }
+    });
+
+    const defaultCharLimit = setting ? parseInt(setting.value) : 500;
+
+    return res.json({
+      success: true,
+      data: {
+        defaultCharLimit
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching default character limit:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch default character limit'
+    });
+  }
+});
+
+// PUT /api/settings/default-char-limit - Update default character limit
+router.put('/default-char-limit', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const data = updateDefaultCharLimitSchema.parse(req.body);
+    
+    // Upsert the setting
+    const setting = await prisma.systemSettings.upsert({
+      where: { key: 'default_char_limit' },
+      update: {
+        value: data.defaultCharLimit.toString(),
+        updatedAt: new Date()
+      },
+      create: {
+        key: 'default_char_limit',
+        value: data.defaultCharLimit.toString(),
+        description: 'Default character limit for text variables in templates',
+        category: 'system',
+        isPublic: false
+      }
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        defaultCharLimit: parseInt(setting.value),
+        message: 'Default character limit updated successfully'
+      }
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.errors
+      });
+    }
+
+    console.error('Error updating default character limit:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to update default character limit'
     });
   }
 });

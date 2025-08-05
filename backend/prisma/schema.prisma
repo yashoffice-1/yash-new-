@@ -137,6 +137,7 @@ model TemplateVariable {
   type            String   // 'text', 'image', 'number'
   required        Boolean  @default(true)
   defaultValue    String?
+  charLimit       Int?     @map("char_limit") 
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   
