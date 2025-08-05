@@ -50,6 +50,7 @@ export function UserTemplateLibrary() {
   });
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Fetch user's assigned templates
   const fetchUserTemplates = async () => {
@@ -97,8 +98,9 @@ export function UserTemplateLibrary() {
 
   // Handle template generation
   const handleGenerateTemplate = async () => {
-    if (!selectedTemplate) return;
+    if (!selectedTemplate || isGenerating) return;
 
+    setIsGenerating(true);
     setLoading(true);
     setGenerationStatus('processing');
     setGenerationProgress(0);
@@ -118,6 +120,8 @@ export function UserTemplateLibrary() {
           variant: "destructive",
         });
         setGenerationStatus('idle');
+        setIsGenerating(false);
+        setLoading(false);
         return;
       }
 
@@ -159,6 +163,7 @@ export function UserTemplateLibrary() {
               clearInterval(progressInterval);
               setGenerationStatus('completed');
               setGenerationProgress(100);
+              setIsGenerating(false);
               toast({
                 title: "🎉 Video Generation Complete!",
                 description: "Your video has been generated successfully. Check the Asset Library to view it.",
@@ -170,6 +175,7 @@ export function UserTemplateLibrary() {
               clearInterval(progressInterval);
               setGenerationStatus('failed');
               setGenerationProgress(0);
+              setIsGenerating(false);
               toast({
                 title: "❌ Video Generation Failed",
                 description: errorMessage || "Video generation failed. Please try again.",
@@ -202,6 +208,7 @@ export function UserTemplateLibrary() {
           variant: "destructive",
         });
         setGenerationStatus('failed');
+        setIsGenerating(false);
       }
     } catch (error) {
       toast({
@@ -210,6 +217,7 @@ export function UserTemplateLibrary() {
         variant: "destructive",
       });
       setGenerationStatus('failed');
+      setIsGenerating(false);
     } finally {
       setLoading(false);
     }
@@ -583,14 +591,14 @@ export function UserTemplateLibrary() {
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <Button
                   onClick={handleGenerateTemplate}
-                  disabled={loading}
+                  disabled={loading || isGenerating || generationStatus === 'processing'}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
                   size="lg"
                 >
-                  {loading ? (
+                  {loading || isGenerating ? (
                     <>
                       <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Generating Video...
+                      {isGenerating ? 'Generating Video...' : 'Processing...'}
                     </>
                   ) : (
                     <>

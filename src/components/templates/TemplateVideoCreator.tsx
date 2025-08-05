@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Video } from "lucide-react";
 import { templateManager } from "@/api/template-manager";
-import { useVideoGeneration } from "@/hooks/useVideoGeneration";
 import { templatesAPI } from "@/api/backend-client";
 
 interface VideoTemplate {
@@ -27,12 +26,12 @@ interface TemplateVideoCreatorProps {
 
 export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
   const { toast } = useToast();
-  const { generateVideo, isGenerating } = useVideoGeneration();
   const [templateVariables, setTemplateVariables] = useState<string[]>([]);
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(true);
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle');
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const fetchTemplateDetails = async () => {
@@ -145,8 +144,9 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
   };
 
   const handleCreateVideo = async () => {
-    if (!canCreateVideo) return;
+    if (!canCreateVideo || isGenerating) return;
 
+    setIsGenerating(true);
     setGenerationStatus('processing');
     setGenerationProgress(0);
 
@@ -173,6 +173,7 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
       }
     } catch (error) {
       console.error('Error creating video:', error);
+      setIsGenerating(false);
       toast({
         title: "❌ Request Failed",
         description: "Failed to send video generation request. Please try again.",
@@ -206,7 +207,7 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
     
     const checkStatus = async () => {
       try {
-        const statusResponse = await templatesAPI.getGenerationStatus(videoId);
+        const statusResponse = await templatesAPI.getGenerationStatus(videoId); // Using apiClient
         const data = statusResponse.data;
         
         if (data.success) {
@@ -216,6 +217,7 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
             clearInterval(progressInterval);
             setGenerationStatus('completed');
             setGenerationProgress(100); // Jump to 100% on completion
+            setIsGenerating(false);
             toast({
               title: "🎉 Video Generation Complete!",
               description: "Your video has been generated successfully. Check the Asset Library to view it.",
@@ -225,6 +227,7 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
             clearInterval(progressInterval);
             setGenerationStatus('failed');
             setGenerationProgress(0);
+            setIsGenerating(false);
             toast({
               title: "❌ Video Generation Failed",
               description: errorMessage || "Video generation failed. Please try again.",
@@ -240,6 +243,7 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
         console.error('Error checking video status:', error);
         clearInterval(progressInterval); // Clear interval on error
         setGenerationStatus('failed');
+        setIsGenerating(false);
       }
     };
     
