@@ -228,7 +228,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { url, status } = req.body;
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.userId;
 
     // Verify the asset belongs to the user
     const existingAsset = await prisma.generatedAsset.findFirst({

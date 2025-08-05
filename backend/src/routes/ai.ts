@@ -76,7 +76,7 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
     // Store in generated assets
     const asset = await prisma.generatedAsset.create({
       data: {
-        profileId: (req as any).user.id,
+        profileId: (req as any).user.userId,
         channel: 'social_media',
         format: type === 'image' ? 'png' : 'text',
         sourceSystem: 'openai',

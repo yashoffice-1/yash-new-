@@ -48,9 +48,8 @@ const updateTemplateSchema = z.object({
 // GET /api/templates - Get user's assigned templates
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const userId = (req as any).user.id;
-    const templates = await templateService.getUserTemplates(userId);
-
+    const userId = (req as any).user.userId;
+    const templates = await templateService.getUserTemplates(userId);    
     return res.json({
       success: true,
       data: templates
@@ -67,7 +66,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // GET /api/templates/client/default/templates - Get user's default templates (client endpoint)
 router.get('/client/default/templates', authenticateToken, async (req, res) => {
   try {
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.userId;
     const templates = await templateService.getUserTemplates(userId);
 
     return res.json({
@@ -292,7 +291,7 @@ router.post('/admin/assign', authenticateToken, requireAdmin, async (req, res) =
 router.get('/:id/variables', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.userId;
 
     // Check if user has access to this template
     const template = await templateService.getTemplateAccess(id);
