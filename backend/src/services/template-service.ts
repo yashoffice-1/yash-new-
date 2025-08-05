@@ -91,6 +91,13 @@ export class TemplateService {
    * Check if user has access to a specific template
    */
   async hasTemplateAccess(userId: string, sourceSystem: string, externalId: string): Promise<boolean> {
+    console.log('hasTemplateAccess called with:', { userId, sourceSystem, externalId });
+    
+    if (!userId || typeof userId !== 'string') {
+      console.error('Invalid userId in hasTemplateAccess:', userId);
+      return false;
+    }
+
     const template = await prisma.userTemplateAccess.findUnique({
       where: {
         userId_sourceSystem_externalId: {
@@ -101,6 +108,7 @@ export class TemplateService {
       }
     });
 
+    console.log('Template access result:', template);
     return template?.canUse || false;
   }
 

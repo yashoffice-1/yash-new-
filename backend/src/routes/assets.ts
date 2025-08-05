@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../index';
 import { z } from 'zod';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -222,42 +223,48 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-// Update asset
-router.put('/:id', async (req, res, next) => {
+// PUT /api/assets/:id - Update asset
+router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const validatedData = updateAssetSchema.parse(req.body);
-    
-    const asset = await prisma.generatedAsset.update({
+    const { url, status } = req.body;
+    const userId = (req as any).user.id;
+
+    // Verify the asset belongs to the user
+    const existingAsset = await prisma.generatedAsset.findFirst({
+      where: {
+        id,
+        profileId: userId
+      }
+    });
+
+    if (!existingAsset) {
+      return res.status(404).json({
+        success: false,
+        error: 'Asset not found or access denied'
+      });
+    }
+
+    // Update the asset
+    const updatedAsset = await prisma.generatedAsset.update({
       where: { id },
-      data: validatedData,
-      include: {
-        profile: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true
-          }
-        },
-        templateAccess: true
+      data: {
+        url: url || existingAsset.url,
+        status: status || existingAsset.status
       }
     });
 
     return res.json({
       success: true,
-      data: asset,
+      data: updatedAsset,
       message: 'Asset updated successfully'
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        success: false,
-        error: 'Validation error',
-        details: error.errors
-      });
-    }
-    return next(error);
+    console.error('Error updating asset:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to update asset'
+    });
   }
 });
 

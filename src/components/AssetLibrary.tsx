@@ -10,18 +10,49 @@ import { useAssetLibrary, AssetLibraryItem } from '@/hooks/useAssetLibrary';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SocialMediaUpload } from './SocialMediaUpload';
+import { templatesAPI, assetsAPI } from '@/api/backend-client';
+
+// Extend the AssetLibraryItem interface to include gif_url
+interface ExtendedAssetLibraryItem extends AssetLibraryItem {
+  gif_url?: string;
+}
 
 export function AssetLibrary() {
-  const [assets, setAssets] = useState<AssetLibraryItem[]>([]);
-  const [filteredAssets, setFilteredAssets] = useState<AssetLibraryItem[]>([]);
+  const [assets, setAssets] = useState<ExtendedAssetLibraryItem[]>([]);
+  const [filteredAssets, setFilteredAssets] = useState<ExtendedAssetLibraryItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [selectedAssetForUpload, setSelectedAssetForUpload] = useState<AssetLibraryItem | null>(null);
+  const [selectedAssetForUpload, setSelectedAssetForUpload] = useState<ExtendedAssetLibraryItem | null>(null);
+  const [progressStates, setProgressStates] = useState<Record<string, number>>({});
   
   const { getLibraryAssets, toggleFavorite, deleteFromLibrary, isLoading } = useAssetLibrary();
   const { toast } = useToast();
+
+  // Update asset through API
+  const updateAsset = async (assetId: string, updates: { url?: string; status?: string }) => {
+    try {
+      const response = await assetsAPI.updateAsset(assetId, updates);
+      
+      if (response.data.success) {
+        // Update local state
+        setAssets(prevAssets => 
+          prevAssets.map(asset => 
+            asset.id === assetId 
+              ? { ...asset, ...updates }
+              : asset
+          )
+        );
+        return response.data.data;
+      } else {
+        throw new Error(response.data.error || 'Failed to update asset');
+      }
+    } catch (error) {
+      console.error('Failed to update asset:', error);
+      throw error;
+    }
+  };
 
   const loadAssets = async () => {
     console.log('Loading assets from library...');
@@ -30,6 +61,54 @@ export function AssetLibrary() {
     setAssets(data);
     setFilteredAssets(data);
   };
+
+  // Progress simulation for processing videos
+  useEffect(() => {
+    const processingVideos = assets.filter(asset => 
+      asset.asset_url === 'processing' || asset.asset_url === 'pending' || asset.asset_url?.startsWith('pending_')
+    );
+
+    if (processingVideos.length === 0) return;
+
+    const interval = setInterval(() => {
+      setProgressStates(prev => {
+        const newStates = { ...prev };
+        let hasUpdates = false;
+
+        processingVideos.forEach(asset => {
+          const currentProgress = newStates[asset.id] || 0;
+          const startTime = newStates[`${asset.id}_startTime`] || Date.now();
+          const elapsedTime = (Date.now() - startTime) / 1000; // seconds
+          const totalDuration = 300; // 5 minutes in seconds
+          const targetProgress = 92; // Target 92% before completion
+          
+          // Calculate progress based on elapsed time
+          let newProgress;
+          if (elapsedTime >= totalDuration) {
+            // After 5 minutes, stay at 92% until completion
+            newProgress = targetProgress;
+          } else {
+            // Linear progress from 0 to 92% over 5 minutes
+            newProgress = Math.min(targetProgress, (elapsedTime / totalDuration) * targetProgress);
+          }
+          
+          // Set start time if not already set
+          if (!newStates[`${asset.id}_startTime`]) {
+            newStates[`${asset.id}_startTime`] = startTime;
+          }
+          
+          if (newProgress !== currentProgress) {
+            newStates[asset.id] = newProgress;
+            hasUpdates = true;
+          }
+        });
+
+        return hasUpdates ? newStates : prev;
+      });
+    }, 5000); // Update every 5 seconds instead of 3
+
+    return () => clearInterval(interval);
+  }, [assets, progressStates]);
 
   const handleManualRefresh = async () => {
     toast({
@@ -86,7 +165,7 @@ export function AssetLibrary() {
     }
   };
 
-  const handleDownload = async (asset: AssetLibraryItem) => {
+  const handleDownload = async (asset: ExtendedAssetLibraryItem) => {
     if (asset.asset_url && asset.asset_type !== 'content') {
       try {
         // For Supabase storage URLs, add download parameter to force download
@@ -163,67 +242,53 @@ export function AssetLibrary() {
 
       if (!videoId) {
         // If we can't find a video ID, use the backend bulk recovery endpoint
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/recover-pending`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
+        const response = await templatesAPI.heygen.recoverPending();
 
-        if (!response.ok) {
-          throw new Error(`Backend error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success) {
+        if (response.data.success) {
           toast({
             title: "✅ Recovery Completed",
-            description: `${data.data.length} videos checked. ${data.data.filter((r: any) => r.updated).length} updated.`,
+            description: `${response.data.data.length} videos checked. ${response.data.data.filter((r: any) => r.updated).length} updated.`,
           });
           
           // Reload assets to show the updated status
           await loadAssets();
           return;
         } else {
-          throw new Error(data.error || 'Recovery failed');
+          throw new Error(response.data.error || 'Recovery failed');
         }
       }
 
       // Use the backend status check endpoint for specific video
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/status/${videoId}`);
+      const response = await templatesAPI.heygen.getStatus(videoId);
       
-      if (!response.ok) {
-        throw new Error(`Status check failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        const { status, videoUrl, errorMessage } = data.data;
+      if (response.data.success) {
+        const { status, videoUrl, errorMessage } = response.data.data;
         
         if (status === 'completed' && videoUrl) {
+          // Update the asset with the final video URL
+          await updateAsset(assetId, { url: videoUrl, status: 'completed' });
           toast({
-            title: "✅ Video Completed!",
-            description: "Your video has been generated and is now available.",
+            title: "✅ Video Ready",
+            description: "Video has been completed and is now available for download.",
           });
         } else if (status === 'failed') {
+          await updateAsset(assetId, { status: 'failed' });
           toast({
             title: "❌ Video Failed",
-            description: errorMessage || "Video generation failed. Please try again.",
+            description: errorMessage || "Video generation failed.",
             variant: "destructive",
           });
         } else {
-        toast({
+          toast({
             title: "⏳ Still Processing",
-            description: `Video is still being generated. Status: ${status}`,
-        });
+            description: "Video is still being generated. Please wait.",
+          });
         }
         
         // Reload assets to show the updated status
         await loadAssets();
       } else {
-        throw new Error(data.error || 'Failed to get video status');
+        throw new Error(response.data.error || 'Failed to get video status');
       }
     } catch (error) {
       console.error('Error getting video status:', error);
@@ -242,30 +307,19 @@ export function AssetLibrary() {
     });
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/recover-pending`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      const response = await templatesAPI.heygen.recoverPending();
 
-      if (!response.ok) {
-        throw new Error(`Backend error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        const updatedCount = data.data.filter((r: any) => r.updated).length;
+      if (response.data.success) {
+        const updatedCount = response.data.data.filter((r: any) => r.updated).length;
         toast({
           title: "✅ Bulk Recovery Completed",
-          description: `${data.data.length} videos checked. ${updatedCount} videos updated.`,
+          description: `${response.data.data.length} videos checked. ${updatedCount} videos updated.`,
         });
         
         // Reload assets to show the updated status
         await loadAssets();
       } else {
-        throw new Error(data.error || 'Bulk recovery failed');
+        throw new Error(response.data.error || 'Bulk recovery failed');
       }
     } catch (error) {
       console.error('Error in bulk recovery:', error);
@@ -277,7 +331,7 @@ export function AssetLibrary() {
     }
   };
 
-  const handleUpload = (asset: AssetLibraryItem) => {
+  const handleUpload = (asset: ExtendedAssetLibraryItem) => {
     if (asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending') {
       setSelectedAssetForUpload(asset);
       setShowUploadModal(true);
@@ -464,12 +518,18 @@ export function AssetLibrary() {
                               <p className="font-medium mb-2">🎬 FeedGenesis is working on your video</p>
                               <div className="flex items-center space-x-2 mb-2">
                                 <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-32">
-                                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: "60%" }}></div>
+                                  <div 
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                    style={{ width: `${progressStates[asset.id] || 0}%` }}
+                                  ></div>
                                 </div>
-                                <span className="text-xs text-gray-600">60%</span>
+                                <span className="text-xs text-gray-600">{Math.round(progressStates[asset.id] || 0)}%</span>
                               </div>
                               <p className="text-xs text-gray-600">
-                                Estimated time remaining: 2-3 minutes
+                                {progressStates[asset.id] >= 92 
+                                  ? "Almost complete - finalizing video..."
+                                  : `Estimated time remaining: ${Math.max(1, Math.round((300 - ((progressStates[asset.id] || 0) / 92 * 300)) / 60))} minutes`
+                                }
                               </p>
                               {asset.asset_url === "pending" && (
                                 <p className="text-xs text-orange-600 mt-1">

@@ -9,7 +9,16 @@ import { templateService } from '../services/template-service';
 export function templateAccess(sourceSystem: string, externalIdParam: string = 'templateId') {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+
+      if (!userId || typeof userId !== 'string') {
+        console.error('Invalid userId:', userId);
+        return res.status(401).json({
+          success: false,
+          error: 'User ID is required'
+        });
+      }
+
       const externalId = req.params[externalIdParam] || req.body[externalIdParam];
 
       if (!externalId) {
@@ -18,6 +27,8 @@ export function templateAccess(sourceSystem: string, externalIdParam: string = '
           error: 'Template ID is required'
         });
       }
+
+      console.log('Checking template access:', { userId, sourceSystem, externalId });
 
       const hasAccess = await templateService.hasTemplateAccess(userId, sourceSystem, externalId);
 
@@ -46,7 +57,15 @@ export function templateAccess(sourceSystem: string, externalIdParam: string = '
 export function hasAnyTemplateAccess(sourceSystem: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+
+      if (!userId || typeof userId !== 'string') {
+        console.error('Invalid userId:', userId);
+        return res.status(401).json({
+          success: false,
+          error: 'User ID is required'
+        });
+      }
       
       const templates = await templateService.getUserTemplates(userId);
       const hasAnyAccess = templates.some(template => 
@@ -78,7 +97,16 @@ export function hasAnyTemplateAccess(sourceSystem: string) {
 export function validateAndUpdateTemplateUsage(sourceSystem: string, externalIdParam: string = 'templateId') {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = (req as any).user.id;
+      const userId = (req as any).user?.userId || (req as any).user?.id;
+
+      if (!userId || typeof userId !== 'string') {
+        console.error('Invalid userId:', userId);
+        return res.status(401).json({
+          success: false,
+          error: 'User ID is required'
+        });
+      }
+
       const externalId = req.params[externalIdParam] || req.body[externalIdParam];
 
       if (!externalId) {
@@ -87,6 +115,8 @@ export function validateAndUpdateTemplateUsage(sourceSystem: string, externalIdP
           error: 'Template ID is required'
         });
       }
+
+      console.log('Validating template access:', { userId, sourceSystem, externalId });
 
       // Check if user has access to this template
       const hasAccess = await templateService.hasTemplateAccess(userId, sourceSystem, externalId);
@@ -116,7 +146,7 @@ export function validateAndUpdateTemplateUsage(sourceSystem: string, externalIdP
 
       return next();
     } catch (error) {
-      console.error('Template validation failed:', error);
+      console.error('Template access validation failed:', error);
       return res.status(500).json({
         success: false,
         error: 'Failed to validate template access'

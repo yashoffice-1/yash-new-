@@ -71,15 +71,16 @@ export function useAssetLibrary() {
         }
       }
 
-      const response = await assetsAPI.create({
+      const response = await assetsAPI.createAsset({
         title: asset.title,
         description: asset.description,
         tags: asset.tags,
-        assetType: asset.asset_type,
+        asset_type: asset.asset_type,
         url: finalAssetUrl,
         instruction: asset.instruction,
-        sourceSystem: asset.source_system,
-        profileId: asset.profileId
+        source_system: asset.source_system,
+        channel: 'social_media',
+        format: asset.asset_type === 'image' ? 'png' : 'mp4'
       });
 
       const data = response.data.data;
@@ -121,7 +122,7 @@ export function useAssetLibrary() {
       if (filters?.search) params.search = filters.search;
       if (filters?.tags) params.tags = filters.tags.join(',');
 
-      const response = await assetsAPI.getAll(params);
+      const response = await assetsAPI.getAssets(params);
       return response.data.data;
     } catch (error) {
       console.error('Error fetching library assets:', error);
@@ -141,7 +142,7 @@ export function useAssetLibrary() {
 
   const deleteFromLibrary = async (id: string) => {
     try {
-      await assetsAPI.delete(id);
+      await assetsAPI.deleteAsset(id);
       toast({
         title: "Asset Deleted",
         description: "Asset has been removed from your library.",

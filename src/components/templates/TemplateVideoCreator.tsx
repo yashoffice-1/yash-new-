@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Video } from "lucide-react";
 import { templateManager } from "@/api/template-manager";
 import { useVideoGeneration } from "@/hooks/useVideoGeneration";
+import { templatesAPI } from "@/api/backend-client";
 
 interface VideoTemplate {
   id: string;
@@ -144,59 +145,31 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
   };
 
   const handleCreateVideo = async () => {
+    if (!canCreateVideo) return;
+
+    setGenerationStatus('processing');
+    setGenerationProgress(0);
+
     try {
-      // Show immediate feedback that request is being sent
-      toast({
-        title: "🚀 Sending Video Request",
-        description: "Sending your video generation request to HeyGen...",
+      // Call the generation API using templatesAPI
+      const response = await templatesAPI.generateTemplate({
+        templateId: template.heygenTemplateId || template.id,
+        variables: variableValues,
+        instruction: `Generate video using template: ${template.name}`
       });
 
-      if (template.heygenTemplateId) {
-        // For HeyGen templates, use the proper API with template ID and variables
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/generate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            templateId: template.heygenTemplateId,
-            variables: variableValues, // Send the actual template variables
-            instruction: `Create a video using the ${template.name} template with the following content: ${Object.entries(variableValues).map(([key, value]) => `${key}: ${value}`).join(', ')}`,
-            formatSpecs: {
-              channel: 'youtube',
-              format: 'mp4'
-            }
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HeyGen API error: ${response.status}`);
-        }
-
-        const data = await response.json();
+      if (response.data.success) {
+        const videoId = response.data.data.videoId;
         
-        if (data.success) {
-          toast({
-            title: "✅ Request Sent Successfully",
-            description: `Video generation request sent to HeyGen using template "${template.name}". Check the Asset Library to monitor progress!`,
-          });
-          
-          // Start monitoring progress
-          if (data.data?.videoId) {
-            startProgressMonitoring(data.data.videoId);
-          }
-        } else {
-          throw new Error(data.error || 'Failed to generate video');
-        }
+        // Start progress monitoring
+        startProgressMonitoring(videoId);
+        
+        toast({
+          title: "🎬 Video Generation Started",
+          description: "Your video is being generated. This may take a few minutes.",
+        });
       } else {
-        // For non-HeyGen templates, use the generic video generation
-      const instruction = `Create video using template ${template.id} with product: ${Object.entries(variableValues).map(([key, value]) => `${key}: ${value}`).join(', ')}`;
-      await generateVideo(instruction, undefined, 'heygen');
-      
-      toast({
-        title: "✅ Request Sent Successfully",
-        description: `Video generation request sent to HeyGen using template "${template.name}". Check the Asset Library to monitor progress!`,
-      });
+        throw new Error(response.data.error || 'Failed to start video generation');
       }
     } catch (error) {
       console.error('Error creating video:', error);
@@ -213,19 +186,28 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
     setGenerationStatus('processing');
     setGenerationProgress(0);
     
-    // Simulate realistic progress since HeyGen doesn't provide progress percentage
-    let simulatedProgress = 10;
+    // 5-minute progress simulation (300 seconds)
+    const totalDuration = 300; // 5 minutes in seconds
+    const targetProgress = 92; // Target 92% before completion
+    let elapsedTime = 0;
+    
     const progressInterval = setInterval(() => {
-      if (simulatedProgress < 90) {
-        simulatedProgress += Math.random() * 15 + 5; // 5-20% increments
-        setGenerationProgress(Math.min(90, simulatedProgress));
+      elapsedTime += 3; // Update every 3 seconds
+      const progressPercentage = Math.min(targetProgress, (elapsedTime / totalDuration) * targetProgress);
+      setGenerationProgress(progressPercentage);
+      
+      // Stop simulation at 5 minutes or when we reach target
+      if (elapsedTime >= totalDuration || progressPercentage >= targetProgress) {
+        clearInterval(progressInterval);
+        // Keep progress at 92% until we get completion status
+        setGenerationProgress(targetProgress);
       }
     }, 3000); // Update every 3 seconds
     
     const checkStatus = async () => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/status/${videoId}`);
-        const data = await response.json();
+        const statusResponse = await templatesAPI.getGenerationStatus(videoId);
+        const data = statusResponse.data;
         
         if (data.success) {
           const { status, videoUrl, errorMessage } = data.data;
@@ -233,7 +215,7 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
           if (status === 'completed') {
             clearInterval(progressInterval);
             setGenerationStatus('completed');
-            setGenerationProgress(100);
+            setGenerationProgress(100); // Jump to 100% on completion
             toast({
               title: "🎉 Video Generation Complete!",
               description: "Your video has been generated successfully. Check the Asset Library to view it.",
@@ -251,18 +233,18 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
             return; // Stop monitoring
           } else if (status === 'processing') {
             // Continue monitoring with simulated progress
-            setTimeout(checkStatus, 10000); // Check every 10 seconds
+            setTimeout(checkStatus, 30000); // Check every 30 seconds instead of 10
           }
         }
       } catch (error) {
         console.error('Error checking video status:', error);
-        clearInterval(progressInterval);
+        clearInterval(progressInterval); // Clear interval on error
         setGenerationStatus('failed');
       }
     };
     
-    // Start monitoring
-    setTimeout(checkStatus, 5000); // Start checking after 5 seconds
+    // Start checking status after 10 seconds
+    setTimeout(checkStatus, 10000);
   };
 
   const canCreateVideo = templateVariables.length === 0 || templateVariables.every(variable => 

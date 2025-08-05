@@ -94,7 +94,7 @@ export function ProductVideoLibrary({ productId, productName }: ProductVideoLibr
     fetchProductVideos();
   }, [productId, productName]);
 
-  // Animate progress for processing videos
+  // Progress simulation for processing videos
   useEffect(() => {
     const processingVideos = videos.filter(video => 
       video.asset_url === 'processing' || !video.asset_url
@@ -102,20 +102,6 @@ export function ProductVideoLibrary({ productId, productName }: ProductVideoLibr
 
     if (processingVideos.length === 0) return;
 
-    // Initialize progress states for processing videos
-    const initialProgress: Record<string, number> = {};
-    processingVideos.forEach(video => {
-      if (!(video.id in progressStates)) {
-        // Start with random progress between 10-30% to simulate real progress
-        initialProgress[video.id] = Math.floor(Math.random() * 20) + 10;
-      }
-    });
-
-    if (Object.keys(initialProgress).length > 0) {
-      setProgressStates(prev => ({ ...prev, ...initialProgress }));
-    }
-
-    // Animate progress
     const interval = setInterval(() => {
       setProgressStates(prev => {
         const newStates = { ...prev };
@@ -123,20 +109,25 @@ export function ProductVideoLibrary({ productId, productName }: ProductVideoLibr
 
         processingVideos.forEach(video => {
           const currentProgress = newStates[video.id] || 0;
+          const startTime = newStates[`${video.id}_startTime`] || Date.now();
+          const elapsedTime = (Date.now() - startTime) / 1000; // seconds
+          const totalDuration = 300; // 5 minutes in seconds
+          const targetProgress = 92; // Target 92% before completion
           
-          // Simulate realistic progress: faster at start, slower near end
-          let increment;
-          if (currentProgress < 30) {
-            increment = Math.random() * 8 + 2; // 2-10% increments early on
-          } else if (currentProgress < 70) {
-            increment = Math.random() * 4 + 1; // 1-5% increments in middle
-          } else if (currentProgress < 90) {
-            increment = Math.random() * 2 + 0.5; // 0.5-2.5% increments near end
+          // Calculate progress based on elapsed time
+          let newProgress;
+          if (elapsedTime >= totalDuration) {
+            // After 5 minutes, stay at 92% until completion
+            newProgress = targetProgress;
           } else {
-            increment = Math.random() * 0.5; // Very slow near completion
+            // Linear progress from 0 to 92% over 5 minutes
+            newProgress = Math.min(targetProgress, (elapsedTime / totalDuration) * targetProgress);
           }
-
-          const newProgress = Math.min(95, currentProgress + increment); // Cap at 95% to avoid showing 100% without completion
+          
+          // Set start time if not already set
+          if (!newStates[`${video.id}_startTime`]) {
+            newStates[`${video.id}_startTime`] = startTime;
+          }
           
           if (newProgress !== currentProgress) {
             newStates[video.id] = newProgress;
@@ -146,7 +137,7 @@ export function ProductVideoLibrary({ productId, productName }: ProductVideoLibr
 
         return hasUpdates ? newStates : prev;
       });
-    }, 1500 + Math.random() * 1000); // Random interval between 1.5-2.5 seconds
+    }, 3000); // Update every 3 seconds
 
     return () => clearInterval(interval);
   }, [videos, progressStates]);
@@ -250,7 +241,10 @@ export function ProductVideoLibrary({ productId, productName }: ProductVideoLibr
                             className="h-2 bg-blue-100"
                           />
                           <p className="text-xs text-gray-500">
-                            Estimated time remaining: {Math.max(1, Math.round((100 - currentProgress) / 20))} minutes
+                            {currentProgress >= 92 
+                              ? "Almost complete - finalizing video..."
+                              : `Estimated time remaining: ${Math.max(1, Math.round((300 - (currentProgress / 92 * 300)) / 60))} minutes`
+                            }
                           </p>
                         </div>
                       )}

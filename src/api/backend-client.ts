@@ -75,34 +75,31 @@ export const inventoryAPI = {
 
 // Assets API
 export const assetsAPI = {
-  // Get all assets
-  getAll: (params?: {
-    page?: number;
-    limit?: number;
-    assetType?: string;
-    sourceSystem?: string;
-    favorited?: boolean;
-    search?: string;
-    tags?: string;
-  }) => apiClient.get('/assets', { params }),
-
-  // Get single asset
-  getById: (id: string) => apiClient.get(`/assets/${id}`),
+  // Get all assets for the current user
+  getAssets: (params?: any) => apiClient.get('/assets', { params }),
 
   // Create new asset
-  create: (data: any) => apiClient.post('/assets', data),
+  createAsset: (data: {
+    title: string;
+    description?: string;
+    instruction: string;
+    asset_type: 'image' | 'video' | 'content';
+    channel: string;
+    format: string;
+    source_system: string;
+    url: string;
+    tags?: string[];
+  }) => apiClient.post('/assets', data),
 
   // Update asset
-  update: (id: string, data: any) => apiClient.put(`/assets/${id}`, data),
+  updateAsset: (assetId: string, data: { url?: string; status?: string }) =>
+    apiClient.put(`/assets/${assetId}`, data),
 
   // Delete asset
-  delete: (id: string) => apiClient.delete(`/assets/${id}`),
+  deleteAsset: (assetId: string) => apiClient.delete(`/assets/${assetId}`),
 
-  // Toggle favorite status
-  toggleFavorite: (id: string) => apiClient.patch(`/assets/${id}/favorite`),
-
-  // Get asset statistics
-  getStats: () => apiClient.get('/assets/stats/overview'),
+  // Toggle favorite
+  toggleFavorite: (assetId: string) => apiClient.patch(`/assets/${assetId}/favorite`),
 };
 
 // AI Generation API
@@ -221,6 +218,31 @@ export const templatesAPI = {
 
   // Clean up expired templates (admin only)
   cleanupExpiredTemplates: () => apiClient.post('/templates/admin/cleanup-expired'),
+
+  // Generate video from template
+  generateTemplate: (data: {
+    templateId: string;
+    variables: Record<string, string>;
+    instruction?: string;
+  }) => apiClient.post('/ai/heygen/generate', data),
+
+  // Get video generation status
+  getGenerationStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
+
+  // HeyGen specific methods
+  heygen: {
+    // Get HeyGen templates list
+    getTemplates: () => apiClient.get('/templates/heygen/list'),
+    
+    // Get HeyGen template variables
+    getTemplateVariables: (templateId: string) => apiClient.get(`/templates/heygen/variables/${templateId}`),
+    
+    // Get video status
+    getStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
+    
+    // Recover pending videos
+    recoverPending: () => apiClient.post('/ai/heygen/recover-pending'),
+  },
 };
 
 // Admin API

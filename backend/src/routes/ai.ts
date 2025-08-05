@@ -17,7 +17,7 @@ const generateContentSchema = z.object({
 const heygenGenerateSchema = z.object({
   templateId: z.string(),
   productId: z.string().optional(),
-  instruction: z.string(),
+  instruction: z.string().optional(),
   variables: z.record(z.string()).optional(), // Template variables like {{name}}, {{company}}, etc.
   formatSpecs: z.object({
     channel: z.string().optional(),
@@ -110,8 +110,15 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
 router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsage('heygen', 'templateId'), async (req, res, next) => {
   try {
     const { templateId, instruction, variables, formatSpecs } = heygenGenerateSchema.parse(req.body);
-    const userId = (req as any).user.id;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
     
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in request'
+      });
+    }
+
     const heygenApiKey = process.env.HEYGEN_API_KEY;
     if (!heygenApiKey) {
       return res.status(500).json({
@@ -124,7 +131,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
     const templateAccess = await prisma.userTemplateAccess.findUnique({
       where: {
         userId_sourceSystem_externalId: {
-          userId,
+          userId: userId,
           sourceSystem: 'heygen',
           externalId: templateId
         }
@@ -149,13 +156,30 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
       // Convert simple string variables to HeyGen's expected format
       const formattedVariables: Record<string, any> = {};
       Object.entries(variables).forEach(([key, value]) => {
-        formattedVariables[key] = {
-          name: key,
-          type: "text",
-          properties: {
-            content: value
-          }
-        };
+        // Check if this is an image variable (contains 'image' in the name)
+        const isImageVariable = key.toLowerCase().includes('image');
+        
+        if (isImageVariable) {
+          // Format image variables according to HeyGen API v2 specification
+          formattedVariables[key] = {
+            name: key,
+            type: "image",
+            properties: {
+              url: value,
+              asset_id: null,
+              fit: "contain"
+            }
+          };
+        } else {
+          // Format text variables
+          formattedVariables[key] = {
+            name: key,
+            type: "text",
+            properties: {
+              content: value
+            }
+          };
+        }
       });
       requestBody.variables = formattedVariables;
     }
@@ -185,7 +209,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
         sourceSystem: 'heygen',
         assetType: 'video',
         url: `pending_${video_id}`, // Mark as pending
-        instruction: instruction,
+        instruction: instruction || `Generate video using template: ${templateId}`,
         templateAccessId: templateAccess?.id, // Link to template access
         variables: variables || {}
       }
@@ -461,4 +485,4 @@ router.post('/heygen/recover-pending', async (req, res, next) => {
   }
 });
 
-export default router; 
+export default router;  

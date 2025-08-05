@@ -22,6 +22,7 @@ interface UserTemplateAccess {
   lastUsedAt?: string;
   expiresAt?: string;
   variables?: TemplateVariable[];
+  externalId?: string; // HeyGen template ID
 }
 
 interface TemplateVariable {
@@ -47,6 +48,8 @@ export function UserTemplateLibrary() {
     templateId: '',
     variables: {}
   });
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStatus, setGenerationStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle');
 
   // Fetch user's assigned templates
   const fetchUserTemplates = async () => {
@@ -97,6 +100,9 @@ export function UserTemplateLibrary() {
     if (!selectedTemplate) return;
 
     setLoading(true);
+    setGenerationStatus('processing');
+    setGenerationProgress(0);
+    
     try {
       // Validate required variables
       const missingRequired = selectedTemplate.variables
@@ -111,36 +117,91 @@ export function UserTemplateLibrary() {
           description: `Please fill in: ${missingRequired.join(', ')}`,
           variant: "destructive",
         });
+        setGenerationStatus('idle');
         return;
       }
 
       // Call the generation API
-      const response = await fetch('/api/ai/heygen/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-        },
-        body: JSON.stringify({
-          templateId: selectedTemplate.id,
-          variables: generationForm.variables
-        })
+      const response = await templatesAPI.generateTemplate({
+        templateId: selectedTemplate.externalId || selectedTemplate.id,
+        variables: generationForm.variables,
+        instruction: `Generate video using template: ${selectedTemplate.templateName}`
       });
 
-      if (response.ok) {
+      if (response.data.success) {
+        const videoId = response.data.data.videoId;
+        
+        // Start 5-minute progress monitoring
+        const totalDuration = 300; // 5 minutes in seconds
+        const targetProgress = 92; // Target 92% before completion
+        let elapsedTime = 0;
+        
+        const progressInterval = setInterval(() => {
+          elapsedTime += 3; // Update every 3 seconds
+          const progressPercentage = Math.min(targetProgress, (elapsedTime / totalDuration) * targetProgress);
+          setGenerationProgress(progressPercentage);
+          
+          // Stop simulation at 5 minutes or when we reach target
+          if (elapsedTime >= totalDuration || progressPercentage >= targetProgress) {
+            clearInterval(progressInterval);
+            setGenerationProgress(targetProgress);
+          }
+        }, 3000);
+        
+        // Check actual status every 30 seconds
+        const checkStatus = async () => {
+          try {
+            const statusResponse = await templatesAPI.getGenerationStatus(videoId);
+            const statusData = statusResponse.data;
+            const { status, videoUrl, errorMessage } = statusData.data;
+            
+            if (status === 'completed') {
+              clearInterval(progressInterval);
+              setGenerationStatus('completed');
+              setGenerationProgress(100);
+              toast({
+                title: "🎉 Video Generation Complete!",
+                description: "Your video has been generated successfully. Check the Asset Library to view it.",
+              });
+              setShowGenerationDialog(false);
+              setGenerationForm({ templateId: '', variables: {} });
+              return;
+            } else if (status === 'failed') {
+              clearInterval(progressInterval);
+              setGenerationStatus('failed');
+              setGenerationProgress(0);
+              toast({
+                title: "❌ Video Generation Failed",
+                description: errorMessage || "Video generation failed. Please try again.",
+                variant: "destructive",
+              });
+              return;
+            } else if (status === 'processing') {
+              // Continue monitoring
+              setTimeout(checkStatus, 30000); // Check every 30 seconds instead of 10
+            }
+          } catch (error) {
+            console.error('Error checking video status:', error);
+            // Don't clear interval on error, just continue monitoring
+            setTimeout(checkStatus, 30000); // Check every 30 seconds instead of 10
+          }
+        };
+        
+        // Start checking status after 10 seconds
+        setTimeout(checkStatus, 10000);
+        
         toast({
           title: "Success",
           description: "Template generation started successfully",
         });
-        setShowGenerationDialog(false);
-        setGenerationForm({ templateId: '', variables: {} });
       } else {
-        const error = await response.json();
+        const error = response.data;
         toast({
           title: "Error",
           description: error.error || "Failed to generate template",
           variant: "destructive",
         });
+        setGenerationStatus('failed');
       }
     } catch (error) {
       toast({
@@ -148,6 +209,7 @@ export function UserTemplateLibrary() {
         description: "Failed to generate template",
         variant: "destructive",
       });
+      setGenerationStatus('failed');
     } finally {
       setLoading(false);
     }
@@ -548,14 +610,69 @@ export function UserTemplateLibrary() {
               </div>
 
               {/* Generation Status */}
-              {loading && (
+              {generationStatus === 'processing' && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                      <div>
+                        <p className="font-medium text-blue-900">Generating your video...</p>
+                        <p className="text-sm text-blue-700">
+                          {generationProgress >= 92 
+                            ? "Almost complete - finalizing video..."
+                            : `Estimated time remaining: ${Math.max(1, Math.round((300 - (generationProgress / 92 * 300)) / 60))} minutes`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-blue-900">Progress</span>
+                        <span className="text-sm font-bold text-blue-600">{Math.round(generationProgress)}%</span>
+                      </div>
+                      <div className="w-full bg-blue-200 rounded-full h-3">
+                        <div 
+                          className="bg-gradient-to-r from-blue-600 to-indigo-600 h-3 rounded-full transition-all duration-300"
+                          style={{ width: `${generationProgress}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {generationStatus === 'completed' && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-center gap-3">
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                    <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
                     <div>
-                      <p className="font-medium text-blue-900">Generating your video...</p>
-                      <p className="text-sm text-blue-700">
-                        This may take a few minutes. You'll be notified when it's ready.
+                      <p className="font-medium text-green-900">Video generation complete!</p>
+                      <p className="text-sm text-green-700">
+                        Your video has been generated successfully. Check the Asset Library to view it.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {generationStatus === 'failed' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-medium text-red-900">Video generation failed</p>
+                      <p className="text-sm text-red-700">
+                        There was an error generating your video. Please try again.
                       </p>
                     </div>
                   </div>
