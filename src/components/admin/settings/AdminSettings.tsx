@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/UI_Elements/switch';
 import { Badge } from '@/components/ui/data_display/badge';
 import { Settings, Shield, Bell, Database, Globe, Save, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
-import { settingsAPI, SystemSetting } from '@/api/settings-client';
+import { settingsAPI, SystemSetting } from '@/api/clients/settings-client';
 
 interface SettingsFormData {
   [key: string]: string | boolean;

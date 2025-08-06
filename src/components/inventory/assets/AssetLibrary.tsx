@@ -10,7 +10,7 @@ import { useAssetLibrary, AssetLibraryItem } from '@/hooks/data/useAssetLibrary'
 import { useToast } from '@/hooks/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SocialMediaUpload } from '../../user/social/SocialMediaUpload';
-import { templatesAPI, assetsAPI } from '@/api/backend-client';
+import { templatesAPI, assetsAPI } from '@/api/clients/backend-client';
 
 // Extend the AssetLibraryItem interface to include gif_url
 interface ExtendedAssetLibraryItem extends AssetLibraryItem {

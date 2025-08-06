@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../index';
 import { z } from 'zod';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const createInventorySchema = z.object({
 const updateInventorySchema = createInventorySchema.partial();
 
 // Get all inventory items
-router.get('/', async (req, res, next) => {
+router.get('/', authenticateToken, async (req, res, next) => {
   try {
     const { page = '1', limit = '10', search, category, status, all } = req.query;
     
@@ -86,7 +87,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // Get unique categories from active products only
-router.get('/categories', async (req, res, next) => {
+router.get('/categories', authenticateToken, async (req, res, next) => {
   try {
     const categories = await prisma.inventory.findMany({
       where: {
@@ -99,7 +100,8 @@ router.get('/categories', async (req, res, next) => {
 
     const uniqueCategories = categories
       .map(item => item.category)
-      .filter(Boolean);
+      .filter(Boolean)
+      .filter((category, index, arr) => arr.indexOf(category) === index);
 
     return res.json({
       success: true,
@@ -111,7 +113,7 @@ router.get('/categories', async (req, res, next) => {
 });
 
 // Get single inventory item
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
     
@@ -136,7 +138,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create new inventory item
-router.post('/', async (req, res, next) => {
+router.post('/', authenticateToken, async (req, res, next) => {
   try {
     const validatedData = createInventorySchema.parse(req.body);
     
@@ -157,12 +159,12 @@ router.post('/', async (req, res, next) => {
         details: error.errors
       });
     }
-   return next(error);
+    return next(error);
   }
 });
 
 // Update inventory item
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
     const validatedData = updateInventorySchema.parse(req.body);
@@ -190,7 +192,7 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // Delete inventory item
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
     
@@ -207,8 +209,8 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
-// Bulk operations
-router.post('/bulk', async (req, res, next) => {
+// Bulk create inventory items
+router.post('/bulk', authenticateToken, async (req, res, next) => {
   try {
     const { items } = req.body;
     
@@ -219,7 +221,7 @@ router.post('/bulk', async (req, res, next) => {
       });
     }
 
-    const validatedItems = items.map(item => createInventorySchema.parse(item));
+    const validatedItems = items.map((item: any) => createInventorySchema.parse(item));
     
     const createdItems = await prisma.inventory.createMany({
       data: validatedItems
@@ -227,7 +229,9 @@ router.post('/bulk', async (req, res, next) => {
 
     return res.status(201).json({
       success: true,
-      data: { count: createdItems.count },
+      data: {
+        count: createdItems.count
+      },
       message: `${createdItems.count} inventory items created successfully`
     });
   } catch (error) {

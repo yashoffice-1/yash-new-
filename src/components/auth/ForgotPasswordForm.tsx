@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, Mail, Loader2, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/ui/use-toast';
-import { authAPI } from '@/api/auth-client';
+import { authAPI } from '@/api/clients/auth-client';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address'),

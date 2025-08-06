@@ -9,7 +9,7 @@ import { UserManagement } from '../management/UserManagement';
 import { SystemStats } from './SystemStats';
 import { AdminSettings } from '../settings/AdminSettings';
 import { TemplateManager } from '../management/TemplateManager';
-import { adminAPI } from '@/api/backend-client';
+import { adminAPI } from '@/api/clients/backend-client';
 
 interface SystemStatsData {
   totalUsers: number;

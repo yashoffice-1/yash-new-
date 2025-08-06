@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/data_display/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data_display/table";
 import { useToast } from "@/hooks/ui/use-toast";
 import { Lock, FileText } from "lucide-react";
-import { templateManager, type TemplateDetail, type TemplateVariable } from "@/api/template-manager";
+import { templateManager, type TemplateDetail, type TemplateVariable } from "@/api/services/template-manager";
 
 interface AssignedTemplate {
   id: string;

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/emailService';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
@@ -44,28 +45,7 @@ const generateVerificationToken = (): string => {
   return crypto.randomBytes(32).toString('hex');
 };
 
-// Middleware to verify JWT token
-const authenticateToken = async (req: any, res: any, next: any) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        error: 'No token provided'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      error: 'Invalid token'
-    });
-  }
-};
+// Note: Using imported authenticateToken middleware from ../middleware/auth
 
 // Sign up endpoint with email verification
 router.post('/signup', async (req, res, next) => {
