@@ -2,17 +2,17 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
 import { useToast } from "@/hooks/ui/use-toast";
 import { Clapperboard } from "lucide-react";
-import { TemplateSelector } from "./video-template/TemplateSelector";
-import { ProductVariableTable } from "./video-template/ProductVariableTable";
-import { VideoCreationControls } from "./video-template/VideoCreationControls";
-import { ProductVideoLibrary } from "./video-template/ProductVideoLibrary";
-import { templateManager, type TemplateDetail } from "@/api/template-manager";
+import { TemplateSelector } from "../selectors/TemplateSelector";
+import { ProductVariableTable } from "../tables/ProductVariableTable";
+import { VideoCreationControls } from "../controls/VideoCreationControls";
+import { ProductVideoLibrary } from "../displays/ProductVideoLibrary";
+import { templateManager, type TemplateDetail } from "@/api/services/template-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   InventoryItem, 
   ProductVariableState
-} from "./video-template/types";
-import { initializeProductVariables } from "./video-template/utils";
+} from "../utils/types";
+import { initializeProductVariables } from "../utils/utils";
 
 interface Template {
   id: string;

@@ -1,76 +1,5 @@
-import axios from 'axios';
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-
-export interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  displayName: string;
-  initials: string;
-  emailVerified: boolean;
-  status: 'pending' | 'verified';
-  role: 'user' | 'admin' | 'superadmin';
-  createdAt?: string;
-}
-
-export interface AuthResponse {
-  success: boolean;
-  message?: string;
-  error?: string;
-  data?: {
-    user: User;
-    token: string;
-  };
-}
-
-export interface SignUpData {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-}
-
-export interface SignInData {
-  email: string;
-  password: string;
-}
-
-// Create axios instance for auth
-const authClient = axios.create({
-  baseURL: `${BACKEND_URL}/api/auth`,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Request interceptor to add auth token
-authClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor to handle auth errors
-authClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-    }
-    return Promise.reject(error);
-  }
-);
+import { authClient } from '../shared/axios-config';
+import type { User, AuthResponse, SignUpData, SignInData } from '../types';
 
 export const authAPI = {
   // Sign up
@@ -166,4 +95,4 @@ export const authAPI = {
   }
 };
 
-export default authClient; 
+ 

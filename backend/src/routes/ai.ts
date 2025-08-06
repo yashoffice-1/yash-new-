@@ -248,8 +248,8 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
   }
 });
 
-// HeyGen Status Check
-router.get('/heygen/status/:videoId', async (req, res, next) => {
+// Get HeyGen video status
+router.get('/heygen/status/:videoId', authenticateToken, async (req, res, next) => {
   try {
     const { videoId } = req.params;
     
@@ -315,7 +315,7 @@ router.get('/heygen/status/:videoId', async (req, res, next) => {
 });
 
 // RunwayML Integration
-router.post('/runwayml/generate', async (req, res, next) => {
+router.post('/runwayml/generate', authenticateToken, async (req, res, next) => {
   try {
     const { prompt, options } = generateContentSchema.parse(req.body);
     
@@ -362,8 +362,8 @@ router.post('/runwayml/generate', async (req, res, next) => {
   }
 });
 
-// Bulk recovery endpoint for pending HeyGen videos
-router.post('/heygen/recover-pending', async (req, res, next) => {
+// Recover pending HeyGen videos
+router.post('/heygen/recover-pending', authenticateToken, async (req, res, next) => {
   try {
     const heygenApiKey = process.env.HEYGEN_API_KEY;
     if (!heygenApiKey) {

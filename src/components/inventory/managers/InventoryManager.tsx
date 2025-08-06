@@ -11,9 +11,9 @@ import { useToast } from "@/hooks/ui/use-toast";
 import { AddProductDialog } from "../dialogs/AddProductDialog";
 import { ImportProductsDialog } from "../dialogs/ImportProductsDialog";
 import { ProductCard } from "../display/ProductCard";
-import { inventoryAPI } from "@/api/backend-client";
+import { inventoryAPI } from "@/api/clients/backend-client";
 import { useAssetLibrary } from "@/hooks/data/useAssetLibrary";
-import { generationAPI } from "@/api/generation-client";
+import { generationAPI } from "@/api/clients/generation-client";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface InventoryItem {

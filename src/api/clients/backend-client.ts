@@ -1,46 +1,5 @@
-import axios from 'axios';
-
-// Backend API client configuration
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-
-// Create axios instance with default configuration
-const apiClient = axios.create({
-  baseURL: `${BACKEND_URL}/api`,
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Request interceptor for adding auth tokens
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor for error handling
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('auth_token');
-      // Check if we're not already on a login page to avoid infinite redirects
-      if (!window.location.pathname.includes('/auth/')) {
-        window.location.href = '/auth/signin';
-      }
-    }
-    return Promise.reject(error);
-  }
-);
+import { apiClient } from '../shared/axios-config';
+import type { Asset, InventoryItem, Template, GenerationRequest } from '../types';
 
 // Inventory API
 export const inventoryAPI = {
@@ -112,18 +71,7 @@ export const aiAPI = {
   }) => apiClient.post('/ai/openai/generate', data),
 
   // HeyGen generation
-  heygenGenerate: (data: {
-    templateId: string;
-    productId?: string;
-    instruction: string;
-    variables?: Record<string, string>;
-    formatSpecs?: {
-      channel?: string;
-      format?: string;
-      aspectRatio?: string;
-      backgroundColor?: string;
-    };
-  }) => apiClient.post('/ai/heygen/generate', data),
+  heygenGenerate: (data: GenerationRequest) => apiClient.post('/ai/heygen/generate', data),
 
   // HeyGen status check
   heygenStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
@@ -220,11 +168,7 @@ export const templatesAPI = {
   cleanupExpiredTemplates: () => apiClient.post('/templates/admin/cleanup-expired'),
 
   // Generate video from template
-  generateTemplate: (data: {
-    templateId: string;
-    variables: Record<string, string>;
-    instruction?: string;
-  }) => apiClient.post('/ai/heygen/generate', data),
+  generateTemplate: (data: GenerationRequest) => apiClient.post('/ai/heygen/generate', data),
 
   // Get video generation status
   getGenerationStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),

@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { assetsAPI } from '@/api/backend-client';
+import { assetsAPI } from '@/api/clients/backend-client';
 import { useToast } from '@/hooks/ui/use-toast';
 import { downloadAndStoreAsset } from '@/utils/assetStorage';
 

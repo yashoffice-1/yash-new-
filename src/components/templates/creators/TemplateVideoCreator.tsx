@@ -3,8 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/forms/button";
 import { useToast } from "@/hooks/ui/use-toast";
 import { ArrowLeft, Video } from "lucide-react";
-import { templateManager } from "@/api/template-manager";
-import { templatesAPI } from "@/api/backend-client";
+import { templateManager } from "@/api/services/template-manager";
+import { templatesAPI } from "@/api/clients/backend-client";
 
 interface VideoTemplate {
   id: string;

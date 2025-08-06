@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/forms/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms/select';
 import { Loader2, Search, Users, Eye, Download, Plus, Settings, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
-import { templatesAPI, adminAPI } from '@/api/backend-client';
+import { templatesAPI, adminAPI } from '@/api/clients/backend-client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Switch } from '@/components/ui/UI_Elements/switch';
 

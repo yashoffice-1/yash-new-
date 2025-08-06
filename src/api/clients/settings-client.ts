@@ -1,37 +1,11 @@
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-
-export interface SystemSetting {
-  id: string;
-  key: string;
-  value: string;
-  description?: string;
-  category: 'general' | 'security' | 'upload' | 'email' | 'system';
-  isPublic: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UpdateSettingData {
-  value: string;
-  description?: string;
-  category?: 'general' | 'security' | 'upload' | 'email' | 'system';
-  isPublic?: boolean;
-}
+import { apiClient, getAuthHeaders } from '../shared/axios-config';
+import type { SystemSetting, UpdateSettingData } from '../types';
 
 class SettingsAPI {
-  private getAuthHeaders() {
-    const token = localStorage.getItem('auth_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }
-
   // Get all settings (admin only)
   async getAllSettings(): Promise<SystemSetting[]> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/settings`, {
-        headers: this.getAuthHeaders(),
-      });
+      const response = await apiClient.get('/settings');
       return response.data.data;
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -42,9 +16,7 @@ class SettingsAPI {
   // Get public settings (any authenticated user)
   async getPublicSettings(): Promise<SystemSetting[]> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/settings/public`, {
-        headers: this.getAuthHeaders(),
-      });
+      const response = await apiClient.get('/settings/public');
       return response.data.data;
     } catch (error) {
       console.error('Error fetching public settings:', error);
@@ -59,9 +31,7 @@ class SettingsAPI {
     videoGenerationLimit: number;
   }> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/settings/upload-limits`, {
-        headers: this.getAuthHeaders(),
-      });
+      const response = await apiClient.get('/settings/upload-limits');
       return response.data.data;
     } catch (error) {
       console.error('Error fetching upload limits:', error);
@@ -76,9 +46,7 @@ class SettingsAPI {
     windowMinutes: number;
   }> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/settings/rate-limits`, {
-        headers: this.getAuthHeaders(),
-      });
+      const response = await apiClient.get('/settings/rate-limits');
       return response.data.data;
     } catch (error) {
       console.error('Error fetching rate limits:', error);
@@ -89,9 +57,7 @@ class SettingsAPI {
   // Get a specific setting by key
   async getSetting(key: string): Promise<SystemSetting> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/settings/${key}`, {
-        headers: this.getAuthHeaders(),
-      });
+      const response = await apiClient.get(`/settings/${key}`);
       return response.data.data;
     } catch (error) {
       console.error('Error fetching setting:', error);
@@ -102,9 +68,7 @@ class SettingsAPI {
   // Update a setting (admin only)
   async updateSetting(key: string, data: UpdateSettingData): Promise<SystemSetting> {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/settings/${key}`, data, {
-        headers: this.getAuthHeaders(),
-      });
+      const response = await apiClient.put(`/settings/${key}`, data);
       return response.data.data;
     } catch (error) {
       console.error('Error updating setting:', error);
@@ -119,9 +83,7 @@ class SettingsAPI {
    */
   async getDefaultCharLimit(): Promise<{ defaultCharLimit: number }> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/settings/default-char-limit`, {
-        headers: this.getAuthHeaders(),
-      });
+      const response = await apiClient.get('/settings/default-char-limit');
       return response.data.data;
     } catch (error) {
       console.error('Error fetching default character limit:', error);
@@ -132,10 +94,7 @@ class SettingsAPI {
   // Update default character limit (admin only)
   async updateDefaultCharLimit(defaultCharLimit: number): Promise<{ defaultCharLimit: number; message: string }> {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/settings/default-char-limit`, 
-        { defaultCharLimit }, 
-        { headers: this.getAuthHeaders() }
-      );
+      const response = await apiClient.put('/settings/default-char-limit', { defaultCharLimit });
       return response.data.data;
     } catch (error) {
       console.error('Error updating default character limit:', error);

@@ -23,9 +23,42 @@ const createAssetSchema = z.object({
 
 const updateAssetSchema = createAssetSchema.partial();
 
+// Helper function to transform asset data for frontend
+const transformAssetForFrontend = (asset: any) => ({
+  id: asset.id,
+  title: asset.title,
+  description: asset.description,
+  tags: asset.tags,
+  asset_type: asset.assetType,
+  asset_url: asset.url,
+  content: asset.instruction,
+  instruction: asset.instruction,
+  source_system: asset.sourceSystem,
+  favorited: asset.favorited,
+  created_at: asset.createdAt.toISOString(),
+  updated_at: asset.updatedAt.toISOString(),
+  profile: asset.profile,
+  templateAccess: asset.templateAccess
+});
+
+// Helper function to get common include options
+const getAssetIncludeOptions = () => ({
+  profile: {
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true
+    }
+  },
+  templateAccess: true
+});
+
 // Get all assets with pagination and filtering
-router.get('/', async (req, res, next) => {
+router.get('/', authenticateToken, async (req, res, next) => {
   try {
+    const userId = (req as any).user.userId;
+    
     const { 
       page = '1', 
       limit = '10', 
@@ -40,7 +73,9 @@ router.get('/', async (req, res, next) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const where: any = {
+      profileId: userId // Filter by current user only
+    };
     
     if (assetType) {
       where.assetType = assetType;
@@ -73,38 +108,12 @@ router.get('/', async (req, res, next) => {
         skip,
         take: limitNum,
         orderBy: { createdAt: 'desc' },
-        include: {
-          profile: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true
-            }
-          },
-          templateAccess: true
-        }
+        include: getAssetIncludeOptions()
       }),
       prisma.generatedAsset.count({ where })
     ]);
 
-    // Transform the data to match frontend expectations
-    const transformedAssets = assets.map(asset => ({
-      id: asset.id,
-      title: asset.title,
-      description: asset.description,
-      tags: asset.tags,
-      asset_type: asset.assetType,
-      asset_url: asset.url,
-      content: asset.instruction,
-      instruction: asset.instruction,
-      source_system: asset.sourceSystem,
-      favorited: asset.favorited,
-      created_at: asset.createdAt.toISOString(),
-      updated_at: asset.updatedAt.toISOString(),
-      profile: asset.profile,
-      templateAccess: asset.templateAccess
-    }));
+    const transformedAssets = assets.map(transformAssetForFrontend);
 
     return res.json({
       success: true,
@@ -122,49 +131,27 @@ router.get('/', async (req, res, next) => {
 });
 
 // Get single asset
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
+    const userId = (req as any).user.userId;
     
-    const asset = await prisma.generatedAsset.findUnique({
-      where: { id },
-      include: {
-        profile: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true
-          }
-        },
-        templateAccess: true
-      }
+    const asset = await prisma.generatedAsset.findFirst({
+      where: {
+        id,
+        profileId: userId // Ensure user can only access their own assets
+      },
+      include: getAssetIncludeOptions()
     });
 
     if (!asset) {
       return res.status(404).json({
         success: false,
-        error: 'Asset not found'
+        error: 'Asset not found or access denied'
       });
     }
 
-    // Transform the data to match frontend expectations
-    const transformedAsset = {
-      id: asset.id,
-      title: asset.title,
-      description: asset.description,
-      tags: asset.tags,
-      asset_type: asset.assetType,
-      asset_url: asset.url,
-      content: asset.instruction,
-      instruction: asset.instruction,
-      source_system: asset.sourceSystem,
-      favorited: asset.favorited,
-      created_at: asset.createdAt.toISOString(),
-      updated_at: asset.updatedAt.toISOString(),
-      profile: asset.profile,
-      templateAccess: asset.templateAccess
-    };
+    const transformedAsset = transformAssetForFrontend(asset);
 
     return res.json({
       success: true,
@@ -176,16 +163,18 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // Create new asset
-router.post('/', async (req, res, next) => {
+router.post('/', authenticateToken, async (req, res, next) => {
   try {
     const validatedData = createAssetSchema.parse(req.body);
+    const userId = (req as any).user.userId;
     
     // Filter out undefined optional fields and provide defaults for required fields
     const { channel, format, inventoryId, description, tags, ...requiredData } = validatedData;
     const createData = {
       ...requiredData,
-      channel: channel || 'social_media', // Default channel
-      format: format || 'mp4', // Default format
+      profileId: userId, // Ensure asset belongs to current user
+      channel: channel || 'social_media',
+      format: format || 'mp4',
       ...(inventoryId && { inventoryId }),
       ...(description && { description }),
       ...(tags && { tags })
@@ -193,17 +182,7 @@ router.post('/', async (req, res, next) => {
     
     const asset = await prisma.generatedAsset.create({
       data: createData,
-      include: {
-        profile: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true
-          }
-        },
-        templateAccess: true
-      }
+      include: getAssetIncludeOptions()
     });
 
     return res.status(201).json({
@@ -223,7 +202,7 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-// PUT /api/assets/:id - Update asset
+// Update asset
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -269,9 +248,25 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete asset
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
+    const userId = (req as any).user.userId;
+
+    // Verify the asset belongs to the user
+    const existingAsset = await prisma.generatedAsset.findFirst({
+      where: {
+        id,
+        profileId: userId
+      }
+    });
+
+    if (!existingAsset) {
+      return res.status(404).json({
+        success: false,
+        error: 'Asset not found or access denied'
+      });
+    }
     
     await prisma.generatedAsset.delete({
       where: { id }
@@ -287,35 +282,29 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 // Toggle favorite status
-router.patch('/:id/favorite', async (req, res, next) => {
+router.patch('/:id/favorite', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
+    const userId = (req as any).user.userId;
     
-    const currentAsset = await prisma.generatedAsset.findUnique({
-      where: { id }
+    const currentAsset = await prisma.generatedAsset.findFirst({
+      where: {
+        id,
+        profileId: userId
+      }
     });
 
     if (!currentAsset) {
       return res.status(404).json({
         success: false,
-        error: 'Asset not found'
+        error: 'Asset not found or access denied'
       });
     }
 
     const asset = await prisma.generatedAsset.update({
       where: { id },
       data: { favorited: !currentAsset.favorited },
-      include: {
-        profile: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true
-          }
-        },
-        templateAccess: true
-      }
+      include: getAssetIncludeOptions()
     });
 
     return res.json({
@@ -328,23 +317,27 @@ router.patch('/:id/favorite', async (req, res, next) => {
   }
 });
 
-// Get asset statistics
-router.get('/stats/overview', async (req, res, next) => {
+// Get asset statistics (user-specific)
+router.get('/stats/overview', authenticateToken, async (req, res, next) => {
   try {
+    const userId = (req as any).user.userId;
+    
     const [
       totalAssets,
       favoritedAssets,
       assetsByType,
       assetsBySource
     ] = await Promise.all([
-      prisma.generatedAsset.count(),
-      prisma.generatedAsset.count({ where: { favorited: true } }),
+      prisma.generatedAsset.count({ where: { profileId: userId } }),
+      prisma.generatedAsset.count({ where: { profileId: userId, favorited: true } }),
       prisma.generatedAsset.groupBy({
         by: ['assetType'],
+        where: { profileId: userId },
         _count: { assetType: true }
       }),
       prisma.generatedAsset.groupBy({
         by: ['sourceSystem'],
+        where: { profileId: userId },
         _count: { sourceSystem: true }
       })
     ]);

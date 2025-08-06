@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/forms/label';
 import { Textarea } from '@/components/ui/forms/textarea';
 import { Loader2, Play, Eye, Calendar, Clock, Users } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
-import { templatesAPI } from '@/api/backend-client';
+import { templatesAPI } from '@/api/clients/backend-client';
 
 interface UserTemplateAccess {
   id: string;
