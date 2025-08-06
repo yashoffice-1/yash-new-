@@ -1,10 +1,10 @@
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/layout/card';
+import { Button } from '@/components/ui/forms/button';
+import { Input } from '@/components/ui/forms/input';
+import { Badge } from '@/components/ui/data_display/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/data_display/tabs';
 import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw, Share2, Upload } from 'lucide-react';
 import { useAssetLibrary, AssetLibraryItem } from '@/hooks/data/useAssetLibrary';
 import { useToast } from '@/hooks/ui/use-toast';

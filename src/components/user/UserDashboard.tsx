@@ -1,15 +1,15 @@
 
 import { useState, useEffect } from "react";
-import { FakeProduct } from "../FakeProduct";
-import { InstructionModule } from "../InstructionModule";
-import { GeneratorButtons } from "../GeneratorButtons";
+import { FakeProduct } from "../common/utils/FakeProduct";
+import { InstructionModule } from "../common/utils/InstructionModule";
+import { GeneratorButtons } from "../common/utils/GeneratorButtons";
 import { AssetDisplay } from "../inventory/display/AssetDisplay";
 import { SocialMediaAutoPost } from "./social/SocialMediaAutoPost";
 import { useImageGeneration } from "@/hooks/generation/useImageGeneration";
 import { useVideoGeneration } from "@/hooks/generation/useVideoGeneration";
 import { useContentGeneration } from "@/hooks/generation/useContentGeneration";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
+import { Badge } from "@/components/ui/data_display/badge";
 import { Package, DollarSign } from "lucide-react";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';

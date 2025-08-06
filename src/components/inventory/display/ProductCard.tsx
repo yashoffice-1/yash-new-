@@ -1,9 +1,9 @@
 
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/layout/card";
+import { Button } from "@/components/ui/forms/button";
+import { Badge } from "@/components/ui/data_display/badge";
+import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Edit, Trash2, Play, CheckCircle, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
 

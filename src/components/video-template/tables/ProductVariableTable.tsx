@@ -1,7 +1,7 @@
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data_display/table";
+import { Input } from "@/components/ui/forms/input";
+import { Button } from "@/components/ui/forms/button";
 import { CheckCircle, Check } from "lucide-react";
 import { ProductVariableState, InventoryItem } from './utils/types';
 import { formatVariableName } from './utils/utils';

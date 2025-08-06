@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
+import { Button } from "@/components/ui/forms/button";
+import { Input } from "@/components/ui/forms/input";
+import { Checkbox } from "@/components/ui/forms/checkbox";
+import { Badge } from "@/components/ui/data_display/badge";
 import { Search, Package, Image, Video, FileText, Megaphone, CheckSquare, X, Clapperboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/ui/use-toast";

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useView } from "@/contexts/ViewContext";
 import { InventoryManager } from "../managers/InventoryManager";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
 import { Package, BarChart3 } from "lucide-react";
 import { inventoryAPI } from "@/api/backend-client";
 

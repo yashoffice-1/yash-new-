@@ -1,7 +1,7 @@
 
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/data_display/badge";
+import { Button } from "@/components/ui/forms/button";
 import { useToast } from "@/hooks/ui/use-toast";
 import { 
   Play,

@@ -1,6 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/overlays/dialog";
+import { Button } from "@/components/ui/forms/button";
+import { Badge } from "@/components/ui/data_display/badge";
 import { Play, Clock, Tag, Image, Smartphone, X } from "lucide-react";
 
 interface VideoTemplate {

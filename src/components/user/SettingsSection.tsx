@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/data_display/tabs";
 import { IntegrationsSettings } from "./settings/IntegrationsSettings";
 import { TemplatesSettings } from "./settings/TemplatesSettings";
 import { BrandSettings } from "./settings/BrandSettings";

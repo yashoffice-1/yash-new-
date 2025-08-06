@@ -1,10 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
+import { Button } from "@/components/ui/forms/button";
+import { Badge } from "@/components/ui/data_display/badge";
 import { Download, Copy, Check, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/feedback/alert";
 import { SaveAssetDialog } from "./dialogs/SaveAssetDialog";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';

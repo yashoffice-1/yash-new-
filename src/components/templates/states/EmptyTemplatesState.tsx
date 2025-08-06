@@ -1,5 +1,5 @@
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/forms/button";
 import { Video, Settings, Plus } from "lucide-react";
 
 interface EmptyTemplatesStateProps {

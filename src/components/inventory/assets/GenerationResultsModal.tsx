@@ -1,9 +1,9 @@
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/overlays/dialog";
+import { Button } from "@/components/ui/forms/button";
+import { Badge } from "@/components/ui/data_display/badge";
+import { Textarea } from "@/components/ui/forms/textarea";
 import { Package, Download, RefreshCw, Save, Edit, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
 

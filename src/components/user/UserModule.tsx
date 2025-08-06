@@ -1,9 +1,9 @@
 
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/data_display/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
 import { User, CreditCard, Settings, Library } from "lucide-react";
-import { AvatarWithInitials } from "@/components/ui/avatar-with-initials";
+import { AvatarWithInitials } from "@/components/ui/UI_Elements/avatar-with-initials";
 import { useAuth } from "@/contexts/AuthContext";
 import { PersonalInfo } from "./PersonalInfo";
 import { BillingSection } from "./BillingSection";

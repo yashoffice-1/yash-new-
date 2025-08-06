@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useOAuth } from '@/hooks/auth/useOAuth';
 import { useToast } from '@/hooks/ui/use-toast';
-import { Loading } from '@/components/ui/loading';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loading } from '@/components/ui/UI_Elements/loading';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/layout/card';
 import { Car, CheckCircle, XCircle } from 'lucide-react';
 
 export function OAuthCallback() {

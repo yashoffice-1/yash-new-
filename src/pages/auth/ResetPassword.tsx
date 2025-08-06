@@ -2,7 +2,7 @@ import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 import { AuthLayout } from '@/components/auth/AuthLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/layout/card';
 import { AlertTriangle } from 'lucide-react';
 
 const ResetPassword = () => {

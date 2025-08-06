@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/layout/card';
+import { Button } from '@/components/ui/forms/button';
+import { Badge } from '@/components/ui/data_display/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/overlays/dialog';
+import { Input } from '@/components/ui/forms/input';
+import { Label } from '@/components/ui/forms/label';
+import { Textarea } from '@/components/ui/forms/textarea';
 import { Loader2, Play, Eye, Calendar, Clock, Users } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
 import { templatesAPI } from '@/api/backend-client';

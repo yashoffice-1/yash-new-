@@ -1,7 +1,7 @@
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/forms/button";
+import { Badge } from "@/components/ui/data_display/badge";
+import { CardHeader, CardTitle, CardDescription } from "@/components/ui/layout/card";
 import { Video, Settings, Calendar, Plus } from "lucide-react";
 
 interface TemplateHeaderProps {

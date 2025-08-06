@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
 import { useToast } from "@/hooks/ui/use-toast";
 import { Clapperboard } from "lucide-react";
 import { TemplateSelector } from "./video-template/TemplateSelector";

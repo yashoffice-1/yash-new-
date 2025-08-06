@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from 'react';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/forms/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/forms/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms/select';
 
 interface FormatSpecSelectorProps {
   assetType: 'image' | 'video';

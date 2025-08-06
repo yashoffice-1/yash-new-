@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/overlays/dialog";
+import { Button } from "@/components/ui/forms/button";
+import { Textarea } from "@/components/ui/forms/textarea";
+import { Badge } from "@/components/ui/data_display/badge";
 import { Package, Sparkles, Loader2, Download, Save, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";

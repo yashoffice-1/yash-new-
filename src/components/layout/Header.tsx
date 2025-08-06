@@ -1,8 +1,8 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { AvatarWithInitials } from "@/components/ui/avatar-with-initials";
+import { Button } from "@/components/ui/forms/button";
+import { AvatarWithInitials } from "@/components/ui/UI_Elements/avatar-with-initials";
 import { LogOut } from "lucide-react";
 
 export function Header() {

@@ -1,6 +1,6 @@
 
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/forms/radio-group";
+import { Label } from "@/components/ui/forms/label";
 import { Bot, Zap } from "lucide-react";
 import { IntegrationMethod } from './utils/types';
 

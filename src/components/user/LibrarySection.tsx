@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
 import { LibraryAssetCard } from "./library/LibraryAssetCard";
 import { useAssetLibrary } from "@/hooks/data/useAssetLibrary";
 import { Loader2 } from "lucide-react";

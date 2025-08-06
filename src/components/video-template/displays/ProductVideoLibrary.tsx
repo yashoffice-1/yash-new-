@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
+import { Badge } from "@/components/ui/data_display/badge";
+import { Button } from "@/components/ui/forms/button";
+import { Progress } from "@/components/ui/data_display/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { Download, ExternalLink, Play, Clock, Sparkles } from "lucide-react";
 

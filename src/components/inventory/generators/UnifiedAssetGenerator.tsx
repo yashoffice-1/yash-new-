@@ -1,17 +1,17 @@
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/overlays/dialog';
+import { Button } from '@/components/ui/forms/button';
+import { Textarea } from '@/components/ui/forms/textarea';
+import { Label } from '@/components/ui/forms/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms/select';
+import { Badge } from '@/components/ui/data_display/badge';
+import { Switch } from '@/components/ui/UI_Elements/switch';
 import { Loader2, Package, Sparkles, Download, Save, Redo, X } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SaveAssetDialog } from '@/components/inventory/dialogs/SaveAssetDialog';
-import { FormatSpecSelector } from '@/components/FormatSpecSelector';
+import { FormatSpecSelector } from '@/components/common/utils/FormatSpecSelector';
 import { SocialMediaAutoPost } from '@/components/user/social/SocialMediaAutoPost';
 
 interface InventoryItem {

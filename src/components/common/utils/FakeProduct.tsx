@@ -1,8 +1,8 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
+import { Button } from "@/components/ui/forms/button";
+import { AspectRatio } from "@/components/ui/layout/aspect-ratio";
 
 const FAKE_PRODUCT = {
   name: "Premium Wireless Headphones",

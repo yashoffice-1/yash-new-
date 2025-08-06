@@ -1,8 +1,8 @@
 
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/layout/card";
+import { Button } from "@/components/ui/forms/button";
+import { Badge } from "@/components/ui/data_display/badge";
 import { Package, Image, Video, FileText, Layers } from "lucide-react";
 import { GenerationModal } from "./generators/GenerationModal";
 

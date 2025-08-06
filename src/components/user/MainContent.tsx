@@ -9,8 +9,8 @@ import { VideoTemplatesTab } from "../templates/VideoTemplatesTab";
 import { UserModule } from "./UserModule";
 import { SocialProfiles } from "./social/SocialProfiles";
 import { SocialAccountManager } from "./social/SocialAccountManager";
-import { Button } from "../ui/button";
-import { Loading } from "../ui/loading";
+import { Button } from "../ui/forms/button";
+import { Loading } from "../ui/UI_Elements/loading";
 import { Library, Package, Video, User, Share2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 

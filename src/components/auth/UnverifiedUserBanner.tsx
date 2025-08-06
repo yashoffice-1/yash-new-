@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/ui/use-toast';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/forms/button';
 import { AlertTriangle, Mail } from 'lucide-react';
 
 export function UnverifiedUserBanner() {

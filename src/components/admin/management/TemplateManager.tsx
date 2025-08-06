@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/layout/card';
+import { Button } from '@/components/ui/forms/button';
+import { Badge } from '@/components/ui/data_display/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/data_display/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/overlays/dialog';
+import { Input } from '@/components/ui/forms/input';
+import { Label } from '@/components/ui/forms/label';
+import { Textarea } from '@/components/ui/forms/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms/select';
 import { Loader2, Search, Users, Eye, Download, Plus, Settings, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
 import { templatesAPI, adminAPI } from '@/api/backend-client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '@/components/ui/UI_Elements/switch';
 
 interface HeyGenTemplate {
   template_id: string;
@@ -634,38 +634,140 @@ export function TemplateManager() {
                     />
                   </div>
 
-                  {/* Template Variables Section */}
-                  <div className="mt-4">
-                    <Label>Template Variables (Auto-fetched from HeyGen)</Label>
-                    <p className="text-sm text-gray-600 mb-2">
-                      Variables are automatically fetched from the HeyGen template. These will be available to users when they generate content.
-                    </p>
-                    <div className="space-y-2">
-                      {variablesLoading ? (
-                        <div className="flex items-center justify-center py-4">
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          <span className="text-sm text-gray-500">Loading variables...</span>
-                        </div>
-                      ) : assignForm.variables.length > 0 ? (
-                        assignForm.variables.map((variable, index) => (
-                          <div key={index} className="flex items-center gap-2 p-2 border rounded bg-gray-50">
-                            <div className="flex-1">
-                              <p className="text-sm font-medium">{variable.name}</p>
-                              <p className="text-xs text-gray-500">Type: {variable.type}</p>
-                              {variable.defaultValue && (
-                                <p className="text-xs text-gray-500">Default: {variable.defaultValue}</p>
-                              )}
-                            </div>
-                            <Badge variant={variable.required ? "default" : "secondary"}>
-                              {variable.required ? "Required" : "Optional"}
-                            </Badge>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500 italic">No variables found for this template</p>
-                      )}
-                    </div>
-                  </div>
+                                     {/* Template Variables Section */}
+                   <div className="mt-4">
+                     <Label>Template Variables (Auto-fetched from HeyGen)</Label>
+                     <p className="text-sm text-gray-600 mb-2">
+                       Variables are automatically fetched from the HeyGen template. These will be available to users when they generate content.
+                     </p>
+                     <div className="space-y-2">
+                       {variablesLoading ? (
+                         <div className="flex items-center justify-center py-4">
+                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                           <span className="text-sm text-gray-500">Loading variables...</span>
+                         </div>
+                       ) : assignForm.variables.length > 0 ? (
+                         assignForm.variables.map((variable, index) => (
+                           <div key={index} className="p-4 border rounded-lg bg-white hover:bg-gray-50 transition-colors shadow-sm">
+                             <div className="flex items-center gap-2 mb-2">
+                               <h4 className="text-sm font-semibold text-gray-900">{variable.name}</h4>
+                               <Badge variant={variable.required ? "default" : "secondary"} className="text-xs">
+                                 {variable.required ? "Required" : "Optional"}
+                               </Badge>
+                               <Badge variant="outline" className="text-xs text-gray-600 bg-gray-50">
+                                 {variable.type}
+                               </Badge>
+                             </div>
+                             
+                             <div className="space-y-1 mb-3">
+                               {variable.charLimit && (
+                                 <div className="flex items-center gap-2">
+                                   <Badge variant="outline" className="text-xs text-blue-600 bg-blue-50">
+                                     HeyGen: {variable.charLimit} chars
+                                   </Badge>
+                                   {variable.customCharLimit && (
+                                     <Badge variant="outline" className="text-xs text-green-600 bg-green-50">
+                                       Custom: {variable.customCharLimit} chars
+                                     </Badge>
+                                   )}
+                                 </div>
+                               )}
+                               {!variable.charLimit && variable.customCharLimit && (
+                                 <div className="flex items-center gap-2">
+                                   <Badge variant="outline" className="text-xs text-green-600 bg-green-50">
+                                     Custom: {variable.customCharLimit} chars
+                                   </Badge>
+                                 </div>
+                               )}
+                               
+                               {variable.defaultValue && (
+                                 <p className="text-xs text-gray-500">
+                                   Default: <span className="font-mono bg-gray-100 px-1 rounded text-xs">{variable.defaultValue}</span>
+                                 </p>
+                               )}
+                             </div>
+                             
+                             {/* Custom Character Limit Input for Text Variables */}
+                             {variable.type === 'text' && (
+                               <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                 <div className="flex items-center justify-between mb-2">
+                                   <Label className="text-sm font-medium text-gray-700">
+                                     Custom Character Limit (Max: {variable.charLimit || 500})
+                                   </Label>
+                                   <Badge variant="outline" className="text-xs">
+                                     {variable.customCharLimit || variable.charLimit || 'Default'} chars
+                                   </Badge>
+                                 </div>
+                                 
+                                 <div className="flex items-center gap-3">
+                                   <div className="flex-1">
+                                     <Input
+                                       type="number"
+                                       min="1"
+                                       max={variable.charLimit || 500}
+                                       placeholder={`Max ${variable.charLimit || 500} chars`}
+                                       value={variable.customCharLimit || ''}
+                                       onChange={(e) => {
+                                         const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                         const maxAllowed = variable.charLimit || 500;
+                                         
+                                         // Don't allow custom limit to exceed HeyGen limit or system default
+                                         if (value && value > maxAllowed) {
+                                           return; // Don't update if over limit
+                                         }
+                                         
+                                         const updatedVariables = [...assignForm.variables];
+                                         updatedVariables[index] = {
+                                           ...variable,
+                                           customCharLimit: value
+                                         };
+                                         setAssignForm({
+                                           ...assignForm,
+                                           variables: updatedVariables
+                                         });
+                                       }}
+                                       className="h-8 text-sm"
+                                     />
+                                   </div>
+                                   
+                                   <Button
+                                     type="button"
+                                     variant="outline"
+                                     size="sm"
+                                     onClick={() => {
+                                       const updatedVariables = [...assignForm.variables];
+                                       updatedVariables[index] = {
+                                         ...variable,
+                                         customCharLimit: undefined
+                                       };
+                                       setAssignForm({
+                                         ...assignForm,
+                                         variables: updatedVariables
+                                       });
+                                     }}
+                                     className="h-8 px-2 text-xs"
+                                   >
+                                     Reset
+                                   </Button>
+                                 </div>
+                                 
+                                 <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                                   <span>HeyGen limit: {variable.charLimit || 'Not set'}</span>
+                                   {variable.customCharLimit && (
+                                     <Badge variant="outline" className="text-xs text-green-600">
+                                       Custom: {variable.customCharLimit} chars
+                                     </Badge>
+                                   )}
+                                 </div>
+                               </div>
+                             )}
+                           </div>
+                         ))
+                       ) : (
+                         <p className="text-sm text-gray-500 italic">No variables found for this template</p>
+                       )}
+                     </div>
+                   </div>
 
                   <Button
                     onClick={handleAssignTemplate}

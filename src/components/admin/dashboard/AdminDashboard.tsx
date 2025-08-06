@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/layout/card';
+import { Button } from '@/components/ui/forms/button';
+import { Badge } from '@/components/ui/data_display/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/data_display/tabs';
 import { Users, BarChart3, Settings, Shield, Video, Image, TrendingUp, Activity, FileVideo } from 'lucide-react';
 import { UserManagement } from '../management/UserManagement';
 import { SystemStats } from './SystemStats';

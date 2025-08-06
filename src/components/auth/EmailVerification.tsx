@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/ui/use-toast';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loading } from '@/components/ui/loading';
+import { Card, CardContent } from '@/components/ui/layout/card';
+import { Button } from '@/components/ui/forms/button';
+import { Input } from '@/components/ui/forms/input';
+import { Label } from '@/components/ui/forms/label';
+import { Loading } from '@/components/ui/UI_Elements/loading';
 import { CheckCircle, XCircle, Mail, ArrowLeft, Loader2 } from 'lucide-react';
 
 export function EmailVerification() {

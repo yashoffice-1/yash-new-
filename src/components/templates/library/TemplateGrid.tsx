@@ -1,8 +1,8 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
+import { Button } from "@/components/ui/forms/button";
+import { Badge } from "@/components/ui/data_display/badge";
 import { Play, Clock, Tag, Image, Smartphone, Eye } from "lucide-react";
 import { TemplatePreviewModal } from "./TemplatePreviewModal";
 

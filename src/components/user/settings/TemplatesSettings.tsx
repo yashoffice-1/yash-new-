@@ -1,8 +1,8 @@
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
+import { Badge } from "@/components/ui/data_display/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/data_display/table";
 import { useToast } from "@/hooks/ui/use-toast";
 import { Lock, FileText } from "lucide-react";
 import { templateManager, type TemplateDetail, type TemplateVariable } from "@/api/template-manager";

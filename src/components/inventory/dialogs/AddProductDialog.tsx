@@ -1,13 +1,13 @@
 
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/overlays/dialog";
+import { Button } from "@/components/ui/forms/button";
+import { Input } from "@/components/ui/forms/input";
+import { Label } from "@/components/ui/forms/label";
+import { Textarea } from "@/components/ui/forms/textarea";
+import { Badge } from "@/components/ui/data_display/badge";
+import { Card, CardContent } from "@/components/ui/layout/card";
+import { Separator } from "@/components/ui/layout/separator";
 import { X, Plus, Upload, Image as ImageIcon, Package, DollarSign, Tag, Building2, Camera } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
 

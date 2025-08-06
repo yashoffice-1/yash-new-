@@ -1,6 +1,6 @@
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
+import { Label } from "@/components/ui/forms/label";
 import { Template } from './utils/types';
 
 interface TemplateSelectorProps {
