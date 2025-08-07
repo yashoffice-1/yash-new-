@@ -366,6 +366,12 @@ router.post('/forgot-password', async (req, res, next) => {
     // Send password reset email
     const emailSent = await sendPasswordResetEmail(email, profile.firstName, resetToken);
 
+    if (!emailSent) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send password reset email. Please try again.'
+      });
+    }
     return res.json({
       success: true,
       message: 'If an account with this email exists, a password reset link has been sent.'
@@ -410,7 +416,7 @@ router.post('/reset-password', async (req, res, next) => {
         emailVerificationExpires: null,
       }
     });
-
+  console.log(updatedProfile);
     return res.json({
       success: true,
       message: 'Password reset successfully. You can now sign in with your new password.'

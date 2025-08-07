@@ -21,7 +21,7 @@ const createAssetSchema = z.object({
   profileId: z.string()
 });
 
-const updateAssetSchema = createAssetSchema.partial();
+// const _updateAssetSchema = createAssetSchema.partial();
 
 // Helper function to transform asset data for frontend
 const transformAssetForFrontend = (asset: any) => ({
