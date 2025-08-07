@@ -53,7 +53,7 @@ export class TemplateService {
     return templates.map((template: any) => ({
       ...template,
       templateDescription: template.templateDescription || undefined,
-      thumbnailUrl: template.thumbnailUrl || undefined,
+      thumbnailUrl: template.thumbnailUrl || undefined, 
       category: template.category || undefined,
       aspectRatio: template.aspectRatio || undefined,
       lastUsedAt: template.lastUsedAt || undefined,
