@@ -3,9 +3,9 @@ import { Request, Response, NextFunction } from 'express';
 export const notFoundHandler = (
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) => {
-  const error = new Error(`Not Found - ${req.originalUrl}`);
+  // const error = new Error(`Not Found - ${req.originalUrl}`);
   res.status(404).json({
     success: false,
     error: `Route ${req.originalUrl} not found`,

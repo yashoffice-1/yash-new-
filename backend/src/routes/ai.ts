@@ -146,7 +146,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
     }
 
     // Prepare the request body according to HeyGen API v2 template generation
-    const requestBody: any = {
+    const requestBody: Record<string, any> = {
       test: false,
       aspect_ratio: formatSpecs?.aspectRatio || "16:9"
     };
@@ -235,16 +235,9 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
     
     // Log the full error for debugging
     console.error('HeyGen API Error:', error);
-    if (axios.isAxiosError(error) && error.response) {
-      console.error('HeyGen API Response:', error.response.data);
-      console.error('HeyGen API Status:', error.response.status);
-    }
+
     
-    return res.status(500).json({
-      success: false,
-      error: `HeyGen API error: ${axios.isAxiosError(error) ? error.response?.status || 'Unknown' : 'Unknown'} - ${axios.isAxiosError(error) ? error.response?.data?.message || error.message : error instanceof Error ? error.message : 'Unknown error'}`,
-      details: axios.isAxiosError(error) ? error.response?.data : null
-    });
+   return next(error);
   }
 });
 
@@ -317,7 +310,7 @@ router.get('/heygen/status/:videoId', authenticateToken, async (req, res, next) 
 // RunwayML Integration
 router.post('/runwayml/generate', authenticateToken, async (req, res, next) => {
   try {
-    const { prompt, options } = generateContentSchema.parse(req.body);
+    const { prompt } = generateContentSchema.parse(req.body);
     
     const runwaymlApiKey = process.env.RUNWAYML_API_KEY;
     if (!runwaymlApiKey) {
@@ -422,7 +415,7 @@ router.post('/heygen/recover-pending', authenticateToken, async (req, res, next)
         const videoUrl = data.video_url;
         const errorMessage = data.error_message;
 
-        let updateData = {};
+      
         let message = '';
 
         if (status === 'completed' && videoUrl) {
@@ -437,7 +430,7 @@ router.post('/heygen/recover-pending', authenticateToken, async (req, res, next)
 
           // Asset library entries are no longer needed since we unified under GeneratedAsset
 
-          updateData = { url: videoUrl, status: 'completed' };
+         
           message = 'Video completed and updated';
         } else if (status === 'failed') {
           await prisma.generatedAsset.update({
@@ -445,7 +438,7 @@ router.post('/heygen/recover-pending', authenticateToken, async (req, res, next)
             data: { status: 'failed' }
           });
 
-          updateData = { status: 'failed' };
+        
           message = `Video failed: ${errorMessage || 'Unknown error'}`;
         } else {
           message = `Video still processing: ${status}`;
