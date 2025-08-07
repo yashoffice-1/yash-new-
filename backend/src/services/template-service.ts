@@ -50,7 +50,7 @@ export class TemplateService {
       }
     });
 
-    return templates.map(template => ({
+    return templates.map((template: any) => ({
       ...template,
       templateDescription: template.templateDescription || undefined,
       thumbnailUrl: template.thumbnailUrl || undefined,
@@ -227,8 +227,8 @@ export class TemplateService {
     });
 
     const totalTemplates = templates.length;
-    const activeTemplates = templates.filter(t => t.canUse).length;
-    const totalUsage = templates.reduce((sum, t) => sum + t.usageCount, 0);
+    const activeTemplates = templates.filter((t: any) => t.canUse).length;
+    const totalUsage = templates.reduce((sum: number, t: any) => sum + t.usageCount, 0);
     const mostUsedTemplate = templates[0]?.usageCount > 0 ? {
       ...templates[0],
       templateDescription: templates[0].templateDescription || undefined,

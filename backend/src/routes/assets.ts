@@ -322,6 +322,21 @@ router.get('/stats/overview', authenticateToken, async (req, res, next) => {
   try {
     const userId = (req as any).user.userId;
     
+    // Define types for groupBy results
+    type AssetTypeGroup = {
+      assetType: string;
+      _count: {
+        assetType: number;
+      };
+    };
+    
+    type AssetSourceGroup = {
+      sourceSystem: string;
+      _count: {
+        sourceSystem: number;
+      };
+    };
+    
     const [
       totalAssets,
       favoritedAssets,
@@ -347,11 +362,11 @@ router.get('/stats/overview', authenticateToken, async (req, res, next) => {
       data: {
         totalAssets,
         favoritedAssets,
-        assetsByType: assetsByType.map(item => ({
+        assetsByType: (assetsByType as AssetTypeGroup[]).map((item) => ({
           type: item.assetType,
           count: item._count.assetType
         })),
-        assetsBySource: assetsBySource.map(item => ({
+        assetsBySource: (assetsBySource as AssetSourceGroup[]).map((item) => ({
           source: item.sourceSystem,
           count: item._count.sourceSystem
         }))

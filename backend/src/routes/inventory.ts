@@ -89,6 +89,11 @@ router.get('/', authenticateToken, async (req, res, next) => {
 // Get unique categories from active products only
 router.get('/categories', authenticateToken, async (req, res, next) => {
   try {
+    // Define type for the category result
+    type CategoryResult = {
+      category: string | null;
+    };
+
     const categories = await prisma.inventory.findMany({
       where: {
         status: 'active'
@@ -98,8 +103,8 @@ router.get('/categories', authenticateToken, async (req, res, next) => {
       orderBy: { category: 'asc' }
     });
 
-    const uniqueCategories = categories
-      .map(item => item.category)
+    const uniqueCategories = (categories as CategoryResult[])
+      .map((item) => item.category)
       .filter(Boolean)
       .filter((category, index, arr) => arr.indexOf(category) === index);
 
