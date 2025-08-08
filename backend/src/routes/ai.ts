@@ -74,24 +74,11 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
       throw new Error(`Unsupported content type: ${type}`);
     }
 
-    // Store in generated assets
-    const asset = await prisma.generatedAsset.create({
-      data: {
-        profileId: (req as any).user.userId,
-        channel: 'social_media',
-        format: type === 'image' ? 'png' : 'text',
-        sourceSystem: 'openai',
-        assetType: type,
-        url: result,
-        instruction: prompt
-      }
-    });
-
     return res.json({
       success: true,
       data: {
         result,
-        assetId: asset.id
+        assetId: null // No asset created here, assets route will handle it
       },
       message: 'Content generated successfully'
     });

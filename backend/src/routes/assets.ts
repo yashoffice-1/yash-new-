@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../index';
 import { z } from 'zod';
 import { authenticateToken } from '../middleware/auth';
+import { CloudinaryService } from '../services/cloudinary.js';
 
 const router = Router();
 
@@ -206,11 +207,43 @@ router.post('/', authenticateToken, async (req, res, next) => {
         error: 'User ID not found in request'
       });
     }
+
+    // Upload to Cloudinary if Cloudinary is configured
+    let cloudinaryUrl = validatedData.url;
+    let cloudinaryPublicId = null;
     
-    // Simple duplicate check - same URL and user within last 5 minutes
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+      try {
+        console.log('Uploading asset to Cloudinary:', validatedData.url);
+        
+        const cloudinaryResult = await CloudinaryService.uploadFromUrl({
+          url: validatedData.url,
+          assetType: validatedData.assetType,
+          fileName: `${validatedData.assetType}_${Date.now()}`,
+          folder: `users/${userId}/assets`,
+          tags: [
+            validatedData.assetType,
+            validatedData.sourceSystem,
+            validatedData.channel || 'social_media',
+            'generated',
+            ...(validatedData.tags || [])
+          ]
+        });
+        
+        cloudinaryUrl = cloudinaryResult.secure_url;
+        cloudinaryPublicId = cloudinaryResult.public_id;
+        
+        console.log('Asset uploaded to Cloudinary successfully:', cloudinaryPublicId);
+      } catch (cloudinaryError) {
+        console.error('Cloudinary upload failed, using original URL:', cloudinaryError);
+        // Continue with original URL if Cloudinary fails
+      }
+    }
+    
+    // Duplicate check - same final URL and user within last 5 minutes
     const existingAsset = await prisma.generatedAsset.findFirst({
       where: {
-        url: validatedData.url,
+        url: cloudinaryUrl, // Check the final URL (Cloudinary or original)
         profileId: userId,
         createdAt: {
           gte: new Date(Date.now() - 300000) // 5 minutes
@@ -226,13 +259,18 @@ router.post('/', authenticateToken, async (req, res, next) => {
       });
     }
     
-    // Create asset with simplified data
+    // Create asset with Cloudinary URL if available
     const asset = await prisma.generatedAsset.create({
       data: {
         ...validatedData,
+        url: cloudinaryUrl, // Use Cloudinary URL if available
         profileId: userId,
         channel: validatedData.channel || 'social_media',
         format: validatedData.format || 'mp4',
+        // Store Cloudinary public ID for future reference
+        ...(cloudinaryPublicId && { 
+          description: `${validatedData.description || ''}\n\nCloudinary ID: ${cloudinaryPublicId}`.trim()
+        })
       },
       include: getAssetIncludeOptions()
     });
@@ -240,7 +278,8 @@ router.post('/', authenticateToken, async (req, res, next) => {
     return res.status(201).json({
       success: true,
       data: asset,
-      message: 'Asset created successfully'
+      message: 'Asset created successfully',
+      cloudinary: cloudinaryPublicId ? { publicId: cloudinaryPublicId } : null
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -570,6 +609,62 @@ router.get('/stats/overview', authenticateToken, async (req, res, next) => {
           count: item._count.sourceSystem
         }))
       }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Delete asset (with Cloudinary cleanup)
+router.delete('/:id', authenticateToken, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.userId;
+
+    // Find the asset and verify ownership
+    const asset = await prisma.generatedAsset.findFirst({
+      where: {
+        id,
+        profileId: userId
+      }
+    });
+
+    if (!asset) {
+      return res.status(404).json({
+        success: false,
+        error: 'Asset not found or access denied'
+      });
+    }
+
+    // Extract Cloudinary public ID from description if available
+    let cloudinaryPublicId = null;
+    if (asset.description && asset.description.includes('Cloudinary ID:')) {
+      const match = asset.description.match(/Cloudinary ID: ([^\s\n]+)/);
+      if (match) {
+        cloudinaryPublicId = match[1];
+      }
+    }
+
+    // Delete from Cloudinary if we have the public ID
+    if (cloudinaryPublicId && process.env.CLOUDINARY_CLOUD_NAME) {
+      try {
+        await CloudinaryService.deleteAsset(cloudinaryPublicId, asset.assetType === 'video' ? 'video' : 'image');
+        console.log('Asset deleted from Cloudinary:', cloudinaryPublicId);
+      } catch (cloudinaryError) {
+        console.error('Failed to delete from Cloudinary:', cloudinaryError);
+        // Continue with database deletion even if Cloudinary fails
+      }
+    }
+
+    // Delete from database
+    await prisma.generatedAsset.delete({
+      where: { id }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Asset deleted successfully',
+      cloudinary: cloudinaryPublicId ? { deleted: true, publicId: cloudinaryPublicId } : null
     });
   } catch (error) {
     return next(error);
