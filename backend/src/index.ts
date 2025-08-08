@@ -16,6 +16,7 @@ import authRoutes from './routes/auth';
 import socialRoutes from './routes/social';
 import adminRoutes from './routes/admin';
 import settingsRoutes from './routes/settings';
+import cloudinaryRoutes from './routes/cloudinary';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -88,6 +89,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/cloudinary', cloudinaryRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);
