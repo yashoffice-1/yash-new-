@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/forms/label';
 import { Badge } from '@/components/ui/data_display/badge';
 import { Save, X } from 'lucide-react';
 import { useAssetLibrary } from '@/hooks/data/useAssetLibrary';
+import { useToast } from '@/hooks/ui/use-toast';
+import { validateAssetForSaving, prepareAssetData, handleSaveError } from '@/utils/assetSaving';
 
 interface SaveAssetDialogProps {
   asset: {
@@ -17,6 +19,8 @@ interface SaveAssetDialogProps {
     instruction: string;
     content?: string;
     source_system?: string;
+    channel?: string;
+    inventoryId?: string;
   };
   trigger?: React.ReactNode;
   prefillData?: {
@@ -34,8 +38,8 @@ export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialog
   const [tags, setTags] = useState<string[]>(prefillData?.tags || []);
   
   const { saveToLibrary, isLoading } = useAssetLibrary();
+  const { toast } = useToast();
 
-  // Update state when prefillData changes or dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     if (newOpen && prefillData) {
@@ -64,19 +68,11 @@ export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialog
     }
   };
 
-  // Helper function to check if a string is a valid UUID
-  const isValidUUID = (str: string) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(str);
-  };
-
   const handleSave = async () => {
-    if (!title.trim()) {
-      return;
-    }
+    if (!title.trim()) return;
 
     try {
-      await saveToLibrary({
+      const assetData = prepareAssetData({
         title: title.trim(),
         description: description.trim() || undefined,
         tags: tags.length > 0 ? tags : undefined,
@@ -85,18 +81,30 @@ export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialog
         content: asset.content,
         instruction: asset.instruction,
         source_system: (asset.source_system || 'runway') as 'runway' | 'heygen' | 'openai',
-        // Only include original_asset_id if it's a valid UUID
-        original_asset_id: isValidUUID(asset.id) ? asset.id : undefined,
+        channel: asset.channel || 'social_media',
+        inventoryId: asset.inventoryId,
       });
 
-      // Reset form
+      const validation = validateAssetForSaving(assetData);
+      if (!validation.isValid) {
+        toast({
+          title: "Cannot Save",
+          description: validation.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await saveToLibrary(assetData);
+
+      // Reset form and close dialog
       setTitle('');
       setDescription('');
       setTags([]);
       setTagInput('');
       setOpen(false);
     } catch (error) {
-      // Error handling is done in the hook
+      handleSaveError(error, 'asset');
     }
   };
 
@@ -174,6 +182,8 @@ export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialog
             <div className="text-sm text-muted-foreground space-y-1">
               <p><strong>Type:</strong> {asset.type}</p>
               <p><strong>Source:</strong> {asset.source_system || 'runway'}</p>
+              {asset.channel && <p><strong>Platform:</strong> {asset.channel}</p>}
+              {asset.inventoryId && <p><strong>Product ID:</strong> {asset.inventoryId}</p>}
               <p><strong>Instruction:</strong> {asset.instruction}</p>
             </div>
           </div>

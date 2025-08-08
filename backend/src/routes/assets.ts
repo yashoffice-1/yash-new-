@@ -18,10 +18,42 @@ const createAssetSchema = z.object({
   format: z.string().optional(),
   inventoryId: z.string().optional(),
   favorited: z.boolean().default(false),
-  profileId: z.string()
 });
 
-// const _updateAssetSchema = createAssetSchema.partial();
+// Schema for initiating generation (minimal data)
+const initiateGenerationSchema = z.object({
+  assetType: z.enum(['image', 'video', 'content']),
+  instruction: z.string().min(1, 'Instruction is required'),
+  sourceSystem: z.enum(['openai', 'runway', 'heygen']),
+  channel: z.string().optional(),
+  format: z.string().optional(),
+  inventoryId: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+// Schema for updating asset status
+const updateAssetStatusSchema = z.object({
+  status: z.enum(['generating', 'processing', 'completed', 'failed', 'approved', 'rejected']),
+  url: z.string().url('Valid URL is required').optional(),
+  error: z.string().optional(),
+});
+
+// Schema for approving/rejecting assets
+const approveAssetSchema = z.object({
+  approved: z.boolean(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+// Asset status enum for reference
+enum AssetStatus {
+  _GENERATING = 'generating',
+  _APPROVED = 'approved',
+  _REJECTED = 'rejected'
+}
 
 // Helper function to transform asset data for frontend
 const transformAssetForFrontend = (asset: any) => ({
@@ -166,22 +198,42 @@ router.get('/:id', authenticateToken, async (req, res, next) => {
 router.post('/', authenticateToken, async (req, res, next) => {
   try {
     const validatedData = createAssetSchema.parse(req.body);
-    const userId = (req as any).user.userId;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
     
-    // Filter out undefined optional fields and provide defaults for required fields
-    const { channel, format, inventoryId, description, tags, ...requiredData } = validatedData;
-    const createData = {
-      ...requiredData,
-      profileId: userId, // Ensure asset belongs to current user
-      channel: channel || 'social_media',
-      format: format || 'mp4',
-      ...(inventoryId && { inventoryId }),
-      ...(description && { description }),
-      ...(tags && { tags })
-    };
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in request'
+      });
+    }
     
+    // Simple duplicate check - same URL and user within last 5 minutes
+    const existingAsset = await prisma.generatedAsset.findFirst({
+      where: {
+        url: validatedData.url,
+        profileId: userId,
+        createdAt: {
+          gte: new Date(Date.now() - 300000) // 5 minutes
+        }
+      }
+    });
+    
+    if (existingAsset) {
+      return res.status(200).json({
+        success: true,
+        data: existingAsset,
+        message: 'Asset already exists'
+      });
+    }
+    
+    // Create asset with simplified data
     const asset = await prisma.generatedAsset.create({
-      data: createData,
+      data: {
+        ...validatedData,
+        profileId: userId,
+        channel: validatedData.channel || 'social_media',
+        format: validatedData.format || 'mp4',
+      },
       include: getAssetIncludeOptions()
     });
 
@@ -202,11 +254,61 @@ router.post('/', authenticateToken, async (req, res, next) => {
   }
 });
 
-// Update asset
-router.put('/:id', authenticateToken, async (req, res) => {
+// Initiate asset generation (hybrid architecture)
+router.post('/initiate-generation', authenticateToken, async (req, res, next) => {
+  try {
+    const validatedData = initiateGenerationSchema.parse(req.body);
+    const userId = (req as any).user?.userId || (req as any).user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User ID not found in request'
+      });
+    }
+    
+    // Create asset with 'generating' status
+    const asset = await prisma.generatedAsset.create({
+      data: {
+        profileId: userId,
+        assetType: validatedData.assetType,
+        sourceSystem: validatedData.sourceSystem,
+        instruction: validatedData.instruction,
+        channel: validatedData.channel || 'social_media',
+        format: validatedData.format || (validatedData.assetType === 'image' ? 'png' : 'mp4'),
+        url: '', // Empty initially
+        status: AssetStatus.GENERATING,
+        title: validatedData.title || `Generated ${validatedData.assetType}`,
+        description: validatedData.description,
+        tags: validatedData.tags || [],
+        approved: false, // User needs to approve
+        inventoryId: validatedData.inventoryId,
+      },
+      include: getAssetIncludeOptions()
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: asset,
+      message: 'Asset generation initiated'
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.errors
+      });
+    }
+    return next(error);
+  }
+});
+
+// Update asset status during generation
+router.patch('/:id/status', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { url, status } = req.body;
+    const validatedData = updateAssetStatusSchema.parse(req.body);
     const userId = (req as any).user.userId;
 
     // Verify the asset belongs to the user
@@ -224,33 +326,47 @@ router.put('/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Update the asset
+    // Update the asset status
+    const updateData: any = {
+      status: validatedData.status
+    };
+
+    if (validatedData.url) {
+      updateData.url = validatedData.url;
+    }
+
+    if (validatedData.error) {
+      updateData.instruction = `${existingAsset.instruction}\n\nError: ${validatedData.error}`;
+    }
+
     const updatedAsset = await prisma.generatedAsset.update({
       where: { id },
-      data: {
-        url: url || existingAsset.url,
-        status: status || existingAsset.status
-      }
+      data: updateData,
+      include: getAssetIncludeOptions()
     });
 
     return res.json({
       success: true,
       data: updatedAsset,
-      message: 'Asset updated successfully'
+      message: `Asset status updated to ${validatedData.status}`
     });
   } catch (error) {
-    console.error('Error updating asset:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to update asset'
-    });
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.errors
+      });
+    }
+    return next(error);
   }
 });
 
-// Delete asset
-router.delete('/:id', authenticateToken, async (req, res, next) => {
+// Approve or reject generated asset
+router.patch('/:id/approve', authenticateToken, async (req, res, next) => {
   try {
     const { id } = req.params;
+    const validatedData = approveAssetSchema.parse(req.body);
     const userId = (req as any).user.userId;
 
     // Verify the asset belongs to the user
@@ -267,14 +383,97 @@ router.delete('/:id', authenticateToken, async (req, res, next) => {
         error: 'Asset not found or access denied'
       });
     }
-    
-    await prisma.generatedAsset.delete({
-      where: { id }
+
+    // Update the asset approval status
+    const updateData: any = {
+      approved: validatedData.approved,
+      status: validatedData.approved ? AssetStatus.APPROVED : AssetStatus.REJECTED
+    };
+
+    if (validatedData.title) {
+      updateData.title = validatedData.title;
+    }
+
+    if (validatedData.description) {
+      updateData.description = validatedData.description;
+    }
+
+    if (validatedData.tags) {
+      updateData.tags = validatedData.tags;
+    }
+
+    const updatedAsset = await prisma.generatedAsset.update({
+      where: { id },
+      data: updateData,
+      include: getAssetIncludeOptions()
     });
 
     return res.json({
       success: true,
-      message: 'Asset deleted successfully'
+      data: updatedAsset,
+      message: `Asset ${validatedData.approved ? 'approved' : 'rejected'} successfully`
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.errors
+      });
+    }
+    return next(error);
+  }
+});
+
+// Get assets by status (for tracking generation progress)
+router.get('/status/:status', authenticateToken, async (req, res, next) => {
+  try {
+    const { status } = req.params;
+    const userId = (req as any).user.userId;
+    
+    const assets = await prisma.generatedAsset.findMany({
+      where: {
+        profileId: userId,
+        status: status
+      },
+      orderBy: { createdAt: 'desc' },
+      include: getAssetIncludeOptions()
+    });
+
+    const transformedAssets = assets.map(transformAssetForFrontend);
+
+    return res.json({
+      success: true,
+      data: transformedAssets,
+      count: transformedAssets.length
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Cleanup unapproved assets (admin endpoint)
+router.delete('/cleanup', authenticateToken, async (req, res, next) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { hours = 24 } = req.query;
+    
+    const cutoffTime = new Date(Date.now() - parseInt(hours as string) * 60 * 60 * 1000);
+    
+    const result = await prisma.generatedAsset.deleteMany({
+      where: {
+        profileId: userId,
+        approved: false,
+        createdAt: {
+          lt: cutoffTime
+        }
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: `${result.count} unapproved assets cleaned up`,
+      count: result.count
     });
   } catch (error) {
     return next(error);

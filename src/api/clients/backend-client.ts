@@ -37,17 +37,18 @@ export const assetsAPI = {
   // Get all assets for the current user
   getAssets: (params?: any) => apiClient.get('/assets', { params }),
 
-  // Create new asset
+  // Create new asset (profileId will be set by backend from auth token)
   createAsset: (data: {
     title: string;
     description?: string;
     instruction: string;
-    asset_type: 'image' | 'video' | 'content';
-    channel: string;
+    assetType: 'image' | 'video' | 'content';
+    channel: string; // ✅ Include channel
     format: string;
-    source_system: string;
+    sourceSystem: string;
     url: string;
     tags?: string[];
+    inventoryId?: string; // ✅ Include inventoryId
   }) => apiClient.post('/assets', data),
 
   // Update asset
@@ -59,6 +60,9 @@ export const assetsAPI = {
 
   // Toggle favorite
   toggleFavorite: (assetId: string) => apiClient.patch(`/assets/${assetId}/favorite`),
+
+  // Proxy download external assets
+  proxyDownload: (data: { url: string; fileName?: string }) => apiClient.post('/assets/proxy-download', data),
 };
 
 // AI Generation API

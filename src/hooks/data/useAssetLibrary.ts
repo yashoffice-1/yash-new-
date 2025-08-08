@@ -1,8 +1,7 @@
 
 import { useState } from 'react';
 import { assetsAPI } from '@/api/clients/backend-client';
-import { useToast } from '@/hooks/ui/use-toast';
-import { downloadAndStoreAsset } from '@/utils/assetStorage';
+import { handleSaveError, showSaveSuccess } from '@/utils/assetSaving';
 
 export interface AssetLibraryItem {
   id: string;
@@ -32,7 +31,6 @@ export interface AssetLibraryItem {
 
 export function useAssetLibrary() {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
 
   const saveToLibrary = async (asset: {
     title: string;
@@ -43,63 +41,31 @@ export function useAssetLibrary() {
     content?: string;
     instruction: string;
     source_system: 'runway' | 'heygen' | 'openai';
-    profileId: string;
+    channel: string;
+    inventoryId?: string;
   }) => {
     setIsLoading(true);
     try {
-      let finalAssetUrl = asset.asset_url;
-      let storedFileName: string | undefined;
-
-      // Only download and store if it's not a content type and the URL is external
-      if (asset.asset_type !== 'content' && asset.asset_url && !asset.asset_url.includes('supabase')) {
-        toast({
-          title: "Processing Asset",
-          description: "Downloading and storing your asset...",
-        });
-
-        try {
-          const downloadedAsset = await downloadAndStoreAsset(
-            asset.asset_url,
-            asset.asset_type, // Use asset type directly
-            `${asset.title.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`
-          );
-          finalAssetUrl = downloadedAsset.url;
-          storedFileName = downloadedAsset.fileName;
-        } catch (downloadError) {
-          console.warn('Failed to download asset, using original URL:', downloadError);
-          // Continue with original URL if download fails
-        }
-      }
-
       const response = await assetsAPI.createAsset({
         title: asset.title,
         description: asset.description,
         tags: asset.tags,
-        asset_type: asset.asset_type,
-        url: finalAssetUrl,
+        assetType: asset.asset_type,
+        url: asset.asset_url,
         instruction: asset.instruction,
-        source_system: asset.source_system,
-        channel: 'social_media',
-        format: asset.asset_type === 'image' ? 'png' : 'mp4'
+        sourceSystem: asset.source_system,
+        channel: asset.channel,
+        inventoryId: asset.inventoryId,
+        format: asset.asset_type === 'image' ? 'png' : asset.asset_type === 'video' ? 'mp4' : 'txt',
       });
 
-      const data = response.data.data;
+      if (response.data.success) {
+        showSaveSuccess(asset.title);
+      }
 
-      toast({
-        title: "Asset Saved",
-        description: storedFileName 
-          ? "Asset has been downloaded and saved to your library successfully!" 
-          : "Asset has been saved to your library successfully!",
-      });
-
-      return data;
+      return response.data;
     } catch (error) {
-      console.error('Error saving asset to library:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save asset to library.",
-        variant: "destructive",
-      });
+      handleSaveError(error, 'asset');
       throw error;
     } finally {
       setIsLoading(false);
@@ -143,17 +109,8 @@ export function useAssetLibrary() {
   const deleteFromLibrary = async (id: string) => {
     try {
       await assetsAPI.deleteAsset(id);
-      toast({
-        title: "Asset Deleted",
-        description: "Asset has been removed from your library.",
-      });
     } catch (error) {
       console.error('Error deleting asset:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete asset from library.",
-        variant: "destructive",
-      });
       throw error;
     }
   };

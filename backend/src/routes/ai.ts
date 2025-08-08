@@ -31,10 +31,11 @@ const heygenGenerateSchema = z.object({
 router.post('/openai/generate', authenticateToken, async (req, res, next) => {
   try {
     const { prompt, type, options } = generateContentSchema.parse(req.body);
-    
+    console.log('User ID:', (req as any).user.userId);
     const openaiApiKey = process.env.OPENAI_API_KEY;
+ 
     if (!openaiApiKey) {
-      return res.status(500).json({
+      return res.status(501).json({
         success: false,
         error: 'OpenAI API key not configured'
       });
@@ -67,7 +68,7 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
           'Content-Type': 'application/json'
         }
       });
-      
+      console.log('OpenAI Image Generation Response:', response.data);
       result = response.data.data[0].url;
     } else {
       throw new Error(`Unsupported content type: ${type}`);
@@ -118,7 +119,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
         error: 'User ID not found in request'
       });
     }
-
+    
     const heygenApiKey = process.env.HEYGEN_API_KEY;
     if (!heygenApiKey) {
       return res.status(500).json({
@@ -199,7 +200,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
     });
 
     const { video_id } = response.data.data;
-    
+
     // Store in generated assets with pending status
     const asset = await prisma.generatedAsset.create({
       data: {
@@ -386,7 +387,7 @@ router.post('/heygen/recover-pending', authenticateToken, async (req, res, next)
 
     if (pendingAssets.length === 0) {
       return res.json({
-        success: true,
+      success: true,
         message: 'No pending videos found',
         data: []
       });
@@ -422,7 +423,7 @@ router.post('/heygen/recover-pending', authenticateToken, async (req, res, next)
           // Update both generated_assets and asset_library
           await prisma.generatedAsset.update({
             where: { id: asset.id },
-            data: { 
+      data: {
               url: videoUrl,
               status: 'completed'
             }
@@ -478,4 +479,4 @@ router.post('/heygen/recover-pending', authenticateToken, async (req, res, next)
   }
 });
 
-export default router;  
+export default router; 
