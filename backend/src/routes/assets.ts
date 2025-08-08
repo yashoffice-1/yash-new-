@@ -277,7 +277,7 @@ router.post('/initiate-generation', authenticateToken, async (req, res, next) =>
         channel: validatedData.channel || 'social_media',
         format: validatedData.format || (validatedData.assetType === 'image' ? 'png' : 'mp4'),
         url: '', // Empty initially
-        status: AssetStatus.GENERATING,
+        status: AssetStatus._GENERATING,
         title: validatedData.title || `Generated ${validatedData.assetType}`,
         description: validatedData.description,
         tags: validatedData.tags || [],
@@ -387,7 +387,7 @@ router.patch('/:id/approve', authenticateToken, async (req, res, next) => {
     // Update the asset approval status
     const updateData: any = {
       approved: validatedData.approved,
-      status: validatedData.approved ? AssetStatus.APPROVED : AssetStatus.REJECTED
+      status: validatedData.approved ? AssetStatus._APPROVED : AssetStatus._REJECTED
     };
 
     if (validatedData.title) {
