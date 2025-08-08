@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
 import { Button } from "@/components/ui/forms/button";
@@ -15,6 +15,7 @@ import { inventoryAPI } from "@/api/clients/backend-client";
 import { useAssetLibrary } from "@/hooks/data/useAssetLibrary";
 import { generationAPI } from "@/api/clients/generation-client";
 import { useAuth } from "@/contexts/AuthContext";
+import { validateAssetForSaving, prepareAssetData, handleSaveError, showSaveSuccess } from '@/utils/assetSaving';
 
 interface InventoryItem {
   id: string;
@@ -79,6 +80,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   }>>([]);
   const [showResults, setShowResults] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [savingAssets, setSavingAssets] = useState<Set<string>>(new Set());
 
   // Fetch inventory items
   const { data: inventoryResponse, isLoading, refetch } = useQuery({
@@ -114,6 +116,53 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   });
 
   const { saveToLibrary } = useAssetLibrary();
+
+  // ✅ Add status checking for pending assets
+  const checkPendingAssetStatus = async (result: typeof generationResults[0]) => {
+    if (!result.asset_url.startsWith('pending_')) return;
+
+    try {
+      if (result.source_system === 'heygen') {
+        // Extract video ID from pending URL
+        const videoId = result.asset_url.replace('pending_', '');
+        const response = await generationAPI.getStatus(videoId);
+        const statusData = response.data.data;
+        
+        if (statusData.status === 'completed' && statusData.videoUrl) {
+          // Update the result with the final URL
+          setGenerationResults(prev => prev.map(r => 
+            r.id === result.id 
+              ? { ...r, asset_url: statusData.videoUrl, status: 'completed' }
+              : r
+          ));
+        } else if (statusData.status === 'failed') {
+          // Update the result to failed
+          setGenerationResults(prev => prev.map(r => 
+            r.id === result.id 
+              ? { ...r, status: 'failed', error: statusData.errorMessage }
+              : r
+          ));
+        }
+      }
+      // Add similar logic for RunwayML if needed
+    } catch (error) {
+      console.error('Error checking asset status:', error);
+    }
+  };
+
+  // ✅ Add useEffect to periodically check pending asset status
+  useEffect(() => {
+    if (generationResults.length === 0) return;
+
+    const pendingAssets = generationResults.filter(r => r.asset_url.startsWith('pending_'));
+    if (pendingAssets.length === 0) return;
+
+    const interval = setInterval(() => {
+      pendingAssets.forEach(checkPendingAssetStatus);
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [generationResults]);
 
   const handleDeleteProduct = async (productId: string) => {
     try {
@@ -287,31 +336,59 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
               description: `Processing ${index + 1} of ${selectedProductsData.length}...`,
             });
 
-                      if (service === 'heygen') {
-            // Call HeyGen API
-            result = await generateWithHeyGen(product, instruction, formatSpecs);
-          } else if (service === 'runway') {
-            // Call Runway API
-            result = await generateWithRunway(product, instruction, formatSpecs);
+            if (service === 'heygen') {
+              // Call HeyGen API
+              result = await generateWithHeyGen(product, instruction, formatSpecs);
+            } else if (service === 'runway') {
+              // Call Runway API
+              result = await generateWithRunway(product, instruction, formatSpecs);
+            } else {
+              // Call OpenAI API
+              result = await generateWithOpenAI(product, instruction, formatSpecs);
+            }
 
-          } else {
-            // Call OpenAI API
-            result = await generateWithOpenAI(product, instruction, formatSpecs);
-          }
+            // ✅ Add debug logging for API response
+            console.log(`Generation result for ${product.name}:`, {
+              service,
+              result,
+              data: result?.data,
+              asset_url: result?.asset_url,
+              url: result?.url,
+              status: result?.status
+            });
+
+            // ✅ Handle different API response structures
+            let assetUrl = '';
+            let status = 'completed';
+
+            if (service === 'openai') {
+              // OpenAI returns: { success: true, data: { result, assetId } }
+              assetUrl = result?.data?.result || '';
+              status = 'completed';
+            } else if (service === 'heygen') {
+              // HeyGen returns: { success: true, data: { videoId, assetId, status } }
+              // For HeyGen, we need to wait for the video to be ready
+              assetUrl = `pending_${result?.data?.videoId || ''}`;
+              status = result?.data?.status || 'processing';
+            } else if (service === 'runway') {
+              // RunwayML returns: { success: true, data: { assetId, status } }
+              assetUrl = `pending_runwayml_${result?.data?.assetId || ''}`;
+              status = result?.data?.status || 'processing';
+            }
 
             return {
               id: `gen-${Date.now()}-${index}`,
               title: `${product.name} - ${generationConfig.channel} ${generationConfig.format}`,
               description: `Generated ${generationConfig.type} for ${product.name} on ${generationConfig.channel}`,
               asset_type: generationConfig.type as 'image' | 'video' | 'content',
-              asset_url: result.asset_url || result.url,
+              asset_url: assetUrl,
               content: instruction,
               instruction: instruction,
-                          source_system: service as 'runway' | 'heygen' | 'openai',
-            platform: generationConfig.channel,
-            format: generationConfig.format,
-            product: product,
-            status: result.status || 'completed'
+              source_system: service as 'runway' | 'heygen' | 'openai',
+              platform: generationConfig.channel,
+              format: generationConfig.format,
+              product: product,
+              status: status
             };
           } catch (error) {
             console.error(`Generation failed for ${product.name}:`, error);
@@ -412,8 +489,12 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
 
   const handleSaveToLibrary = async (result: typeof generationResults[0]) => {
+    if (savingAssets.has(result.id)) return;
+
     try {
-      await saveToLibrary({
+      setSavingAssets(prev => new Set(prev).add(result.id));
+
+      const assetData = prepareAssetData({
         title: result.title,
         description: result.description,
         asset_type: result.asset_type,
@@ -421,20 +502,30 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
         content: result.content,
         instruction: result.instruction,
         source_system: result.source_system,
-        profileId: user?.id || '',
-        tags: [result.platform, result.format, result.product.category].filter(Boolean)
+        channel: result.platform || 'social_media',
+        inventoryId: result.product?.id,
+        tags: [result.platform, result.format, result.product?.category].filter(Boolean)
       });
 
-      toast({
-        title: "Saved to Library",
-        description: `${result.title} has been saved to your asset library.`,
-      });
+      const validation = validateAssetForSaving(assetData);
+      if (!validation.isValid) {
+        toast({
+          title: "Cannot Save",
+          description: validation.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await saveToLibrary(assetData);
+      showSaveSuccess(result.title);
     } catch (error) {
-      console.error('Error saving to library:', error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save to asset library.",
-        variant: "destructive",
+      handleSaveError(error, 'asset');
+    } finally {
+      setSavingAssets(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(result.id);
+        return newSet;
       });
     }
   };
@@ -1250,7 +1341,15 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                   <div key={result.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
                     {/* Asset Preview */}
                     <div className="relative aspect-video bg-gray-100">
-                      {result.asset_type === 'image' ? (
+                      {result.asset_url.startsWith('pending_') ? (
+                        // Show loading state for pending assets
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-50 to-orange-50">
+                          <div className="text-center">
+                            <RefreshCw className="h-12 w-12 text-orange-500 animate-spin" />
+                            <p className="text-sm text-orange-600 mt-2">Processing...</p>
+                          </div>
+                        </div>
+                      ) : result.asset_type === 'image' ? (
                         <img 
                           src={result.asset_url} 
                           alt={result.title}
@@ -1311,14 +1410,17 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                         <Button
                           onClick={() => handleSaveToLibrary(result)}
                           size="sm"
-                          className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                          disabled={result.asset_url.startsWith('pending_') || result.status === 'failed' || savingAssets.has(result.id)}
+                          className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Save className="h-4 w-4 mr-1" />
-                          Save
+                          {result.asset_url.startsWith('pending_') ? 'Processing...' : 
+                           savingAssets.has(result.id) ? 'Saving...' : 'Save'}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
+                          disabled={result.asset_url.startsWith('pending_')}
                           onClick={() => window.open(result.asset_url, '_blank')}
                         >
                           <ExternalLink className="h-4 w-4" />

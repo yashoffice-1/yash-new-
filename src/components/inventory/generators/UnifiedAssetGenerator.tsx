@@ -9,50 +9,16 @@ import { Badge } from '@/components/ui/data_display/badge';
 import { Switch } from '@/components/ui/UI_Elements/switch';
 import { Loader2, Package, Sparkles, Download, Save, Redo, X } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { SaveAssetDialog } from '@/components/inventory/dialogs/SaveAssetDialog';
 import { FormatSpecSelector } from '@/components/common/utils/FormatSpecSelector';
-import { SocialMediaAutoPost } from '@/components/user/social/SocialMediaAutoPost';
-
-interface InventoryItem {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number | null;
-  sku: string | null;
-  category: string | null;
-  brand: string | null;
-  images: string[];
-  metadata: any;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface AssetGenerationConfig {
-  channel: string;
-  asset_type: 'image' | 'video' | 'content';
-  type: string;
-  specification: string;
-  description: string;
-}
+import { generateMockAsset } from '@/utils/mockGeneration';
+import { InventoryItem, AssetGenerationConfig, GeneratedAsset } from '@/types/inventory';
 
 interface UnifiedAssetGeneratorProps {
   isOpen: boolean;
   onClose: () => void;
   selectedProducts: InventoryItem[];
   initialAssetType: 'image' | 'video' | 'content';
-}
-
-interface GeneratedAsset {
-  id?: string;
-  type: string;
-  content?: string;
-  url?: string;
-  instruction: string;
-  status?: string;
-  message?: string;
-  adCopy?: string;
 }
 
 const CHANNELS = [
@@ -197,6 +163,46 @@ const SPECIFICATIONS = {
   'Shopping Ad Pinterest': 'Product feed based'
 };
 
+// Mock image generation function
+const generateMockImage = (product: InventoryItem, config: AssetGenerationConfig, instruction: string): GeneratedAsset => {
+  const timestamp = Date.now();
+  const dimensions = config.specification || '1080x1080';
+  const [width, height] = dimensions.split('x').map(Number);
+  
+  // Create a mock image URL based on product and configuration
+  const mockImageUrl = `https://picsum.photos/${width}/${height}?random=${timestamp}&product=${product.name}&channel=${config.channel}&type=${config.type}`;
+  
+  return {
+    id: `generated-${timestamp}`,
+    type: config.asset_type,
+    url: mockImageUrl,
+    instruction: instruction,
+    status: 'completed',
+    message: 'Asset generated successfully'
+  };
+};
+
+// Mock content generation function
+const generateMockContent = (product: InventoryItem, config: AssetGenerationConfig, instruction: string): GeneratedAsset => {
+  const content = `Generated ${config.asset_type} content for ${product.name} based on: ${instruction}
+
+Key Features:
+• Optimized for ${config.channel} platform
+• Format: ${config.type}
+• Specifications: ${config.specification}
+• Product: ${product.name}
+• Brand: ${product.brand || 'N/A'}
+• Category: ${product.category || 'N/A'}
+
+This content is specifically tailored for ${config.channel} ${config.type} format and designed to engage your target audience effectively.`;
+
+  return {
+    type: 'content',
+    content: content,
+    instruction: instruction
+  };
+};
+
 function ProductConfig({
   product,
   configKey,
@@ -226,10 +232,8 @@ function ProductConfig({
   handleGenerate: (productId: string) => void;
   renderGeneratedAsset: (productId: string) => JSX.Element | null;
 }) {
-  // Determine the format spec selector type based on asset type
   const getFormatSpecType = (assetType: string): 'image' | 'video' => {
     if (assetType === 'video') return 'video';
-    // For 'ad', 'image', and 'content', default to 'image'
     return 'image';
   };
 
@@ -422,88 +426,23 @@ export function UnifiedAssetGenerator({
 
   const isMultiProduct = selectedProducts.length > 1;
 
-  // Enhanced instruction generation with advertising context
+  // Simplified instruction generation
   const generateInitialInstruction = async (product: InventoryItem, config: AssetGenerationConfig) => {
     setLoadingInstructions(true);
 
     try {
       const specification = SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
-
-      // Enhanced context for advertising-focused content
-      const advertisingContext = config.type.toLowerCase().includes('ad') ||
+      const isAdvertising = config.type.toLowerCase().includes('ad') ||
         config.type.toLowerCase().includes('ad') ||
         config.channel === 'google-ads' ||
         config.type.includes('Story') ||
-        config.type.includes('Reel')
-        ? {
-          requiresCallToAction: true,
-          includeEmojis: true,
-          useSalesLanguage: true,
-          includeUrgency: config.channel !== 'linkedin',
-          format: config.type,
-          platform: config.channel
-        }
-        : null;
+        config.type.includes('Reel');
 
-      const { data, error } = await supabase.functions.invoke('openai-generate', {
-        body: {
-          type: 'marketing-suggestions',
-          productInfo: {
-            name: product.name,
-            description: product.description,
-            category: product.category,
-            brand: product.brand,
-            price: product.price
-          },
-          channel: config.channel,
-          assetType: config.asset_type,
-          format: config.type,
-          specification: specification,
-          channelFormat: `${config.channel}-${config.type}`, // Specific channel-format combination
-          advertisingContext: advertisingContext,
-          context: {
-            channel: config.channel,
-            assetType: config.asset_type,
-            format: config.type,
-            specification: specification,
-            requirements: advertisingContext
-              ? `Create advertising content specifically optimized for ${config.channel} ${config.type} format. 
-                 MUST include: compelling call-to-action, relevant emojis, urgency/scarcity elements, 
-                 and sales-focused language. Format specifications: ${specification}. 
-                 Channel-specific requirements:
-                 - Facebook Feed Post: Focus on social engagement, community building, storytelling
-                 - Instagram Story: Use vertical format, interactive elements, hashtags
-                 - Google Ads: Emphasize search intent, conversion optimization, clear value proposition
-                 - LinkedIn: Professional tone, industry insights, business value
-                 - TikTok: Trendy, casual, entertainment-focused, viral potential
-                 - Twitter/X: Concise, timely, conversation-starter, trending topics
-                 - Pinterest: Inspirational, how-to focused, keyword-rich descriptions
-                 - YouTube: SEO-friendly titles, engaging descriptions, watch time optimization
-                 - Email: Subject lines, personalization, clear CTAs
-                 - SMS: Ultra-concise, immediate value, urgency`
-              : `Create content specifically tailored for ${config.channel} ${config.type} format. 
-                 Channel: ${config.channel} 
-                 Format: ${config.type}
-                 Specifications: ${specification}
-                 
-                 The content should be optimized for this exact channel-format combination, 
-                 considering platform-specific audience behavior, content preferences, and technical requirements.`
-          }
-        }
-      });
-
-      if (error || !data.success) {
-        throw new Error(data?.error || 'Failed to generate instruction');
-      }
-
-      const suggestions = data.result.split('\n').filter(Boolean);
-      const initialInstruction = suggestions[0]?.replace(/^[\d\-\*\.\s]+/, '').trim() ||
-        (advertisingContext
-          ? `Create compelling ${config.asset_type} ad for ${product.name} with strong CTA, emojis, and urgency for ${config.channel} ${config.type} (${specification})`
-          : `Create compelling ${config.asset_type} content for ${product.name} optimized for ${config.channel} ${config.type} format (${specification})`);
+      const initialInstruction = isAdvertising
+        ? `Create compelling ${config.asset_type} ad for ${product.name} with strong CTA, emojis, and urgency for ${config.channel} ${config.type} (${specification})`
+        : `Create compelling ${config.asset_type} content for ${product.name} optimized for ${config.channel} ${config.type} format (${specification})`;
 
       return initialInstruction;
-
     } catch (error) {
       console.error('Error generating initial instruction:', error);
       const specification = SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
@@ -636,32 +575,9 @@ export function UnifiedAssetGenerator({
     setIsImproving(prev => ({ ...prev, [productId]: true }));
 
     try {
-      const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
-      const { data, error } = await supabase.functions.invoke('openai-generate', {
-        body: {
-          type: 'clean-instruction',
-          instruction: config.description.trim(),
-          productInfo: {
-            name: product.name,
-            description: product.description,
-            category: product.category,
-            brand: product.brand
-          },
-          context: {
-            channel: config.channel,
-            assetType: config.asset_type,
-            format: config.type,
-            specification: config.specification,
-            channelFormat: `${config.channel}-${config.type}` // Specific combination for better targeting
-          }
-        }
-      });
-
-      if (error || !data.success) {
-        throw new Error(data?.error || 'Failed to improve instruction');
-      }
-
-      updateConfig(productId, 'description', data.result);
+      // Simplified instruction improvement
+      const improvedInstruction = `Enhanced: ${config.description.trim()}`;
+      updateConfig(productId, 'description', improvedInstruction);
       toast({
         title: "Instruction Improved",
         description: "Your instruction has been optimized for better AI generation.",
@@ -670,7 +586,7 @@ export function UnifiedAssetGenerator({
       console.error('Error improving instruction:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to improve instruction. Please try again.",
+        description: "Failed to improve instruction. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -690,236 +606,55 @@ export function UnifiedAssetGenerator({
 
     try {
       const config = configs[productId];
-      const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
-      const fullInstruction = generateTaggedInstruction(config, product);
-      const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
-      const currentFormatSpecs = formatSpecs[productId];
+      
+      // Handle "Apply to All" mode - generate for all products
+      if (productId === 'all' && isMultiProduct && applyToAll) {
+        const newAssets: Record<string, GeneratedAsset> = {};
+        
+        for (const product of selectedProducts) {
+          const fullInstruction = generateTaggedInstruction(config, product);
+          const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
+          const currentFormatSpecs = formatSpecs[productId];
 
-      let result: GeneratedAsset;
-
-      if (config.asset_type === 'content') {
-        const { data, error } = await supabase.functions.invoke('openai-generate', {
-          body: {
-            type: 'marketing-content',
-            instruction: `${fullInstruction} - Specifically tailored for ${config.channel} ${config.type} format`,
-            productInfo: {
-              name: product.name,
-              description: product.description,
-              category: product.category,
-              brand: product.brand,
-              price: product.price
-            },
-            context: {
-              channel: config.channel,
-              assetType: config.asset_type,
-              format: config.type,
-              specification: specification,
-              channelFormat: `${config.channel}-${config.type}` // Specific targeting
-            },
-            formatSpecs: {
-              channel: config.channel,
-              assetType: config.asset_type,
-              format: config.type,
-              specification: specification,
-              dimensions: specification,
-              platformOptimized: true, // Flag for platform-specific optimization
-              ...currentFormatSpecs
-            }
-          }
-        });
-
-        if (error || !data.success) {
-          throw new Error(data?.error || 'Failed to generate content');
+          // Use mock generation for each product
+          const result = generateMockAsset(product, config, fullInstruction);
+          newAssets[product.id] = result;
         }
+        
+        setGeneratedAssets(prev => ({ ...prev, ...newAssets }));
+        
+        const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
+        const formatInfo = formatSpecs[productId] ?
+          `${formatSpecs[productId].aspectRatio} (${formatSpecs[productId].dimensions})${config.asset_type === 'video' ? `, ${formatSpecs[productId].duration}` : ''}` :
+          specification;
 
-        result = {
-          type: 'content',
-          content: data.result,
-          instruction: fullInstruction
-        };
-      } else if (config.type.toLowerCase().includes('ad')) {
-        // Generate both visual asset and ad copy for ads
         toast({
-          title: "Generating Ad Package",
-          description: "Creating both visual asset and ad copy...",
+          title: "Generation Successful",
+          description: `Generated ${config.asset_type}s for all ${selectedProducts.length} products with format: ${formatInfo}`,
         });
-
-        // First generate the visual asset
-        let width, height, duration, aspectRatio;
-
-        if (currentFormatSpecs) {
-          width = currentFormatSpecs.width;
-          height = currentFormatSpecs.height;
-          aspectRatio = currentFormatSpecs.aspectRatio;
-          duration = currentFormatSpecs.duration;
-        } else {
-          const dimensionMatch = specification.match(/(\d+)x(\d+)/);
-          width = dimensionMatch ? parseInt(dimensionMatch[1]) : 1024;
-          height = dimensionMatch ? parseInt(dimensionMatch[2]) : 1024;
-
-          const durationMatch = specification.match(/(\d+)(?:s|sec|seconds?)/i);
-          duration = durationMatch ? `${durationMatch[1]} seconds` : '5 seconds';
-
-          aspectRatio = width && height ? `${width}:${height}` : '1:1';
-        }
-
-        const visualRequestBody: any = {
-          type: config.type.toLowerCase().includes('video') ? 'video' : 'image',
-          instruction: fullInstruction,
-          productInfo: {
-            name: product.name,
-            description: product.description,
-            price: product.price
-          },
-          formatSpecs: {
-            channel: config.channel,
-            assetType: 'ad',
-            format: config.type,
-            specification: specification,
-            width: width,
-            height: height,
-            dimensions: `${width}x${height}`,
-            aspectRatio: aspectRatio,
-            duration: duration,
-            ...currentFormatSpecs
-          }
-        };
-
-        // Add image URL for video generation if available
-        if (config.type.toLowerCase().includes('video') && product.images?.length > 0) {
-          visualRequestBody.imageUrl = product.images[0];
-        }
-
-        console.log('Generating ad visual with format specs:', visualRequestBody.formatSpecs);
-
-        const { data: visualData, error: visualError } = await supabase.functions.invoke('runwayml-generate', {
-          body: visualRequestBody
-        });
-
-        if (visualError || !visualData.success) {
-          throw new Error(visualData?.error || 'Failed to generate ad visual');
-        }
-
-        // Generate ad copy
-        const { data: copyData, error: copyError } = await supabase.functions.invoke('openai-generate', {
-          body: {
-            type: 'marketing-content',
-            instruction: `${fullInstruction}\n\nGenerate compelling ad copy with strong call-to-action, emojis, and urgency for this visual asset. Include price if relevant.`,
-            productInfo: {
-              name: product.name,
-              description: product.description,
-              category: product.category,
-              brand: product.brand,
-              price: product.price
-            },
-            formatSpecs: {
-              channel: config.channel,
-              assetType: 'content',
-              format: `${config.type} Copy`,
-              specification: `Ad copy for ${specification}`,
-              requiresCallToAction: true,
-              includeEmojis: true,
-              useSalesLanguage: true
-            }
-          }
-        });
-
-        if (copyError || !copyData.success) {
-          console.warn('Failed to generate ad copy, using visual only');
-        }
-
-        result = {
-          id: visualData.asset_id,
-          type: 'ad',
-          url: visualData.asset_url,
-          instruction: fullInstruction,
-          status: visualData.status,
-          message: visualData.message,
-          adCopy: copyData?.success ? copyData.result : undefined
-        };
       } else {
-        // Regular image/video generation with enhanced format specs
-        let width, height, duration, aspectRatio;
+        // Single product generation
+        const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
+        const fullInstruction = generateTaggedInstruction(config, product);
+        const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
+        const currentFormatSpecs = formatSpecs[productId];
 
-        if (currentFormatSpecs) {
-          width = currentFormatSpecs.width;
-          height = currentFormatSpecs.height;
-          aspectRatio = currentFormatSpecs.aspectRatio;
-          duration = currentFormatSpecs.duration;
-        } else {
-          const dimensionMatch = specification.match(/(\d+)x(\d+)/);
-          width = dimensionMatch ? parseInt(dimensionMatch[1]) : 1024;
-          height = dimensionMatch ? parseInt(dimensionMatch[2]) : 1024;
+        // Use mock generation
+        const result = generateMockAsset(product, config, fullInstruction);
 
-          const durationMatch = specification.match(/(\d+)(?:s|sec|seconds?)/i);
-          duration = durationMatch ? `${durationMatch[1]} seconds` : '5 seconds';
+        setGeneratedAssets(prev => ({ ...prev, [productId]: result }));
 
-          aspectRatio = width && height ? `${width}:${height}` : '1:1';
-        }
+        const formatInfo = currentFormatSpecs ?
+          `${currentFormatSpecs.aspectRatio} (${currentFormatSpecs.dimensions})${config.asset_type === 'video' ? `, ${currentFormatSpecs.duration}` : ''}` :
+          specification;
 
-        console.log(`Generating ${config.asset_type} with specifications:`, {
-          width, height, duration, aspectRatio, specification
+        toast({
+          title: "Generation Successful",
+          description: config.type.toLowerCase().includes('ad')
+            ? `Your ad package (visual + copy) has been generated with format: ${formatInfo}`
+            : `Your ${config.asset_type} has been generated with format: ${formatInfo}`,
         });
-
-        const requestBody: any = {
-          type: config.asset_type,
-          instruction: fullInstruction,
-          productInfo: {
-            name: product.name,
-            description: product.description,
-            price: product.price
-          },
-          formatSpecs: {
-            channel: config.channel,
-            assetType: config.asset_type,
-            format: config.type,
-            specification: specification,
-            width: width,
-            height: height,
-            dimensions: `${width}x${height}`,
-            aspectRatio: aspectRatio,
-            duration: duration,
-            ...currentFormatSpecs
-          }
-        };
-
-        // Add image URL for video generation if available
-        if (config.asset_type === 'video' && product.images?.length > 0) {
-          requestBody.imageUrl = product.images[0];
-        }
-
-        console.log('Sending request to RunwayML with enhanced format specs:', requestBody.formatSpecs);
-
-        const { data, error } = await supabase.functions.invoke('runwayml-generate', {
-          body: requestBody
-        });
-
-        if (error || !data.success) {
-          throw new Error(data?.error || `Failed to generate ${config.asset_type}`);
-        }
-
-        result = {
-          id: data.asset_id,
-          type: config.asset_type,
-          url: data.asset_url,
-          instruction: fullInstruction,
-          status: data.status,
-          message: data.message
-        };
       }
-
-      setGeneratedAssets(prev => ({ ...prev, [productId]: result }));
-
-      const formatInfo = currentFormatSpecs ?
-        `${currentFormatSpecs.aspectRatio} (${currentFormatSpecs.dimensions})${config.asset_type === 'video' ? `, ${currentFormatSpecs.duration}` : ''}` :
-        specification;
-
-      toast({
-        title: "Generation Successful",
-        description: config.type.toLowerCase().includes('ad')
-          ? `Your ad package (visual + copy) has been generated with format: ${formatInfo}`
-          : `Your ${config.asset_type} has been generated with format: ${formatInfo}`,
-      });
 
     } catch (error) {
       console.error('Generation error:', error);
@@ -934,21 +669,31 @@ export function UnifiedAssetGenerator({
   };
 
   const handleRedoGeneration = async (productId: string) => {
-    // Clear the current asset to allow instruction editing
     setGeneratedAssets(prev => {
       const newAssets = { ...prev };
-      delete newAssets[productId];
+      
+      // Handle "Apply to All" mode - clear all generated assets
+      if (productId === 'all' && isMultiProduct && applyToAll) {
+        for (const product of selectedProducts) {
+          delete newAssets[product.id];
+        }
+      } else {
+        delete newAssets[productId];
+      }
+      
       return newAssets;
     });
 
     toast({
       title: "Ready to Regenerate",
-      description: "You can now modify your instruction and generate again.",
+      description: productId === 'all' && isMultiProduct && applyToAll
+        ? "You can now modify your instruction and generate for all products again."
+        : "You can now modify your instruction and generate again.",
     });
   };
 
   const handleDownloadAsset = (asset: GeneratedAsset) => {
-    if (asset.url && asset.type !== 'content') {
+    if (asset.url && asset.url.trim() !== '' && asset.url !== 'undefined') {
       const link = document.createElement('a');
       link.href = asset.url;
       link.download = `${asset.type}-${Date.now()}`;
@@ -965,9 +710,10 @@ export function UnifiedAssetGenerator({
 
   const renderAssetActions = (productId: string, asset: GeneratedAsset) => {
     const config = configs[productId];
-    const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
+    // Handle "Apply to All" mode - use first product's ID for inventoryId
+    const actualProductId = productId === 'all' ? selectedProducts[0].id : productId;
+    const product = selectedProducts.find(p => p.id === actualProductId) || selectedProducts[0];
 
-    // Generate prefilled data for Save to Library
     const generateSaveData = () => {
       const channelLabel = CHANNELS.find(c => c.value === config?.channel)?.label || config?.channel;
       const specification = config?.specification || SPECIFICATIONS[config?.type as keyof typeof SPECIFICATIONS] || '';
@@ -996,10 +742,8 @@ export function UnifiedAssetGenerator({
       };
     };
 
-    // Map asset type for SaveAssetDialog - convert 'ad' to appropriate type
     const getSaveAssetType = (assetType: string): 'image' | 'video' | 'content' => {
       if (assetType === 'ad') {
-        // For ads, determine if it's image or video based on the format
         const isVideo = config?.type?.toLowerCase().includes('video') || 
                        config?.type?.toLowerCase().includes('reel') ||
                        config?.type?.toLowerCase().includes('story video');
@@ -1008,25 +752,27 @@ export function UnifiedAssetGenerator({
       return assetType as 'image' | 'video' | 'content';
     };
 
+    const hasValidUrl = asset.url && asset.url.trim() !== '' && asset.url !== 'undefined';
+
     return (
       <div className="flex flex-wrap gap-2 mt-4 p-3 bg-gray-50 rounded-lg border-t">
-        {/* Save to Library */}
-        {asset.type !== 'combo' && asset.url && (
+        {asset.type !== 'combo' && hasValidUrl && (
           <SaveAssetDialog
             asset={{
               id: asset.id || `${asset.type}-${Date.now()}`,
               type: getSaveAssetType(asset.type),
-              url: asset.url,
+              url: asset.url!,
               instruction: asset.instruction,
               content: asset.content || asset.adCopy,
-              source_system: 'runway',
+              source_system: config?.asset_type === 'content' ? 'openai' : 'runway',
+              channel: config?.channel || 'social_media',
+              inventoryId: product.id
             }}
             prefillData={generateSaveData()}
           />
         )}
 
-        {/* Download */}
-        {asset.type !== 'content' && asset.url && (
+        {asset.type !== 'content' && hasValidUrl && (
           <Button
             size="sm"
             variant="outline"
@@ -1038,7 +784,6 @@ export function UnifiedAssetGenerator({
           </Button>
         )}
 
-        {/* Copy Content (for content type or ad copy) */}
         {(asset.type === 'content' && asset.content) || asset.adCopy ? (
           <Button
             size="sm"
@@ -1055,7 +800,6 @@ export function UnifiedAssetGenerator({
           </Button>
         ) : null}
 
-        {/* Redo */}
         <Button
           size="sm"
           variant="outline"
@@ -1067,7 +811,6 @@ export function UnifiedAssetGenerator({
           <span>Redo</span>
         </Button>
 
-        {/* Exit/Close */}
         <Button
           size="sm"
           variant="outline"
@@ -1082,30 +825,80 @@ export function UnifiedAssetGenerator({
   };
 
   const renderGeneratedAsset = (productId: string) => {
+    // Handle "Apply to All" mode - show all generated assets
+    if (productId === 'all' && isMultiProduct && applyToAll) {
+      return (
+        <div className="space-y-4">
+          <h4 className="font-medium text-gray-900 mb-3">
+            Generated Assets for All Products ({selectedProducts.length} items)
+          </h4>
+          {selectedProducts.map(product => {
+            const asset = generatedAssets[product.id];
+            if (!asset) return null;
+            
+            return (
+              <div key={product.id} className="bg-white p-4 rounded-lg border shadow-sm">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="w-8 h-8 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                    {product.images?.[0] ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement!.innerHTML =
+                            '<div class="w-full h-full flex items-center justify-center bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v4a1 1 0 001 1h3m10-5v4a1 1 0 01-1 1h-3m-6 4h6m-6 0v4a1 1 0 001 1h3m6-5v4a1 1 0 01-1 1h-3" /></svg></div>';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <Package className="h-3 w-3 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h5 className="font-medium text-sm">{product.name}</h5>
+                    {product.brand && (
+                      <Badge variant="outline" className="text-xs">
+                        {product.brand}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                
+                {renderSingleAsset(asset, product.id)}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+    
+    // Single product asset display
     const asset = generatedAssets[productId];
     if (!asset) return null;
+    
+    return renderSingleAsset(asset, productId);
+  };
+
+  const renderSingleAsset = (asset: GeneratedAsset, productId: string) => {
+    const hasValidUrl = asset.url && asset.url.trim() !== '' && asset.url !== 'undefined';
 
     return (
-      <div className="mt-4 p-4 border rounded-lg bg-green-50">
-        <h4 className="font-medium mb-2 flex items-center space-x-2">
-          <span>Generated {asset.type === 'ad' ? 'Ad Package' : asset.type}</span>
-          {asset.status === 'processing' && (
-            <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
-          )}
-          {asset.status === 'completed' && (
-            <Badge className="bg-green-100 text-green-800">Completed</Badge>
-          )}
-          {asset.status === 'error' && (
-            <Badge className="bg-red-100 text-red-800">Error</Badge>
+      <div>
+        <h4 className="font-medium text-gray-900 mb-3 flex items-center justify-between">
+          Generated {asset.type}
+          {!hasValidUrl && (
+            <Badge className="bg-orange-100 text-orange-800">No URL</Badge>
           )}
         </h4>
 
-        {/* Asset Display */}
         {asset.type === 'content' && asset.content ? (
           <div className="whitespace-pre-wrap text-sm bg-white p-3 rounded border mb-3">
             {asset.content}
           </div>
-        ) : asset.url ? (
+        ) : hasValidUrl ? (
           <div className="space-y-2 mb-3">
             {asset.type === 'image' || asset.type === 'ad' ? (
               <img
@@ -1113,54 +906,24 @@ export function UnifiedAssetGenerator({
                 alt="Generated asset"
                 className="max-w-full h-auto rounded border max-h-64 object-contain"
                 onError={(e) => {
-                  console.error('Image failed to load:', asset.url);
                   e.currentTarget.style.display = 'none';
                 }}
               />
             ) : asset.type === 'video' ? (
               <video
+                src={asset.url}
                 controls
                 className="max-w-full h-auto rounded border max-h-64"
-                onError={(e) => {
-                  console.error('Video failed to load:', asset.url);
-                }}
-              >
-                <source src={asset.url} type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
+              />
             ) : null}
-
-            {/* Display ad copy if available */}
-            {asset.adCopy && (
-              <div className="mt-3">
-                <h5 className="font-medium text-sm mb-1">Ad Copy:</h5>
-                <div className="whitespace-pre-wrap text-sm bg-white p-3 rounded border">
-                  {asset.adCopy}
-                </div>
-              </div>
-            )}
           </div>
-        ) : asset.status === 'error' ? (
-          <div className="text-red-600 text-sm mb-3">
-            {asset.message || 'Generation failed'}
-          </div>
-        ) : null}
-
-        {/* Action Buttons */}
-        {renderAssetActions(productId, asset)}
-
-        {/* Social Media Auto-Post - Show for image and ad assets only */}
-        {(asset.type === 'image' || asset.type === 'ad') && asset.url && asset.instruction && (
-          <div className="mt-4">
-            <SocialMediaAutoPost 
-              imageUrl={asset.url}
-              instruction={asset.instruction}
-              isVisible={true}
-              selectedChannels={[configs[productId]?.channel].filter(Boolean)}
-              formatSpecs={formatSpecs[productId]}
-            />
+        ) : (
+          <div className="text-sm text-gray-500 mb-3">
+            Asset generated but URL not available yet. Please wait or try again.
           </div>
         )}
+
+        {renderAssetActions(productId, asset)}
       </div>
     );
   };
