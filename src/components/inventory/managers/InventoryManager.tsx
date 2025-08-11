@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/forms/button";
 import { Input } from "@/components/ui/forms/input";
 import { Badge } from "@/components/ui/data_display/badge";
 import { Checkbox } from "@/components/ui/forms/checkbox";
-import { Search, Plus, Upload, Package, Edit, Trash2, Image, Video, FileText, Wand2, RefreshCw, CheckCircle, Save, ExternalLink } from "lucide-react";
+import { Search, Plus, Upload, Package, Edit, Trash2, Image, Video, FileText, Wand2, RefreshCw, CheckCircle, Save, ExternalLink, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
 import { AddProductDialog } from "../dialogs/AddProductDialog";
 import { ImportProductsDialog } from "../dialogs/ImportProductsDialog";
@@ -81,6 +81,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const [showResults, setShowResults] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [savingAssets, setSavingAssets] = useState<Set<string>>(new Set());
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   // Fetch inventory items
   const { data: inventoryResponse, isLoading, refetch } = useQuery({
@@ -532,10 +533,9 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
   const handleGenerationComplete = () => {
     setShowGenerator(false);
-    setShowResults(false);
-    setGenerationType(null);
-    setSelectedProducts([]);
     setGenerationResults([]);
+    setShowResults(false);
+    setSelectedProducts([]);
     setGenerationConfig({
       channel: 'facebook',
       type: 'image',
@@ -546,6 +546,95 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       variations: false,
       autoOptimize: true
     });
+  };
+
+  const handleEnhanceInstruction = async () => {
+    const currentInstruction = generationConfig.instructions || getPlatformSpecificInstruction();
+    if (!currentInstruction.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter an instruction first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsEnhancing(true);
+
+    try {
+      // Get the first selected product for context
+      const product = selectedProductsData[0];
+      if (!product) {
+        toast({
+          title: "Error",
+          description: "Please select at least one product first.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create enhanced prompt for instruction improvement
+      const enhancementPrompt = `Improve this instruction for ${generationConfig.type} generation on ${generationConfig.channel} platform. Keep it concise and focused on visual elements:
+
+Original instruction: "${currentInstruction.trim()}"
+
+Product: ${product.name}
+${product.description ? `Description: ${product.description}` : ''}
+${product.brand ? `Brand: ${product.brand}` : ''}
+${product.category ? `Category: ${product.category}` : ''}
+
+Please enhance this instruction to be more specific and effective for AI ${generationConfig.type} generation. Focus on:
+- Visual style and composition
+- Color scheme and lighting
+- Product positioning and angles
+- Text overlay and typography
+- Platform-specific optimizations
+- Call-to-action elements
+
+Keep the response concise (max 200 words) and focused on visual elements. Return only the improved instruction without any additional text.`;
+
+      // Call OpenAI API to improve the instruction
+      const response = await generationAPI.generateWithOpenAI({
+        type: 'text',
+        instruction: enhancementPrompt,
+        productInfo: {
+          name: product.name,
+          description: product.description || ''
+        },
+        formatSpecs: {
+          maxTokens: 500,
+          temperature: 0.7
+        }
+      });
+      console.log(response?.data);
+      if (response?.data?.data?.result) {
+        const improvedInstruction = response.data.data.result.trim();
+        
+        // Truncate instruction if it's too long for image generation
+        const truncatedInstruction = generationConfig.type === 'image' 
+          ? improvedInstruction.length > 1000 
+            ? improvedInstruction.substring(0, 1000) + '...'
+            : improvedInstruction
+          : improvedInstruction;
+        
+        setGenerationConfig(prev => ({ ...prev, instructions: truncatedInstruction }));
+        toast({
+          title: "Instruction Enhanced",
+          description: "Your instruction has been optimized using AI for better generation results.",
+        });
+      } else {
+        throw new Error('No improvement result received');
+      }
+    } catch (error) {
+      console.error('Error enhancing instruction:', error);
+      toast({
+        title: "Enhancement Failed",
+        description: "Failed to enhance instruction. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnhancing(false);
+    }
   };
 
   const selectedProductsData = inventory.filter(product => selectedProducts.includes(product.id));
@@ -1191,10 +1280,26 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
                                 {(generationConfig.instructions || getPlatformSpecificInstruction()).length}/500
                               </div>
                             </div>
-                          <Button variant="outline" size="sm" className="w-full border-dashed hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 group">
-                            <Wand2 className="h-4 w-4 mr-2 group-hover:animate-pulse" />
-                            <span className="hidden sm:inline">Enhance with AI</span>
-                            <span className="sm:hidden">AI Enhance</span>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full border-dashed hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 group"
+                            onClick={handleEnhanceInstruction}
+                            disabled={isEnhancing || !(generationConfig.instructions || getPlatformSpecificInstruction()).trim()}
+                          >
+                            {isEnhancing ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                <span className="hidden sm:inline">Enhancing...</span>
+                                <span className="sm:hidden">Enhancing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="h-4 w-4 mr-2 group-hover:animate-pulse" />
+                                <span className="hidden sm:inline">Enhance with AI</span>
+                                <span className="sm:hidden">AI Enhance</span>
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>

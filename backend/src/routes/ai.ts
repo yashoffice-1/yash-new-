@@ -58,8 +58,31 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
       
       result = response.data.choices[0].message.content;
     } else if (type === 'image') {
+      // Clean and truncate prompt for image generation
+      let cleanPrompt = prompt.trim();
+      
+      // Remove any text that might cause issues with image generation
+      cleanPrompt = cleanPrompt
+        .replace(/text overlay|text overlay|overlay text|typography|font|call-to-action|CTA|button|logo|brand|website|URL|link/gi, '')
+        .replace(/Facebook|Instagram|social media|platform/gi, '')
+        .replace(/pixels|px|size|dimensions/gi, '')
+        .replace(/professional|business|marketing|advertising/gi, '')
+        .replace(/engagement|sharing|viral|trending/gi, '');
+      
+      // Truncate to OpenAI's recommended length for image prompts
+      if (cleanPrompt.length > 1000) {
+        cleanPrompt = cleanPrompt.substring(0, 1000).trim();
+      }
+      
+      // Ensure the prompt is not empty after cleaning
+      if (!cleanPrompt) {
+        cleanPrompt = "A professional product photograph";
+      }
+      
+      console.log('Cleaned prompt for image generation:', cleanPrompt);
+      
       const response = await axios.post('https://api.openai.com/v1/images/generations', {
-        prompt,
+        prompt: cleanPrompt,
         n: 1,
         size: options?.size || '1024x1024'
       }, {
@@ -82,7 +105,7 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
       },
       message: 'Content generated successfully'
     });
-  } catch (error) {
+  } catch (error:any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
         success: false,
@@ -90,6 +113,20 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
         details: error.errors
       });
     }
+    
+    // Log the full error for debugging
+    console.error('OpenAI API Error:', error);
+    
+    // If it's an axios error, extract the response data
+    if (error.response) {
+      console.error('OpenAI API Response Error:', error.response.data);
+      return res.status(500).json({
+        success: false,
+        error: 'OpenAI API error',
+        details: error.response.data
+      });
+    }
+    
     return next(error);
   }
 });
