@@ -27,6 +27,15 @@ const heygenGenerateSchema = z.object({
   }).optional()
 });
 
+const youtubeMetadataSchema = z.object({
+  assetId: z.string().min(1, 'Asset ID is required'),
+  instruction: z.string().optional(), // Original instruction used to generate the video
+  productInfo: z.object({
+    name: z.string().optional(),
+    description: z.string().optional(),
+    category: z.string().optional()
+  }).optional()
+});
 // OpenAI Integration
 router.post('/openai/generate', authenticateToken, async (req, res, next) => {
   try {
@@ -503,4 +512,119 @@ router.post('/heygen/recover-pending', authenticateToken, async (req, res, next)
   }
 });
 
+router.post('/youtube/generate-metadata', authenticateToken, async (req, res, _next) => {
+  try {
+    const { assetId, instruction, productInfo } = youtubeMetadataSchema.parse(req.body);
+    const userId = (req as any).user.userId;
+    
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+      return res.status(501).json({
+        success: false,
+        error: 'OpenAI API key not configured'
+      });
+    }
+
+    // Get the asset details from database
+    const asset = await prisma.generatedAsset.findFirst({
+      where: {
+        id: assetId,
+        profileId: userId
+      }
+    });
+
+    if (!asset) {
+      return res.status(404).json({
+        success: false,
+        error: 'Asset not found'
+      });
+    }
+
+    // Create a comprehensive prompt for YouTube metadata generation
+    const prompt = `Generate YouTube video metadata for a product video. 
+
+Video Details:
+- Original Instruction: ${instruction || asset.instruction}
+- Product: ${productInfo?.name || 'Product demonstration'}
+- Category: ${productInfo?.category || 'Tools & Hardware'}
+- Description: ${productInfo?.description || 'Product showcase video'}
+
+Please generate:
+1. A compelling YouTube title (max 100 characters) that includes relevant keywords and is engaging
+2. A detailed description (max 5000 characters) that includes:
+   - Product overview
+   - Key features and benefits
+   - Call-to-action
+   - Relevant hashtags
+   - Links placeholder
+3. 10-15 relevant tags separated by commas that would help with YouTube SEO
+
+Return only a JSON object like this (without nesting inside string or escaping quotes):
+{
+  "title": "Your generated title",
+  "description": "Your generated description",
+  "tags": "tag1, tag2, tag3, tag4, tag5"
+}
+
+Make it engaging, SEO-friendly, and optimized for YouTube's algorithm.`;
+
+    // Call OpenAI to generate metadata
+    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2000,
+      temperature: 0.7
+    }, {
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = response.data.choices[0].message.content;
+    
+    // Parse the JSON response
+    let metadata;
+    try {
+      metadata = JSON.parse(result);
+    } catch (parseError) {
+      console.log('parseError', parseError);
+      // If JSON parsing fails, create a structured response from the text
+      const lines = result.split('\n');
+      metadata = {
+        title: lines.find((line:string) => line.includes('title') || line.includes('Title'))?.replace(/.*[:=]\s*/, '').replace(/['"]/g, '').trim() || 'Product Video',
+        description: result.replace(/.*title.*\n?/i, '').replace(/.*tags.*\n?/i, '').trim(),
+        tags: lines.find((line:string) => line.includes('tag') || line.includes('Tag'))?.replace(/.*[:=]\s*/, '').replace(/['"]/g, '').trim() || 'product, demonstration, showcase'
+      };
+    }
+
+    // Clean and validate the generated metadata
+    const cleanMetadata = {
+      title: (metadata.title || 'Product Video').substring(0, 100),
+      description: (metadata.description || '').substring(0, 5000),
+      tags: (metadata.tags || '').split(',').map((tag:string) => tag.trim()).filter((tag:string) => tag.length > 0).slice(0, 15).join(', ')
+    };
+
+    return res.json({
+      success: true,
+      data: cleanMetadata,
+      message: 'YouTube metadata generated successfully'
+    });
+
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.errors
+      });
+    }
+    
+    console.error('YouTube metadata generation error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to generate YouTube metadata'
+    });
+  }
+});
 export default router; 
