@@ -49,6 +49,7 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
     tags: '',
     privacy: 'private'
   });
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     fetchConnections();
@@ -80,6 +81,66 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
       console.error('Error fetching connections:', error);
     } finally {
       setIsLoadingConnections(false);
+    }
+  };
+
+  const handleGenerateMetadata = async () => {
+    if (!asset?.asset_url) {
+      toast({
+        title: "No Video Available",
+        description: "Please select a video first.",
+        variant: "destructive"
+      });
+      return;
+    }
+  
+    setIsGenerating(true);
+    
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch('http://localhost:3001/api/ai/youtube/generate-metadata', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          assetId: asset.id,
+          instruction: asset.instruction,
+          productInfo: {
+            name: asset?.title || "",
+            description: asset?.description || "",
+            category: 'Tools & Hardware'
+          }
+        })
+      });
+  
+      const result = await response.json();
+  
+      if (result.success) {
+        setUploadFormData({
+          ...uploadFormData,
+          title: result.data.title,
+          description: result.data.description,
+          tags: result.data.tags
+        });
+        
+        toast({
+          title: "Metadata Generated! ✨",
+          description: "AI has generated title, description, and tags for your YouTube video.",
+        });
+      } else {
+        throw new Error(result.error || 'Failed to generate metadata');
+      }
+    } catch (error) {
+      console.error('Error generating metadata:', error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate YouTube metadata.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -330,21 +391,43 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
               
               <div className="grid gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title" className="flex items-center space-x-2">
-                    <span>Video Title</span>
-                    <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="title"
-                    value={uploadFormData.title}
-                    onChange={(e) => setUploadFormData({ ...uploadFormData, title: e.target.value })}
-                    placeholder="Enter an engaging title for your video"
-                    className="h-10"
-                  />
-                  <p className="text-xs text-gray-500">
-                    {uploadFormData.title.length}/100 characters
-                  </p>
-                </div>
+  <div className="flex items-center justify-between">
+    <Label htmlFor="title" className="flex items-center space-x-2">
+      <span>Video Title</span>
+      <span className="text-red-500">*</span>
+    </Label>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={handleGenerateMetadata}
+      disabled={isGenerating || !asset?.asset_url}
+      className="flex items-center space-x-2"
+    >
+      {isGenerating ? (
+        <>
+          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span>Generating...</span>
+        </>
+      ) : (
+        <>
+          <Sparkles className="h-4 w-4" />
+          <span>Generate with AI</span>
+        </>
+      )}
+    </Button>
+  </div>
+  <Input
+    id="title"
+    value={uploadFormData.title}
+    onChange={(e) => setUploadFormData({ ...uploadFormData, title: e.target.value })}
+    placeholder="Enter an engaging title for your video"
+    className="h-10"
+  />
+  <p className="text-xs text-gray-500">
+    {uploadFormData.title.length}/100 characters
+  </p>
+</div>
 
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
