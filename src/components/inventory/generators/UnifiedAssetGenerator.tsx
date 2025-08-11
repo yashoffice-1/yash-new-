@@ -13,6 +13,7 @@ import { SaveAssetDialog } from '@/components/inventory/dialogs/SaveAssetDialog'
 import { FormatSpecSelector } from '@/components/common/utils/FormatSpecSelector';
 import { generateMockAsset } from '@/utils/mockGeneration';
 import { InventoryItem, AssetGenerationConfig, GeneratedAsset } from '@/types/inventory';
+import { generationAPI } from '@/api/clients/generation-client';
 
 interface UnifiedAssetGeneratorProps {
   isOpen: boolean;
@@ -575,18 +576,58 @@ export function UnifiedAssetGenerator({
     setIsImproving(prev => ({ ...prev, [productId]: true }));
 
     try {
-      // Simplified instruction improvement
-      const improvedInstruction = `Enhanced: ${config.description.trim()}`;
-      updateConfig(productId, 'description', improvedInstruction);
-      toast({
-        title: "Instruction Improved",
-        description: "Your instruction has been optimized for better AI generation.",
+      // Get the product for context
+      const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
+      
+      // Create enhanced prompt for instruction improvement
+      const enhancementPrompt = `Improve this instruction for ${config.asset_type} generation on ${config.channel} platform:
+
+Original instruction: "${config.description.trim()}"
+
+Product: ${product.name}
+${product.description ? `Description: ${product.description}` : ''}
+${product.brand ? `Brand: ${product.brand}` : ''}
+${product.category ? `Category: ${product.category}` : ''}
+
+Please enhance this instruction to be more specific, detailed, and effective for AI generation. Include:
+- Specific visual elements and styling
+- Target audience considerations
+- Platform-specific optimizations
+- Call-to-action elements
+- Technical specifications
+- Brand voice and tone
+
+Return only the improved instruction without any additional text.`;
+
+      // Call OpenAI API to improve the instruction
+      const response = await generationAPI.generateWithOpenAI({
+        type: 'text',
+        instruction: enhancementPrompt,
+        productInfo: {
+          name: product.name,
+          description: product.description || ''
+        },
+        formatSpecs: {
+          maxTokens: 500,
+          temperature: 0.7
+        }
       });
+
+      if (response?.data?.result) {
+        const improvedInstruction = response.data.result.trim();
+        updateConfig(productId, 'description', improvedInstruction);
+        toast({
+          title: "Instruction Enhanced",
+          description: "Your instruction has been optimized using AI for better generation results.",
+        });
+      } else {
+        throw new Error('No improvement result received');
+      }
     } catch (error) {
       console.error('Error improving instruction:', error);
       toast({
-        title: "Error",
-        description: "Failed to improve instruction. Please try again.",
+        title: "Enhancement Failed",
+        description: "Failed to enhance instruction. Please try again.",
         variant: "destructive",
       });
     } finally {

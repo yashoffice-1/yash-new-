@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/forms/button';
 import { Input } from '@/components/ui/forms/input';
 import { Badge } from '@/components/ui/data_display/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/data_display/tabs';
-import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw, Share2, Upload } from 'lucide-react';
+import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw, Share2, Upload, X, Maximize2 } from 'lucide-react';
 import { useAssetLibrary, AssetLibraryItem } from '@/hooks/data/useAssetLibrary';
 import { useToast } from '@/hooks/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { SocialMediaUpload } from '../../user/social/SocialMediaUpload';
 import { templatesAPI, assetsAPI } from '@/api/clients/backend-client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/overlays/dialog';
 
 // Extend the AssetLibraryItem interface to include gif_url
 interface ExtendedAssetLibraryItem extends AssetLibraryItem {
@@ -26,9 +27,32 @@ export function AssetLibrary() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedAssetForUpload, setSelectedAssetForUpload] = useState<ExtendedAssetLibraryItem | null>(null);
   const [progressStates, setProgressStates] = useState<Record<string, number>>({});
+  const [selectedAsset, setSelectedAsset] = useState<ExtendedAssetLibraryItem | null>(null);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   
   const { getLibraryAssets, toggleFavorite, deleteFromLibrary, isLoading } = useAssetLibrary();
   const { toast } = useToast();
+
+  // Handle keyboard events for image modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isImageModalOpen) {
+        setIsImageModalOpen(false);
+      }
+    };
+
+    if (isImageModalOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isImageModalOpen]);
 
   // Update asset through API
   const updateAsset = async (assetId: string, updates: { url?: string; status?: string }) => {
@@ -56,10 +80,21 @@ export function AssetLibrary() {
 
   const loadAssets = async () => {
     console.log('Loading assets from library...');
-    const data = await getLibraryAssets();
-    console.log('Loaded assets from library:', data);
-    setAssets(data);
-    setFilteredAssets(data);
+    try {
+      const data = await getLibraryAssets();
+      console.log('Loaded assets from library:', data);
+      setAssets(data);
+      setFilteredAssets(data);
+    } catch (error) {
+      console.error('Error loading assets:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load assets. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsInitialLoading(false);
+    }
   };
 
   // Progress simulation for processing videos
@@ -427,10 +462,15 @@ export function AssetLibrary() {
         </TabsList>
 
         <TabsContent value={selectedType} className="mt-6">
-          {isLoading ? (
+          {isInitialLoading ? (
             <div className="text-center py-8">
               <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
               <p className="text-muted-foreground">Loading your assets...</p>
+            </div>
+          ) : isLoading ? (
+            <div className="text-center py-8">
+              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Refreshing assets...</p>
             </div>
           ) : filteredAssets.length === 0 ? (
             <div className="text-center py-12">
@@ -480,11 +520,17 @@ export function AssetLibrary() {
                   <CardContent className="space-y-4">
                     {/* Asset Preview */}
                     {asset.asset_type === 'image' && asset.asset_url && (
-                      <div className="aspect-video bg-gray-100 rounded overflow-hidden relative">
+                      <div className="aspect-video bg-gray-100 rounded overflow-hidden relative group cursor-pointer">
                         <img 
                           src={asset.asset_url} 
                           alt={asset.title}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain bg-white"
+                          onClick={() => {
+                            console.log('Image clicked:', asset.title, asset.asset_url);
+                            setSelectedAsset(asset);
+                            setIsImageModalOpen(true);
+                            console.log('Modal state set to open, selectedAsset:', asset);
+                          }}
                           onError={(e) => {
                             console.error('Image failed to load:', asset.asset_url);
                             const target = e.target as HTMLImageElement;
@@ -506,6 +552,12 @@ export function AssetLibrary() {
                             target.parentElement?.appendChild(errorDiv);
                           }}
                         />
+                        {/* Overlay with expand icon */}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center pointer-events-none">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white bg-opacity-90 rounded-full p-2 pointer-events-auto">
+                            <Maximize2 className="h-5 w-5 text-gray-700" />
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -688,6 +740,100 @@ export function AssetLibrary() {
           }}
           onUploadComplete={handleUploadComplete}
         />
+      )}
+
+      {/* Image Modal */}
+      {selectedAsset && (
+        <Dialog open={isImageModalOpen} onOpenChange={setIsImageModalOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] w-[90vw] p-0 border-0 bg-black/95 backdrop-blur-sm">
+            <div className="relative w-full h-full flex flex-col">
+              {/* Header */}
+              <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <DialogTitle className="text-white text-lg font-semibold">
+                      {selectedAsset.title}
+                    </DialogTitle>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
+                        {selectedAsset.asset_type?.toUpperCase() || 'IMAGE'}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs bg-white/20 text-white border-white/30">
+                        {selectedAsset.source_system?.toUpperCase() || 'UNKNOWN'}
+                      </Badge>
+                      {selectedAsset.tags?.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs bg-white/20 text-white">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleDownload(selectedAsset)}
+                      className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-white hover:text-white/80 hover:bg-white/20"
+                      onClick={() => setIsImageModalOpen(false)}
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Image Container */}
+              <div className="flex-1 flex items-center justify-center p-4 pt-16">
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <img 
+                    src={selectedAsset.asset_url} 
+                    alt={selectedAsset.title}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                    style={{ maxHeight: 'calc(90vh - 120px)' }}
+                    onError={(e) => {
+                      console.error('Image failed to load in modal:', selectedAsset.asset_url);
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      // Show error message
+                      const errorDiv = document.createElement('div');
+                      errorDiv.className = 'flex items-center justify-center bg-red-50 text-red-600 text-sm p-8 rounded-lg border-2 border-red-200';
+                      errorDiv.innerHTML = `
+                        <div class="text-center">
+                          <div class="flex items-center justify-center mb-2">
+                            <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <p class="font-medium">Image failed to load</p>
+                          <p class="text-xs mt-1">This asset may need to be re-generated</p>
+                        </div>
+                      `;
+                      target.parentElement?.appendChild(errorDiv);
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Footer with additional info */}
+              {selectedAsset.description && (
+                <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 to-transparent p-4">
+                  <div className="text-white/90 text-sm">
+                    <p className="font-medium mb-1">Description:</p>
+                    <p className="text-white/70">{selectedAsset.description}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
