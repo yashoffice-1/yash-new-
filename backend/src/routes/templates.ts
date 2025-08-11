@@ -49,7 +49,7 @@ const updateTemplateSchema = z.object({
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
-    const templates = await templateService.getUserTemplates(userId);    
+    const templates = await templateService.getUserTemplates(userId);
     return res.json({
       success: true,
       data: templates
@@ -135,12 +135,12 @@ router.get('/admin/all-available', authenticateToken, requireAdmin, async (req, 
             'Content-Type': 'application/json'
           }
         });
-        
+
         const heygenTemplates = (heygenResponse.data.data?.templates || []).map((template: any) => ({
           ...template,
           source: 'heygen'
         }));
-        
+
         allTemplates = [...allTemplates, ...heygenTemplates];
       } catch (error) {
         console.error('Error fetching HeyGen templates:', error);
@@ -172,7 +172,7 @@ router.get('/admin/all-available', authenticateToken, requireAdmin, async (req, 
 router.get('/admin/fetch-external', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { source } = req.query; // 'heygen' or 'runway'
-    
+
     if (!source || (source !== 'heygen' && source !== 'runway')) {
       return res.status(400).json({
         success: false,
@@ -181,7 +181,7 @@ router.get('/admin/fetch-external', authenticateToken, requireAdmin, async (req,
     }
 
     let templates = [];
-    
+
     if (source === 'heygen') {
       const heygenApiKey = process.env.HEYGEN_API_KEY;
       if (!heygenApiKey) {
@@ -223,7 +223,7 @@ router.get('/admin/fetch-external', authenticateToken, requireAdmin, async (req,
 router.post('/admin/assign', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const data = assignTemplateSchema.parse(req.body);
-    
+
     // Validate custom character limits don't exceed HeyGen limits
     if (data.variables) {
       for (const variable of data.variables) {
@@ -235,7 +235,7 @@ router.post('/admin/assign', authenticateToken, requireAdmin, async (req, res) =
         }
       }
     }
-    
+
     // Convert expiresAt string to Date if provided
     const templateData = {
       userId: data.userId,
@@ -252,17 +252,25 @@ router.post('/admin/assign', authenticateToken, requireAdmin, async (req, res) =
     const template = await templateService.grantTemplateAccess(templateData);
 
     // Store template variables if provided
-    if (data.variables && data.variables.length > 0) {
-      await prisma.templateVariable.createMany({
-        data: data.variables.map(variable => ({
-          templateAccessId: template.id,
-          name: variable.name,
-          type: variable.type,
-          required: variable.required,
-          defaultValue: variable.defaultValue,
-          charLimit: variable.customCharLimit || variable.charLimit // Use custom limit if provided (validated to not exceed HeyGen limit), otherwise use HeyGen limit
-        }))
+    if (data.variables !== undefined) {
+      // Always delete existing variables first (whether we're adding new ones or not)
+      await prisma.templateVariable.deleteMany({
+        where: { templateAccessId: template.id }
       });
+
+      // Only create new variables if the array is not empty
+      if (data.variables.length > 0) {
+        await prisma.templateVariable.createMany({
+          data: data.variables.map(variable => ({
+            templateAccessId: template.id,
+            name: variable.name,
+            type: variable.type,
+            required: variable.required,
+            defaultValue: variable.defaultValue,
+            charLimit: variable.customCharLimit || variable.charLimit // Use custom limit if provided (validated to not exceed HeyGen limit), otherwise use HeyGen limit
+          }))
+        });
+      }
     }
 
     return res.status(201).json({
@@ -458,7 +466,7 @@ router.get('/heygen/variables/:templateId', authenticateToken, requireAdmin, asy
         error: 'HeyGen API key not configured'
       });
     }
-    
+
     const response = await axios.get(`https://api.heygen.com/v2/template/${templateId}`, {
       headers: {
         'X-Api-Key': heygenApiKey,
@@ -474,7 +482,7 @@ router.get('/heygen/variables/:templateId', authenticateToken, requireAdmin, asy
       where: { key: 'default_char_limit' }
     });
     const defaultCharLimit = systemSettings ? parseInt(systemSettings.value) : 500;
-    
+
     // Transform HeyGen variables to our format with character limits
     const processedVariables = Object.entries(rawVariables).map(([name, variable]: [string, any]) => {
       const baseVariable = {
