@@ -30,7 +30,7 @@ export function AssetLibrary() {
   const [selectedAsset, setSelectedAsset] = useState<ExtendedAssetLibraryItem | null>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  
+
   const { getLibraryAssets, toggleFavorite, deleteFromLibrary, isLoading } = useAssetLibrary();
   const { toast } = useToast();
 
@@ -58,12 +58,12 @@ export function AssetLibrary() {
   const updateAsset = async (assetId: string, updates: { url?: string; status?: string }) => {
     try {
       const response = await assetsAPI.updateAsset(assetId, updates);
-      
+
       if (response.data.success) {
         // Update local state
-        setAssets(prevAssets => 
-          prevAssets.map(asset => 
-            asset.id === assetId 
+        setAssets(prevAssets =>
+          prevAssets.map(asset =>
+            asset.id === assetId
               ? { ...asset, ...updates }
               : asset
           )
@@ -99,7 +99,7 @@ export function AssetLibrary() {
 
   // Progress simulation for processing videos
   useEffect(() => {
-    const processingVideos = assets.filter(asset => 
+    const processingVideos = assets.filter(asset =>
       asset.asset_url === 'processing' || asset.asset_url === 'pending' || asset.asset_url?.startsWith('pending_')
     );
 
@@ -116,7 +116,7 @@ export function AssetLibrary() {
           const elapsedTime = (Date.now() - startTime) / 1000; // seconds
           const totalDuration = 300; // 5 minutes in seconds
           const targetProgress = 92; // Target 92% before completion
-          
+
           // Calculate progress based on elapsed time
           let newProgress;
           if (elapsedTime >= totalDuration) {
@@ -126,12 +126,12 @@ export function AssetLibrary() {
             // Linear progress from 0 to 92% over 5 minutes
             newProgress = Math.min(targetProgress, (elapsedTime / totalDuration) * targetProgress);
           }
-          
+
           // Set start time if not already set
           if (!newStates[`${asset.id}_startTime`]) {
             newStates[`${asset.id}_startTime`] = startTime;
           }
-          
+
           if (newProgress !== currentProgress) {
             newStates[asset.id] = newProgress;
             hasUpdates = true;
@@ -174,7 +174,7 @@ export function AssetLibrary() {
     // Filter by search term
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(asset => 
+      filtered = filtered.filter(asset =>
         asset.title.toLowerCase().includes(search) ||
         asset.description?.toLowerCase().includes(search) ||
         asset.instruction.toLowerCase().includes(search) ||
@@ -188,7 +188,7 @@ export function AssetLibrary() {
   const handleToggleFavorite = async (id: string, currentFavorited: boolean) => {
     await toggleFavorite(id, !currentFavorited);
     // Update local state
-    setAssets(assets.map(asset => 
+    setAssets(assets.map(asset =>
       asset.id === id ? { ...asset, favorited: !currentFavorited } : asset
     ));
   };
@@ -209,7 +209,7 @@ export function AssetLibrary() {
           // Add download parameter to Supabase URLs to force download
           downloadUrl = `${asset.asset_url}?download=${encodeURIComponent(asset.title)}.${asset.asset_type === 'image' ? 'png' : 'mp4'}`;
         }
-        
+
         const link = document.createElement('a');
         link.href = downloadUrl;
         link.download = `${asset.title}-${asset.asset_type}`;
@@ -217,7 +217,7 @@ export function AssetLibrary() {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         toast({
           title: "Download Started",
           description: `Downloading ${asset.title}...`,
@@ -254,11 +254,11 @@ export function AssetLibrary() {
       title: "Checking Video Status",
       description: "Getting latest video status from HeyGen...",
     });
-    
+
     try {
       // Get the asset details from the current state instead of Supabase
       const asset = assets.find(a => a.id === assetId);
-      
+
       if (!asset) {
         throw new Error('Asset not found');
       }
@@ -284,7 +284,7 @@ export function AssetLibrary() {
             title: "✅ Recovery Completed",
             description: `${response.data.data.length} videos checked. ${response.data.data.filter((r: any) => r.updated).length} updated.`,
           });
-          
+
           // Reload assets to show the updated status
           await loadAssets();
           return;
@@ -295,10 +295,10 @@ export function AssetLibrary() {
 
       // Use the backend status check endpoint for specific video
       const response = await templatesAPI.heygen.getStatus(videoId);
-      
+
       if (response.data.success) {
         const { status, videoUrl, errorMessage } = response.data.data;
-        
+
         if (status === 'completed' && videoUrl) {
           // Update the asset with the final video URL
           await updateAsset(assetId, { url: videoUrl, status: 'completed' });
@@ -319,7 +319,7 @@ export function AssetLibrary() {
             description: "Video is still being generated. Please wait.",
           });
         }
-        
+
         // Reload assets to show the updated status
         await loadAssets();
       } else {
@@ -328,7 +328,7 @@ export function AssetLibrary() {
     } catch (error) {
       console.error('Error getting video status:', error);
       toast({
-        title: "Failed to Get Video Status", 
+        title: "Failed to Get Video Status",
         description: error.message || "Could not retrieve video status from HeyGen.",
         variant: "destructive",
       });
@@ -340,7 +340,7 @@ export function AssetLibrary() {
       title: "Recovering Pending Videos",
       description: "Checking all pending HeyGen videos...",
     });
-    
+
     try {
       const response = await templatesAPI.heygen.recoverPending();
 
@@ -350,7 +350,7 @@ export function AssetLibrary() {
           title: "✅ Bulk Recovery Completed",
           description: `${response.data.data.length} videos checked. ${updatedCount} videos updated.`,
         });
-        
+
         // Reload assets to show the updated status
         await loadAssets();
       } else {
@@ -359,7 +359,7 @@ export function AssetLibrary() {
     } catch (error) {
       console.error('Error in bulk recovery:', error);
       toast({
-        title: "Failed to Recover Videos", 
+        title: "Failed to Recover Videos",
         description: error.message || "Could not recover pending videos.",
         variant: "destructive",
       });
@@ -396,8 +396,8 @@ export function AssetLibrary() {
   };
 
   // Check if there are any pending HeyGen videos
-  const hasPendingHeyGenVideos = assets.some(asset => 
-    (asset.source_system === "heygen") &&(asset.asset_url === "pending" || asset.asset_url === "processing" || asset.asset_url?.startsWith("pending_"))
+  const hasPendingHeyGenVideos = assets.some(asset =>
+    (asset.source_system === "heygen") && (asset.asset_url === "pending" || asset.asset_url === "processing" || asset.asset_url?.startsWith("pending_"))
   );
 
   return (
@@ -419,15 +419,15 @@ export function AssetLibrary() {
               <span>Recover Videos</span>
             </Button>
           )}
-        <Button
-          variant="outline"
-          onClick={handleManualRefresh}
-          disabled={isLoading}
-          className="flex items-center space-x-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </Button>
+          <Button
+            variant="outline"
+            onClick={handleManualRefresh}
+            disabled={isLoading}
+            className="flex items-center space-x-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
         </div>
       </div>
 
@@ -475,8 +475,8 @@ export function AssetLibrary() {
           ) : filteredAssets.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-muted-foreground">
-                {searchTerm || showFavoritesOnly || selectedType !== 'all' ? 
-                  'No assets match your current filters.' : 
+                {searchTerm || showFavoritesOnly || selectedType !== 'all' ?
+                  'No assets match your current filters.' :
                   'No assets in your library yet. Generate some content and save them to get started!'
                 }
               </div>
@@ -501,7 +501,7 @@ export function AssetLibrary() {
                         <Heart className={`h-4 w-4 ${asset.favorited ? 'fill-red-500 text-red-500' : ''}`} />
                       </Button>
                     </div>
-                    
+
                     <div className="flex flex-wrap gap-1 mt-2">
                       <Badge variant="secondary" className="text-xs">
                         {asset.asset_type?.toUpperCase() || 'UNKNOWN'}
@@ -521,8 +521,8 @@ export function AssetLibrary() {
                     {/* Asset Preview */}
                     {asset.asset_type === 'image' && asset.asset_url && (
                       <div className="aspect-video bg-gray-100 rounded overflow-hidden relative group cursor-pointer">
-                        <img 
-                          src={asset.asset_url} 
+                        <img
+                          src={asset.asset_url}
                           alt={asset.title}
                           className="w-full h-full object-contain bg-white"
                           onClick={() => {
@@ -570,15 +570,15 @@ export function AssetLibrary() {
                               <p className="font-medium mb-2">🎬 FeedGenesis is working on your video</p>
                               <div className="flex items-center space-x-2 mb-2">
                                 <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-32">
-                                  <div 
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                                     style={{ width: `${progressStates[asset.id] || 0}%` }}
                                   ></div>
                                 </div>
                                 <span className="text-xs text-gray-600">{Math.round(progressStates[asset.id] || 0)}%</span>
                               </div>
                               <p className="text-xs text-gray-600">
-                                {progressStates[asset.id] >= 92 
+                                {progressStates[asset.id] >= 92
                                   ? "Almost complete - finalizing video..."
                                   : `Estimated time remaining: ${Math.max(1, Math.round((300 - ((progressStates[asset.id] || 0) / 92 * 300)) / 60))} minutes`
                                 }
@@ -601,8 +601,8 @@ export function AssetLibrary() {
                             </div>
                           </div>
                         ) : (
-                          <video 
-                            src={asset.asset_url} 
+                          <video
+                            src={asset.asset_url}
                             className="w-full h-full object-contain"
                             controls
                             onError={(e) => {
@@ -625,7 +625,7 @@ export function AssetLibrary() {
                                 </div>
                               `;
                               target.parentElement?.appendChild(errorDiv);
-                              
+
                               // If there's a GIF URL, try to show that instead
                               if (asset.gif_url) {
                                 setTimeout(() => {
@@ -666,40 +666,40 @@ export function AssetLibrary() {
                       <span className="text-xs text-muted-foreground">
                         {new Date(asset.created_at).toLocaleDateString()}
                       </span>
-                      
-                        <div className="flex space-x-1">
-                          {/* Show refresh button for ALL HeyGen videos */}
+
+                      <div className="flex space-x-1">
+                        {/* Show refresh button for ALL HeyGen videos */}
                         {(asset.source_system === "heygen") && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRefreshVideo(asset.id)}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRefreshVideo(asset.id)}
                             className="text-blue-600 hover:text-blue-700 border-blue-200"
                             title="Check video status from HeyGen"
-                            >
+                          >
                             <RefreshCw className="h-4 w-4" />
-                            </Button>
-                          )}
-                         
-                         {asset.asset_type === 'content' && asset.content ? (
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => handleCopyContent(asset.content!, asset.title)}
-                           >
-                             <Copy className="h-4 w-4" />
-                           </Button>
-                         ) : (
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             onClick={() => handleDownload(asset)}
-                             disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
-                           >
-                             <Download className="h-4 w-4" />
-                           </Button>
-                         )}
-                        
+                          </Button>
+                        )}
+
+                        {asset.asset_type === 'content' && asset.content ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCopyContent(asset.content!, asset.title)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownload(asset)}
+                            disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
+
                         {asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending' && (
                           <Button
                             variant="outline"
@@ -711,7 +711,7 @@ export function AssetLibrary() {
                             <Share2 className="h-4 w-4" />
                           </Button>
                         )}
-                        
+
                         <Button
                           variant="outline"
                           size="sm"
@@ -793,8 +793,8 @@ export function AssetLibrary() {
               {/* Image Container */}
               <div className="flex-1 flex items-center justify-center p-4 pt-16">
                 <div className="relative w-full h-full flex items-center justify-center">
-                  <img 
-                    src={selectedAsset.asset_url} 
+                  <img
+                    src={selectedAsset.asset_url}
                     alt={selectedAsset.title}
                     className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
                     style={{ maxHeight: 'calc(90vh - 120px)' }}

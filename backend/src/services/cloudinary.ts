@@ -34,7 +34,7 @@ export class CloudinaryService {
     try {
       // eslint-disable-next-line no-console
       console.log(`Downloading asset from: ${data.url}`);
-      
+
       // Download the asset
       const response = await axios.get(data.url, {
         responseType: 'arraybuffer',

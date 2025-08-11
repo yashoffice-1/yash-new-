@@ -392,10 +392,10 @@ router.patch('/:id/status', authenticateToken, async (req, res, next) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({
-        success: false,
+      success: false,
         error: 'Validation error',
         details: error.errors
-      });
+    });
     }
     return next(error);
   }
@@ -422,7 +422,7 @@ router.patch('/:id/approve', authenticateToken, async (req, res, next) => {
         error: 'Asset not found or access denied'
       });
     }
-
+    
     // Update the asset approval status
     const updateData: any = {
       approved: validatedData.approved,
