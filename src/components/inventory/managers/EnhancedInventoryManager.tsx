@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/forms/button";
 import { Input } from "@/components/ui/forms/input";
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Badge } from "@/components/ui/data_display/badge";
-import { Search, Package, Image, Video, FileText, Megaphone, CheckSquare, X, Clapperboard } from "lucide-react";
+import { Search, Package, Image, Video, FileText, CheckSquare, X, Clapperboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/ui/use-toast";
 import { UnifiedAssetGenerator } from "../generators/UnifiedAssetGenerator";
@@ -35,10 +35,10 @@ export function EnhancedInventoryManager({ onVideoTemplateClick }: EnhancedInven
   const [categoryFilter, setCategoryFilter] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [showGenerator, setShowGenerator] = useState(false);
-  const [selectedAssetType, setSelectedAssetType] = useState<'image' | 'video' | 'content' | 'ad'>('image');
+  const [selectedAssetType, setSelectedAssetType] = useState<'image' | 'video' | 'content'>('image');
 
   // Fetch inventory items
-  const { data: inventory, isLoading, refetch } = useQuery({
+  const { data: inventory, isLoading } = useQuery({
     queryKey: ['enhanced-inventory', searchTerm, categoryFilter],
     queryFn: async () => {
       let query = supabase
@@ -109,7 +109,7 @@ export function EnhancedInventoryManager({ onVideoTemplateClick }: EnhancedInven
     }
   };
 
-  const handleGenerationClick = (assetType: 'image' | 'video' | 'content' | 'ad', productId?: string) => {
+  const handleGenerationClick = (assetType: 'image' | 'video' | 'content', productId?: string) => {
     if (productId && !selectedProducts.includes(productId)) {
       // If clicking on a specific product that's not selected, select only that product
       setSelectedProducts([productId]);
@@ -167,7 +167,7 @@ export function EnhancedInventoryManager({ onVideoTemplateClick }: EnhancedInven
         />
 
         {/* Product Image */}
-        <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+        <div className="relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
           {primaryImage ? (
             <img
               src={primaryImage}
@@ -182,6 +182,18 @@ export function EnhancedInventoryManager({ onVideoTemplateClick }: EnhancedInven
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-200">
               <Package className="h-6 w-6 text-gray-400" />
+            </div>
+          )}
+          
+          {/* Multiple Images Badge */}
+          {product.images && product.images.length > 1 && (
+            <div className="absolute top-1 right-1">
+              <Badge 
+                variant="secondary" 
+                className="bg-black/70 text-white text-xs px-1 py-0.5 text-[10px]"
+              >
+                {product.images.length}
+              </Badge>
             </div>
           )}
         </div>
@@ -258,15 +270,7 @@ export function EnhancedInventoryManager({ onVideoTemplateClick }: EnhancedInven
               <span className="hidden sm:inline">Content</span>
             </Button>
             
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleGenerationClick('ad', product.id)}
-              className="flex items-center space-x-1"
-            >
-              <Megaphone className="h-4 w-4" />
-              <span className="hidden sm:inline">Ad</span>
-            </Button>
+
           </div>
         </div>
       </div>
@@ -378,14 +382,7 @@ export function EnhancedInventoryManager({ onVideoTemplateClick }: EnhancedInven
                   <span>Generate Content</span>
                 </Button>
                 
-                <Button
-                  onClick={() => handleGenerationClick('ad')}
-                  className="flex items-center space-x-1"
-                  variant="secondary"
-                >
-                  <Megaphone className="h-4 w-4" />
-                  <span>Generate Ads</span>
-                </Button>
+
               </div>
             </div>
           )}

@@ -59,15 +59,12 @@ export function MainContent() {
 
   // Redirect to sign in if not authenticated
   if (!user) {
-    console.log('🔍 MainContent: No user found, redirecting to signin');
     // Add a small delay to prevent rapid redirects
     setTimeout(() => {
       navigate('/auth/signin');
     }, 100);
     return <Loading className="min-h-screen" />;
   }
-
-  console.log('🔍 MainContent: User authenticated:', user.email);
 
   // Show admin dashboard for admin and superadmin users
   if (isAdmin) {

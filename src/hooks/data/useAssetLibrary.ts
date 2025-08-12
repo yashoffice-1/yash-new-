@@ -78,6 +78,8 @@ export function useAssetLibrary() {
     tags?: string[];
     source_system?: string;
     search?: string;
+    page?: number;
+    limit?: number;
   }) => {
     try {
       const params: any = {};
@@ -87,11 +89,36 @@ export function useAssetLibrary() {
       if (filters?.source_system) params.sourceSystem = filters.source_system;
       if (filters?.search) params.search = filters.search;
       if (filters?.tags) params.tags = filters.tags.join(',');
+      if (filters?.page) params.page = filters.page;
+      if (filters?.limit) params.limit = filters.limit;
 
       const response = await assetsAPI.getAssets(params);
-      return response.data.data;
+      return {
+        assets: response.data.data,
+        pagination: response.data.pagination
+      };
     } catch (error) {
       console.error('Error fetching library assets:', error);
+      throw error;
+    }
+  };
+
+  const getAssetTypeCounts = async (filters?: {
+    favorited?: boolean;
+    search?: string;
+    tags?: string[];
+  }) => {
+    try {
+      const params: any = {};
+      
+      if (filters?.favorited !== undefined) params.favorited = filters.favorited;
+      if (filters?.search) params.search = filters.search;
+      if (filters?.tags) params.tags = filters.tags.join(',');
+
+      const response = await assetsAPI.getAssetCounts(params);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching asset type counts:', error);
       throw error;
     }
   };
@@ -118,6 +145,7 @@ export function useAssetLibrary() {
   return {
     saveToLibrary,
     getLibraryAssets,
+    getAssetTypeCounts,
     toggleFavorite,
     deleteFromLibrary,
     isLoading,

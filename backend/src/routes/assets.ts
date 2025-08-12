@@ -87,6 +87,60 @@ const getAssetIncludeOptions = () => ({
   templateAccess: true
 });
 
+// Get asset type counts
+router.get('/counts', authenticateToken, async (req, res, next) => {
+  try {
+    const userId = (req as any).user.userId;
+    
+    const { 
+      favorited,
+      search,
+      tags 
+    } = req.query;
+
+    const baseWhere: any = {
+      profileId: userId // Filter by current user only
+    };
+    
+    if (favorited !== undefined) {
+      baseWhere.favorited = favorited === 'true';
+    }
+    
+    if (search) {
+      baseWhere.OR = [
+        { title: { contains: search as string, mode: 'insensitive' } },
+        { description: { contains: search as string, mode: 'insensitive' } },
+        { instruction: { contains: search as string, mode: 'insensitive' } }
+      ];
+    }
+    
+    if (tags) {
+      const tagArray = (tags as string).split(',').map(tag => tag.trim());
+      baseWhere.tags = { hasSome: tagArray };
+    }
+
+    // Get counts for each asset type
+    const [allCount, imageCount, videoCount, contentCount] = await Promise.all([
+      prisma.generatedAsset.count({ where: baseWhere }),
+      prisma.generatedAsset.count({ where: { ...baseWhere, assetType: 'image' } }),
+      prisma.generatedAsset.count({ where: { ...baseWhere, assetType: 'video' } }),
+      prisma.generatedAsset.count({ where: { ...baseWhere, assetType: 'content' } })
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        all: allCount,
+        image: imageCount,
+        video: videoCount,
+        content: contentCount
+      }
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 // Get all assets with pagination and filtering
 router.get('/', authenticateToken, async (req, res, next) => {
   try {
