@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/forms/button';
 import { Input } from '@/components/ui/forms/input';
 import { Badge } from '@/components/ui/data_display/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/data_display/tabs';
-import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw, Share2, Upload, X, Maximize2 } from 'lucide-react';
+import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw, Share2, Upload, X, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAssetLibrary, AssetLibraryItem } from '@/hooks/data/useAssetLibrary';
 import { useToast } from '@/hooks/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,8 +30,34 @@ export function AssetLibrary() {
   const [selectedAsset, setSelectedAsset] = useState<ExtendedAssetLibraryItem | null>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
+  const [pagination, setPagination] = useState<{
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  } | null>(null);
 
-  const { getLibraryAssets, toggleFavorite, deleteFromLibrary, isLoading } = useAssetLibrary();
+  // Add state for asset type counts
+  const [assetTypeCounts, setAssetTypeCounts] = useState<{
+    all: number;
+    image: number;
+    video: number;
+    content: number;
+  }>({
+    all: 0,
+    image: 0,
+    video: 0,
+    content: 0
+  });
+
+  // Add state to track if counts have been loaded
+  const [countsLoaded, setCountsLoaded] = useState(false);
+
+  const { getLibraryAssets, getAssetTypeCounts, toggleFavorite, deleteFromLibrary, isLoading } = useAssetLibrary();
   const { toast } = useToast();
 
   // Handle keyboard events for image modal
@@ -78,13 +104,71 @@ export function AssetLibrary() {
     }
   };
 
-  const loadAssets = async () => {
-    console.log('Loading assets from library...');
+  // Function to load asset type counts - simplified and efficient
+  const loadAssetTypeCounts = async () => {
     try {
-      const data = await getLibraryAssets();
-      console.log('Loaded assets from library:', data);
-      setAssets(data);
-      setFilteredAssets(data);
+      // This function is only called for the 'all' tab
+      if (selectedType !== 'all') {
+        return;
+      }
+
+      // Don't reload if we already have counts and no filters are applied
+      if (countsLoaded && !showFavoritesOnly && !searchTerm) {
+        return;
+      }
+
+      // For 'all' tab, use the new efficient API to get all counts in one call
+      const baseFilters: any = {};
+      if (showFavoritesOnly) {
+        baseFilters.favorited = true;
+      }
+      if (searchTerm) {
+        baseFilters.search = searchTerm;
+      }
+
+      const counts = await getAssetTypeCounts(baseFilters);
+      
+      // Update all counts
+      setAssetTypeCounts({
+        all: counts.all,
+        image: counts.image,
+        video: counts.video,
+        content: counts.content
+      });
+      
+      setCountsLoaded(true);
+    } catch (error) {
+      console.error('Error loading asset type counts:', error);
+    }
+  };
+
+  const loadAssets = async (page: number = currentPage, limit: number = itemsPerPage) => {
+    console.log('Loading assets from library...', { page, limit, selectedType });
+    try {
+      const filters: any = {
+        page,
+        limit
+      };
+      
+      // Add filters based on current state
+      if (selectedType !== 'all') {
+        filters.asset_type = selectedType;
+      }
+      if (showFavoritesOnly) {
+        filters.favorited = true;
+      }
+      if (searchTerm) {
+        filters.search = searchTerm;
+      }
+
+      console.log('Filters for loadAssets:', filters);
+      const result = await getLibraryAssets(filters);
+      console.log('Loaded assets from library:', result);
+      
+      setAssets(result.assets);
+      setFilteredAssets(result.assets);
+      setPagination(result.pagination);
+      setCurrentPage(page);
     } catch (error) {
       console.error('Error loading assets:', error);
       toast({
@@ -95,6 +179,19 @@ export function AssetLibrary() {
     } finally {
       setIsInitialLoading(false);
     }
+  };
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= (pagination?.pages || 1)) {
+      loadAssets(page, itemsPerPage);
+    }
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page
+    loadAssets(1, newItemsPerPage);
   };
 
   // Progress simulation for processing videos
@@ -150,53 +247,90 @@ export function AssetLibrary() {
       title: "Refreshing Assets",
       description: "Loading latest asset updates...",
     });
-    await loadAssets();
+    setCurrentPage(1);
+    setCountsLoaded(false); // Reset counts loaded flag
+    await loadAssets(1, itemsPerPage);
+    // Counts will be updated automatically when assets are loaded
   };
 
   useEffect(() => {
-    loadAssets();
-    // Removed auto-refresh interval to prevent interrupting video playback
+    loadAssets(1, itemsPerPage);
+    // Reset counts loaded flag on initial load
+    setCountsLoaded(false);
+    // Initialize counts to 0 to prevent undefined values
+    setAssetTypeCounts({
+      all: 0,
+      image: 0,
+      video: 0,
+      content: 0
+    });
   }, []);
 
+  // Reload assets when filters change (server-side filtering)
   useEffect(() => {
-    let filtered = assets;
-
-    // Filter by type
-    if (selectedType !== 'all') {
-      filtered = filtered.filter(asset => asset.asset_type === selectedType);
+    if (!isInitialLoading) {
+      setCurrentPage(1);
+      loadAssets(1, itemsPerPage);
+      // Only reset counts loaded flag when actual filters change, not tab switching
+      if (showFavoritesOnly || searchTerm) {
+        setCountsLoaded(false);
+      }
     }
+  }, [selectedType, showFavoritesOnly, searchTerm]);
 
-    // Filter by favorites
-    if (showFavoritesOnly) {
-      filtered = filtered.filter(asset => asset.favorited);
+  // Update counts when pagination changes
+  useEffect(() => {
+    if (!isInitialLoading && pagination) {
+      // For specific tabs, only update if we don't have detailed counts yet
+      if (selectedType !== 'all') {
+        // Only update if we don't have detailed counts loaded yet
+        if (!countsLoaded) {
+          const currentCount = pagination.total;
+          setAssetTypeCounts(prev => ({
+            ...prev,
+            [selectedType]: currentCount
+          }));
+        }
+      } else {
+        // For 'all' tab, only update if we don't have detailed counts loaded yet
+        if (!countsLoaded) {
+          const currentCount = pagination.total;
+          setAssetTypeCounts(prev => ({
+            ...prev,
+            all: currentCount
+          }));
+          
+          // Load detailed counts
+          loadAssetTypeCounts();
+        }
+        // If counts are already loaded, don't update from pagination
+      }
     }
+  }, [pagination, selectedType]);
 
-    // Filter by search term
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(asset =>
-        asset.title.toLowerCase().includes(search) ||
-        asset.description?.toLowerCase().includes(search) ||
-        asset.instruction.toLowerCase().includes(search) ||
-        asset.tags?.some(tag => tag.toLowerCase().includes(search))
-      );
+  // Load detailed counts when filters change on 'all' tab
+  useEffect(() => {
+    if (!isInitialLoading && selectedType === 'all' && pagination) {
+      // Only reload counts if filters have changed (not just tab switching)
+      const hasFilters = showFavoritesOnly || searchTerm;
+      if (hasFilters) {
+        setCountsLoaded(false);
+        loadAssetTypeCounts();
+      }
     }
-
-    setFilteredAssets(filtered);
-  }, [assets, selectedType, showFavoritesOnly, searchTerm]);
+  }, [showFavoritesOnly, searchTerm]);
 
   const handleToggleFavorite = async (id: string, currentFavorited: boolean) => {
     await toggleFavorite(id, !currentFavorited);
-    // Update local state
-    setAssets(assets.map(asset =>
-      asset.id === id ? { ...asset, favorited: !currentFavorited } : asset
-    ));
+    // Reload current page to reflect changes
+    await loadAssets(currentPage, itemsPerPage);
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to remove this asset from your library?')) {
       await deleteFromLibrary(id);
-      setAssets(assets.filter(asset => asset.id !== id));
+      // Reload current page to reflect changes
+      await loadAssets(currentPage, itemsPerPage);
     }
   };
 
@@ -286,7 +420,7 @@ export function AssetLibrary() {
           });
 
           // Reload assets to show the updated status
-          await loadAssets();
+          await loadAssets(currentPage);
           return;
         } else {
           throw new Error(response.data.error || 'Recovery failed');
@@ -321,7 +455,7 @@ export function AssetLibrary() {
         }
 
         // Reload assets to show the updated status
-        await loadAssets();
+        await loadAssets(currentPage);
       } else {
         throw new Error(response.data.error || 'Failed to get video status');
       }
@@ -352,7 +486,8 @@ export function AssetLibrary() {
         });
 
         // Reload assets to show the updated status
-        await loadAssets();
+        setCurrentPage(1);
+        await loadAssets(1);
       } else {
         throw new Error(response.data.error || 'Bulk recovery failed');
       }
@@ -389,10 +524,10 @@ export function AssetLibrary() {
   };
 
   const assetCounts = {
-    all: assets.length,
-    image: assets.filter(a => a.asset_type === 'image').length,
-    video: assets.filter(a => a.asset_type === 'video').length,
-    content: assets.filter(a => a.asset_type === 'content').length,
+    all: assetTypeCounts.all,
+    image: assetTypeCounts.image,
+    video: assetTypeCounts.video,
+    content: assetTypeCounts.content,
   };
 
   // Check if there are any pending HeyGen videos
@@ -482,250 +617,330 @@ export function AssetLibrary() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAssets.map((asset) => (
-                <Card key={asset.id} className="overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1 flex-1 mr-2">
-                        <CardTitle className="text-lg line-clamp-1">{asset.title}</CardTitle>
-                        {asset.description && (
-                          <CardDescription className="line-clamp-2">{asset.description}</CardDescription>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleToggleFavorite(asset.id, asset.favorited)}
-                      >
-                        <Heart className={`h-4 w-4 ${asset.favorited ? 'fill-red-500 text-red-500' : ''}`} />
-                      </Button>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {asset.asset_type?.toUpperCase() || 'UNKNOWN'}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {asset.source_system?.toUpperCase() || 'UNKNOWN'}
-                      </Badge>
-                      {asset.tags?.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    {/* Asset Preview */}
-                    {asset.asset_type === 'image' && asset.asset_url && (
-                      <div className="aspect-video bg-gray-100 rounded overflow-hidden relative group cursor-pointer">
-                        <img
-                          src={asset.asset_url}
-                          alt={asset.title}
-                          className="w-full h-full object-contain bg-white"
-                          onClick={() => {
-                            console.log('Image clicked:', asset.title, asset.asset_url);
-                            setSelectedAsset(asset);
-                            setIsImageModalOpen(true);
-                            console.log('Modal state set to open, selectedAsset:', asset);
-                          }}
-                          onError={(e) => {
-                            console.error('Image failed to load:', asset.asset_url);
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            // Show error message
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'w-full h-full flex items-center justify-center bg-red-50 text-red-600 text-sm p-4';
-                            errorDiv.innerHTML = `
-                              <div class="text-center">
-                                <div class="flex items-center justify-center mb-2">
-                                  <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                </div>
-                                <p class="font-medium">Image failed to load</p>
-                                <p class="text-xs mt-1">This asset may need to be re-generated</p>
-                              </div>
-                            `;
-                            target.parentElement?.appendChild(errorDiv);
-                          }}
-                        />
-                        {/* Overlay with expand icon */}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center pointer-events-none">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white bg-opacity-90 rounded-full p-2 pointer-events-auto">
-                            <Maximize2 className="h-5 w-5 text-gray-700" />
-                          </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredAssets.map((asset) => (
+                  <Card key={asset.id} className="overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1 flex-1 mr-2">
+                          <CardTitle className="text-lg line-clamp-1">{asset.title}</CardTitle>
+                          {asset.description && (
+                            <CardDescription className="line-clamp-2">{asset.description}</CardDescription>
+                          )}
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleFavorite(asset.id, asset.favorited)}
+                        >
+                          <Heart className={`h-4 w-4 ${asset.favorited ? 'fill-red-500 text-red-500' : ''}`} />
+                        </Button>
                       </div>
-                    )}
 
-                    {asset.asset_type === 'video' && (
-                      <div className="aspect-video bg-black rounded overflow-hidden relative">
-                        {asset.asset_url === 'processing' || asset.asset_url === 'pending' ? (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 text-blue-800 p-4">
-                            <div className="text-center">
-                              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                              <p className="font-medium mb-2">🎬 FeedGenesis is working on your video</p>
-                              <div className="flex items-center space-x-2 mb-2">
-                                <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-32">
-                                  <div
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style={{ width: `${progressStates[asset.id] || 0}%` }}
-                                  ></div>
-                                </div>
-                                <span className="text-xs text-gray-600">{Math.round(progressStates[asset.id] || 0)}%</span>
-                              </div>
-                              <p className="text-xs text-gray-600">
-                                {progressStates[asset.id] >= 92
-                                  ? "Almost complete - finalizing video..."
-                                  : `Estimated time remaining: ${Math.max(1, Math.round((300 - ((progressStates[asset.id] || 0) / 92 * 300)) / 60))} minutes`
-                                }
-                              </p>
-                              {asset.asset_url === "pending" && (
-                                <p className="text-xs text-orange-600 mt-1">
-                                  ⏳ Request sent - Processing will begin shortly
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ) : asset.asset_url === 'failed' || !asset.asset_url ? (
-                          <div className="absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-sm p-4">
-                            <div className="text-center">
-                              <div className="flex items-center justify-center mb-2">
-                                <AlertCircle className="h-8 w-8" />
-                              </div>
-                              <p className="font-medium">❌ Video generation failed</p>
-                              <p className="text-xs mt-1">Please try generating again</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <video
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {asset.asset_type?.toUpperCase() || 'UNKNOWN'}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {asset.source_system?.toUpperCase() || 'UNKNOWN'}
+                        </Badge>
+                        {asset.tags?.map((tag, index) => (
+                          <Badge key={index} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="space-y-4">
+                      {/* Asset Preview */}
+                      {asset.asset_type === 'image' && asset.asset_url && (
+                        <div className="aspect-video bg-gray-100 rounded overflow-hidden relative group cursor-pointer">
+                          <img
                             src={asset.asset_url}
-                            className="w-full h-full object-contain"
-                            controls
+                            alt={asset.title}
+                            className="w-full h-full object-contain bg-white"
+                            onClick={() => {
+                              console.log('Image clicked:', asset.title, asset.asset_url);
+                              setSelectedAsset(asset);
+                              setIsImageModalOpen(true);
+                              console.log('Modal state set to open, selectedAsset:', asset);
+                            }}
                             onError={(e) => {
-                              console.error('Video failed to load:', asset.asset_url);
-                              const target = e.target as HTMLVideoElement;
+                              console.error('Image failed to load:', asset.asset_url);
+                              const target = e.target as HTMLImageElement;
                               target.style.display = 'none';
                               // Show error message
                               const errorDiv = document.createElement('div');
-                              errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-sm p-4';
+                              errorDiv.className = 'w-full h-full flex items-center justify-center bg-red-50 text-red-600 text-sm p-4';
                               errorDiv.innerHTML = `
                                 <div class="text-center">
                                   <div class="flex items-center justify-center mb-2">
                                     <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                   </div>
-                                  <p class="font-medium">Video unavailable</p>
-                                  <p class="text-xs mt-1">HeyGen video may require authentication</p>
-                                  ${asset.gif_url ? '<p class="text-xs mt-1 text-blue-600">Trying GIF preview...</p>' : ''}
+                                  <p class="font-medium">Image failed to load</p>
+                                  <p class="text-xs mt-1">This asset may need to be re-generated</p>
                                 </div>
                               `;
                               target.parentElement?.appendChild(errorDiv);
-
-                              // If there's a GIF URL, try to show that instead
-                              if (asset.gif_url) {
-                                setTimeout(() => {
-                                  const img = document.createElement('img');
-                                  img.src = asset.gif_url!;
-                                  img.className = 'w-full h-full object-contain';
-                                  img.onload = () => {
-                                    errorDiv.remove();
-                                    target.parentElement?.appendChild(img);
-                                  };
-                                  img.onerror = () => {
-                                    errorDiv.querySelector('.text-blue-600')!.textContent = 'GIF preview also unavailable';
-                                  };
-                                }, 1000);
-                              }
                             }}
                           />
-                        )}
-                      </div>
-                    )}
+                          {/* Overlay with expand icon */}
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center pointer-events-none">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white bg-opacity-90 rounded-full p-2 pointer-events-auto">
+                              <Maximize2 className="h-5 w-5 text-gray-700" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-                    {asset.asset_type === 'content' && asset.content && (
-                      <div className="bg-gray-50 p-3 rounded text-sm max-h-32 overflow-y-auto">
-                        <p className="whitespace-pre-wrap line-clamp-4">{asset.content}</p>
-                      </div>
-                    )}
+                      {asset.asset_type === 'video' && (
+                        <div className="aspect-video bg-black rounded overflow-hidden relative">
+                          {asset.asset_url === 'processing' || asset.asset_url === 'pending' ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100 text-blue-800 p-4">
+                              <div className="text-center">
+                                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                                <p className="font-medium mb-2">🎬 FeedGenesis is working on your video</p>
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-32">
+                                    <div
+                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                      style={{ width: `${progressStates[asset.id] || 0}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-xs text-gray-600">{Math.round(progressStates[asset.id] || 0)}%</span>
+                                </div>
+                                <p className="text-xs text-gray-600">
+                                  {progressStates[asset.id] >= 92
+                                    ? "Almost complete - finalizing video..."
+                                    : `Estimated time remaining: ${Math.max(1, Math.round((300 - ((progressStates[asset.id] || 0) / 92 * 300)) / 60))} minutes`
+                                  }
+                                </p>
+                                {asset.asset_url === "pending" && (
+                                  <p className="text-xs text-orange-600 mt-1">
+                                    ⏳ Request sent - Processing will begin shortly
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ) : asset.asset_url === 'failed' || !asset.asset_url ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-sm p-4">
+                              <div className="text-center">
+                                <div className="flex items-center justify-center mb-2">
+                                  <AlertCircle className="h-8 w-8" />
+                                </div>
+                                <p className="font-medium">❌ Video generation failed</p>
+                                <p className="text-xs mt-1">Please try generating again</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <video
+                              src={asset.asset_url}
+                              className="w-full h-full object-contain"
+                              controls
+                              onError={(e) => {
+                                console.error('Video failed to load:', asset.asset_url);
+                                const target = e.target as HTMLVideoElement;
+                                target.style.display = 'none';
+                                // Show error message
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'absolute inset-0 flex items-center justify-center bg-red-50 text-red-600 text-sm p-4';
+                                errorDiv.innerHTML = `
+                                  <div class="text-center">
+                                    <div class="flex items-center justify-center mb-2">
+                                      <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                      </svg>
+                                    </div>
+                                    <p class="font-medium">Video unavailable</p>
+                                    <p class="text-xs mt-1">HeyGen video may require authentication</p>
+                                    ${asset.gif_url ? '<p class="text-xs mt-1 text-blue-600">Trying GIF preview...</p>' : ''}
+                                  </div>
+                                `;
+                                target.parentElement?.appendChild(errorDiv);
 
-                    {/* Instruction */}
-                    <div className="text-sm">
-                      <p className="font-medium text-gray-700 mb-1">Original Instruction:</p>
-                      <p className="text-gray-600 text-xs bg-gray-50 p-2 rounded line-clamp-2">
-                        {asset.instruction}
-                      </p>
+                                // If there's a GIF URL, try to show that instead
+                                if (asset.gif_url) {
+                                  setTimeout(() => {
+                                    const img = document.createElement('img');
+                                    img.src = asset.gif_url!;
+                                    img.className = 'w-full h-full object-contain';
+                                    img.onload = () => {
+                                      errorDiv.remove();
+                                      target.parentElement?.appendChild(img);
+                                    };
+                                    img.onerror = () => {
+                                      errorDiv.querySelector('.text-blue-600')!.textContent = 'GIF preview also unavailable';
+                                    };
+                                  }, 1000);
+                                }
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {asset.asset_type === 'content' && asset.content && (
+                        <div className="bg-gray-50 p-3 rounded text-sm max-h-32 overflow-y-auto">
+                          <p className="whitespace-pre-wrap line-clamp-4">{asset.content}</p>
+                        </div>
+                      )}
+
+                      {/* Instruction */}
+                      <div className="text-sm">
+                        <p className="font-medium text-gray-700 mb-1">Original Instruction:</p>
+                        <p className="text-gray-600 text-xs bg-gray-50 p-2 rounded line-clamp-2">
+                          {asset.instruction}
+                        </p>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex justify-between items-center pt-2">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(asset.created_at).toLocaleDateString()}
+                        </span>
+
+                        <div className="flex space-x-1">
+                          {/* Show refresh button for ALL HeyGen videos */}
+                          {(asset.source_system === "heygen") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRefreshVideo(asset.id)}
+                              className="text-blue-600 hover:text-blue-700 border-blue-200"
+                              title="Check video status from HeyGen"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {asset.asset_type === 'content' && asset.content ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCopyContent(asset.content!, asset.title)}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDownload(asset)}
+                              disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUpload(asset)}
+                              className="text-green-600 hover:text-green-700 border-green-200"
+                              title="Upload video to social media"
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(asset.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              
+              {/* Pagination Controls */}
+              {pagination && pagination.pages > 1 && (
+                <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  {/* Items per page selector */}
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">Show:</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                    >
+                      <option value={6}>6 per page</option>
+                      <option value={12}>12 per page</option>
+                      <option value={24}>24 per page</option>
+                      <option value={48}>48 per page</option>
+                    </select>
+                  </div>
+
+                  {/* Pagination info */}
+                  <div className="text-sm text-gray-600">
+                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, pagination.total)} of {pagination.total} assets
+                  </div>
+
+                  {/* Pagination buttons */}
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage <= 1}
+                      className="flex items-center space-x-1"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span>Previous</span>
+                    </Button>
+
+                    {/* Page numbers */}
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                        let pageNum;
+                        if (pagination.pages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= pagination.pages - 2) {
+                          pageNum = pagination.pages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(pageNum)}
+                            className="w-8 h-8 p-0"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex justify-between items-center pt-2">
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(asset.created_at).toLocaleDateString()}
-                      </span>
-
-                      <div className="flex space-x-1">
-                        {/* Show refresh button for ALL HeyGen videos */}
-                        {(asset.source_system === "heygen") && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRefreshVideo(asset.id)}
-                            className="text-blue-600 hover:text-blue-700 border-blue-200"
-                            title="Check video status from HeyGen"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        )}
-
-                        {asset.asset_type === 'content' && asset.content ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCopyContent(asset.content!, asset.title)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownload(asset)}
-                            disabled={!asset.asset_url || asset.asset_url === "processing" || asset.asset_url === "pending"}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        )}
-
-                        {asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUpload(asset)}
-                            className="text-green-600 hover:text-green-700 border-green-200"
-                            title="Upload video to social media"
-                          >
-                            <Share2 className="h-4 w-4" />
-                          </Button>
-                        )}
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(asset.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage >= pagination.pages}
+                      className="flex items-center space-x-1"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
       </Tabs>

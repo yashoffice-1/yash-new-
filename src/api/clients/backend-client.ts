@@ -37,6 +37,9 @@ export const assetsAPI = {
   // Get all assets for the current user
   getAssets: (params?: any) => apiClient.get('/assets', { params }),
 
+  // Get asset type counts
+  getAssetCounts: (params?: any) => apiClient.get('/assets/counts', { params }),
+
   // Create new asset (profileId will be set by backend from auth token)
   createAsset: (data: {
     title: string;
