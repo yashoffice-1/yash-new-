@@ -193,7 +193,7 @@ export function AddProductDialog({
         description: "Please fix the errors in the form.",
         variant: "destructive",
       });
-      return;
+      return; // Keep form data, don't reset
     }
 
     setLoading(true);
@@ -210,24 +210,20 @@ export function AddProductDialog({
       };
 
       if (editProduct) {
-        // Update existing product
+        await onEditComplete?.(productData);
         toast({
           title: "✅ Product Updated",
           description: "Product has been successfully updated.",
         });
-
-        onEditComplete?.(productData);
       } else {
-        // Create new product
+        await onProductAdded(productData);
         toast({
           title: "✅ Product Added",
           description: "New product has been successfully added to inventory.",
         });
-
-        onProductAdded(productData);
       }
 
-      // Reset form and close dialog
+      // Only reset form on SUCCESS
       setFormData({
         name: "",
         description: "",
@@ -244,6 +240,8 @@ export function AddProductDialog({
 
     } catch (error: any) {
       console.error('Error processing product:', error);
+      
+      // Keep form data on error - don't reset
       toast({
         title: "❌ Error",
         description: "Failed to process product. Please try again.",

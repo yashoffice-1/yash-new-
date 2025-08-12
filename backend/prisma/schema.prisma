@@ -81,7 +81,7 @@ model Inventory {
   name        String
   description String?
   price       Decimal?
-  sku         String?  @unique
+  sku         String?  
   category    String?
   brand       String?
   images      String[] @default([])

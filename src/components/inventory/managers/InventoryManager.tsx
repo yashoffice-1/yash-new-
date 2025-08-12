@@ -197,16 +197,21 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       refetchCategories();
       setShowAddDialog(false);
       toast({
-        title: "Product Add      ed",
+        title: "Product Added",
         description: "New product has been successfully added to inventory.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating product:', error);
+      
+      // Don't close dialog - let user retry
       toast({
         title: "Error",
         description: "Failed to create product. Please try again.",
         variant: "destructive",
       });
+      
+      // Re-throw so AddProductDialog knows there was an error
+      throw error;
     }
   };
 
@@ -1002,13 +1007,18 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
               title: "Product Updated",
               description: "Product has been successfully updated.",
             });
-          } catch (error) {
+          } catch (error: any) {
             console.error('Error updating product:', error);
-                        toast({
+            
+            // Don't close dialog - let user retry
+            toast({
               title: "Error",
               description: "Failed to update product. Please try again.",
               variant: "destructive",
             });
+            
+            // Re-throw so AddProductDialog knows there was an error
+            throw error;
           }
         }}
       />
