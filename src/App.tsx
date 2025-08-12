@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ViewProvider } from "@/contexts/ViewContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { GenerationProvider } from "@/contexts/GenerationContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Layout } from "@/components/layout/Layout";
 import { MainContent } from "@/components/user/MainContent";
@@ -24,7 +25,8 @@ const App = () => (
       <Router>
         <TooltipProvider>
           <ViewProvider>
-            <Routes>
+            <GenerationProvider>
+              <Routes>
               {/* Public Auth Routes */}
               <Route 
                 path="/auth/signin" 
@@ -98,6 +100,7 @@ const App = () => (
               {/* Redirect root to main app */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Routes>
+            </GenerationProvider>
             <Toaster />
             <Sonner />
           </ViewProvider>

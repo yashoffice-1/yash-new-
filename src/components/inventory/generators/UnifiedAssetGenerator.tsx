@@ -14,6 +14,7 @@ import { FormatSpecSelector } from '@/components/common/utils/FormatSpecSelector
 import { generateMockAsset } from '@/utils/mockGeneration';
 import { InventoryItem, AssetGenerationConfig, GeneratedAsset } from '@/types/inventory';
 import { generationAPI } from '@/api/clients/generation-client';
+import { useGeneration } from '@/contexts/GenerationContext';
 
 interface UnifiedAssetGeneratorProps {
   isOpen: boolean;
@@ -417,6 +418,7 @@ export function UnifiedAssetGenerator({
   initialAssetType
 }: UnifiedAssetGeneratorProps) {
   const { toast } = useToast();
+  const { addGenerationResult } = useGeneration();
   const [applyToAll, setApplyToAll] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImproving, setIsImproving] = useState<Record<string, boolean>>({});
@@ -657,22 +659,24 @@ Return only the improved instruction without any additional text.`;
           const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
           const currentFormatSpecs = formatSpecs[productId];
 
-          // Use mock generation for each product
-          const result = generateMockAsset(product, config, fullInstruction);
-          newAssets[product.id] = result;
-        }
-        
-        setGeneratedAssets(prev => ({ ...prev, ...newAssets }));
-        
-        const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
-        const formatInfo = formatSpecs[productId] ?
-          `${formatSpecs[productId].aspectRatio} (${formatSpecs[productId].dimensions})${config.asset_type === 'video' ? `, ${formatSpecs[productId].duration}` : ''}` :
-          specification;
+                  // Use mock generation for each product
+        const result = generateMockAsset(product, config, fullInstruction);
+        newAssets[product.id] = result;
+        // Add to global generation results
+        addGenerationResult(result);
+      }
+      
+      setGeneratedAssets(prev => ({ ...prev, ...newAssets }));
+      
+      const specification = config.specification || SPECIFICATIONS[config.type as keyof typeof SPECIFICATIONS] || '';
+      const formatInfo = formatSpecs[productId] ?
+        `${formatSpecs[productId].aspectRatio} (${formatSpecs[productId].dimensions})${config.asset_type === 'video' ? `, ${formatSpecs[productId].duration}` : ''}` :
+        specification;
 
-        toast({
-          title: "Generation Successful",
-          description: `Generated ${config.asset_type}s for all ${selectedProducts.length} products with format: ${formatInfo}`,
-        });
+      toast({
+        title: "Generation Successful",
+        description: `Generated ${config.asset_type}s for all ${selectedProducts.length} products with format: ${formatInfo}`,
+      });
       } else {
         // Single product generation
         const product = selectedProducts.find(p => p.id === productId) || selectedProducts[0];
@@ -684,6 +688,8 @@ Return only the improved instruction without any additional text.`;
         const result = generateMockAsset(product, config, fullInstruction);
 
         setGeneratedAssets(prev => ({ ...prev, [productId]: result }));
+        // Add to global generation results
+        addGenerationResult(result);
 
         const formatInfo = currentFormatSpecs ?
           `${currentFormatSpecs.aspectRatio} (${currentFormatSpecs.dimensions})${config.asset_type === 'video' ? `, ${currentFormatSpecs.duration}` : ''}` :

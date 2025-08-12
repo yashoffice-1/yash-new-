@@ -36,7 +36,7 @@ export function useAssetLibrary() {
     title: string;
     description?: string;
     tags?: string[];
-    asset_type: 'image' | 'video' | 'content';
+    asset_type: 'image' | 'video' | 'content' | 'ad' | 'formats';
     asset_url: string;
     content?: string;
     instruction: string;

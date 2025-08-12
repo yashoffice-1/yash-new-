@@ -26,8 +26,19 @@ export interface GeneratedAsset {
   type: string;
   content?: string;
   url?: string;
+  asset_url?: string; // For backward compatibility
   instruction: string;
   status?: string;
   message?: string;
   adCopy?: string;
+  timestamp?: Date;
+  source_system?: string;
+  // Additional properties for the modal
+  title?: string;
+  description?: string;
+  platform?: string;
+  channel?: string;
+  product?: InventoryItem;
+  format?: string;
+  inventoryId?: string; // Add inventory ID for direct access
 }
