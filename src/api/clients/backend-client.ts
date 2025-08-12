@@ -42,7 +42,7 @@ export const assetsAPI = {
     title: string;
     description?: string;
     instruction: string;
-    assetType: 'image' | 'video' | 'content';
+    assetType: 'image' | 'video' | 'content' | 'ad' | 'formats';
     channel: string; // ✅ Include channel
     format: string;
     sourceSystem: string;

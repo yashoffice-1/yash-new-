@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/ui/use-toast";
+import { useGeneration } from "@/contexts/GenerationContext";
 
 interface GeneratedContent {
   content: string;
@@ -34,6 +35,7 @@ interface UseContentGenerationProps {
 export function useContentGeneration({ onSuccess, productInfo }: UseContentGenerationProps = {}) {
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+  const { addGenerationResult } = useGeneration();
 
   const generateContent = async (
     instruction: string, 
@@ -101,6 +103,17 @@ export function useContentGeneration({ onSuccess, productInfo }: UseContentGener
         description: `Your ${formatInfo} has been created${ctaNote}`,
       });
 
+      // Add to global generation results
+      const globalAsset = {
+        id: `content-${Date.now()}`,
+        type: 'content' as const,
+        content: content.content,
+        instruction: instruction,
+        timestamp: content.timestamp,
+        source_system: 'openai'
+      };
+      addGenerationResult(globalAsset);
+      
       onSuccess?.(content);
       return content;
 

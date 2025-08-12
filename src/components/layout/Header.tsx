@@ -3,11 +3,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/forms/button";
 import { AvatarWithInitials } from "@/components/ui/UI_Elements/avatar-with-initials";
-import { LogOut } from "lucide-react";
+import { Badge } from "@/components/ui/data_display/badge";
+import { LogOut, Package } from "lucide-react";
+import { useGeneration } from "@/contexts/GenerationContext";
 
 export function Header() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { globalGenerationResults, setShowFirstModal } = useGeneration();
 
   const handleSignOut = () => {
     signOut();
@@ -29,6 +32,24 @@ export function Header() {
         {/* User Info and Logout */}
         {user && (
           <div className="flex items-center space-x-4">
+            {/* Generation Results Notification - Button to open first modal */}
+            {globalGenerationResults.length > 0 ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFirstModal(true)}
+                className="flex items-center space-x-2 bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+              >
+                <Package className="h-4 w-4" />
+                <span className="hidden sm:inline">View Results</span>
+                <Badge variant="secondary" className="ml-1 bg-green-600 text-white">
+                  {globalGenerationResults.length}
+                </Badge>
+              </Button>
+            ) : (
+              <div className="text-xs text-gray-500">No results</div>
+            )}
+            
             <div className="flex items-center space-x-3">
               <AvatarWithInitials 
                 initials={user.initials} 

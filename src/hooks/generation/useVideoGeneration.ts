@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/ui/use-toast";
+import { useGeneration } from "@/contexts/GenerationContext";
 
 interface GeneratedVideo {
   id: string;
@@ -34,6 +35,7 @@ interface UseVideoGenerationProps {
 export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) {
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+  const { addGenerationResult } = useGeneration();
 
   const generateVideo = async (
     instruction: string, 
@@ -137,6 +139,18 @@ export function useVideoGeneration({ onSuccess }: UseVideoGenerationProps = {}) 
         description: successMessage,
       });
 
+      // Add to global generation results
+      const globalAsset = {
+        id: video.id,
+        type: 'video' as const,
+        url: video.url,
+        instruction: video.instruction,
+        timestamp: video.timestamp,
+        source_system: video.source_system,
+        message: video.message
+      };
+      addGenerationResult(globalAsset);
+      
       onSuccess?.(video);
       return video;
 

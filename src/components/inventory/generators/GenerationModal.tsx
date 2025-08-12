@@ -3,10 +3,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/forms/button";
 import { Textarea } from "@/components/ui/forms/textarea";
 import { Badge } from "@/components/ui/data_display/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
 import { Package, Sparkles, Loader2, Download, Save, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { generationAPI } from "@/api/clients/generation-client";
 import { useAssetLibrary } from "@/hooks/data/useAssetLibrary";
+import { useGeneration } from "@/contexts/GenerationContext";
 
 interface InventoryItem {
   id: string;
@@ -80,21 +82,87 @@ const SUGGESTION_PROMPTS = {
   ]
 };
 
+function ChannelSelector({
+  selectedChannel,
+  setSelectedChannel,
+  currentGenerationType,
+}: {
+  selectedChannel: string;
+  setSelectedChannel: (channel: string) => void;
+  currentGenerationType: 'image' | 'video' | 'content' | 'formats' | 'ad';
+}) {
+  const getChannelOptions = () => {
+    if (currentGenerationType === 'content') {
+      return [
+        { value: 'facebook', label: 'Facebook' },
+        { value: 'instagram', label: 'Instagram' },
+        { value: 'twitter', label: 'Twitter/X' },
+        { value: 'linkedin', label: 'LinkedIn' },
+        { value: 'tiktok', label: 'TikTok' },
+        { value: 'youtube', label: 'YouTube' },
+        { value: 'email', label: 'Email Marketing' },
+        { value: 'sms', label: 'SMS/Text' },
+        { value: 'google_ads', label: 'Google Ads' },
+        { value: 'social_media', label: 'General Social Media' }
+      ];
+    }
+    
+    return [
+      { value: 'social_media', label: 'Social Media' },
+      { value: 'video_platforms', label: 'Video Platforms' },
+      { value: 'advertising', label: 'Advertising' },
+      { value: 'multi_platform', label: 'Multi-Platform' },
+      { value: 'general', label: 'General' }
+    ];
+  };
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-gray-700">
+        Target Channel:
+      </label>
+      <Select value={selectedChannel} onValueChange={setSelectedChannel}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select channel" />
+        </SelectTrigger>
+        <SelectContent>
+          {getChannelOptions().map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 function InstructionForm({
   instruction,
   setInstruction,
   isImprovingInstruction,
   handleImproveInstruction,
   currentGenerationType,
+  selectedChannel,
+  setSelectedChannel,
 }: {
   instruction: string;
   setInstruction: React.Dispatch<React.SetStateAction<string>>;
   isImprovingInstruction: boolean;
   handleImproveInstruction: () => Promise<void>;
   currentGenerationType: 'image' | 'video' | 'content' | 'formats' | 'ad';
+  selectedChannel: string;
+  setSelectedChannel: (channel: string) => void;
 }) {
   return (
     <div className="space-y-3">
+      {/* Channel Selector */}
+      <ChannelSelector
+        selectedChannel={selectedChannel}
+        setSelectedChannel={setSelectedChannel}
+        currentGenerationType={currentGenerationType}
+      />
+      
       <div className="border-2 border-black rounded-lg p-4 bg-gray-50">
         <div className="space-y-2">
           <div className="bg-yellow-300 text-black px-2 py-1 rounded text-sm font-semibold">
@@ -102,7 +170,7 @@ function InstructionForm({
           </div>
           <div className="bg-yellow-300 text-black px-2 py-1 rounded text-xs">
             {currentGenerationType === 'content' 
-              ? "Specify the ad channel (Facebook, Instagram, SMS, Email, LinkedIn, Twitter) and type of marketing content you want to create. Focus on text, headlines, and copy only."
+              ? "Specify the type of marketing content you want to create. Focus on text, headlines, and copy only."
               : "If you want a Message with the Product Like \"SALE\" be sure you use quotes to send the instructions"
             }
           </div>
@@ -363,6 +431,7 @@ function ResultsDisplay({
 export function GenerationModal({ isOpen, onClose, onConfirm, product, generationType, title }: GenerationModalProps) {
   const { toast } = useToast();
   const { saveToLibrary } = useAssetLibrary();
+  const { addGenerationResult } = useGeneration();
   const [instruction, setInstruction] = useState('');
   const [isImprovingInstruction, setIsImprovingInstruction] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -371,6 +440,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   const [isSavingToLibrary, setIsSavingToLibrary] = useState(false);
   const [previousAsset, setPreviousAsset] = useState<GeneratedAsset | null>(null);
   const [currentGenerationType, setCurrentGenerationType] = useState<'image' | 'video' | 'content' | 'formats' | 'ad'>(generationType);
+  const [selectedChannel, setSelectedChannel] = useState<string>('social_media');
 
   const getDefaultInstruction = (type: 'image' | 'video' | 'content' | 'formats' | 'ad') => {
     const brandText = product.brand ? `for ${product.brand}` : '';
@@ -454,22 +524,20 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     setIsImprovingInstruction(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('openai-generate', {
-        body: {
-          type: 'clean-instruction',
-          instruction: instruction.trim(),
-          productInfo: {
-            name: product.name,
-            description: product.description,
-            category: product.category,
-            brand: product.brand
-          }
+      const response = await generationAPI.generateWithOpenAI({
+        type: 'text',
+        instruction: instruction.trim(),
+        productInfo: {
+          name: product.name,
+          description: product.description || ''
+        },
+        formatSpecs: {
+          maxTokens: 200,
+          temperature: 0.7
         }
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      const data = response.data;
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to improve instruction');
@@ -493,6 +561,11 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   };
 
   const handleConfirm = async () => {
+    console.log('=== HANDLE CONFIRM STARTED ===');
+    console.log('Instruction:', instruction);
+    console.log('Current generation type:', currentGenerationType);
+    console.log('Generation type prop:', generationType);
+    
     if (!instruction.trim()) {
       toast({
         title: "Error",
@@ -502,50 +575,67 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       return;
     }
     
+    console.log('Setting isGenerating to true');
     setIsGenerating(true);
     
     try {
       // For content generation, ONLY use OpenAI and focus exclusively on text content
       if (currentGenerationType === 'content') {
-        const { data, error } = await supabase.functions.invoke('openai-generate', {
-          body: {
-            type: 'marketing-content',
-            instruction: instruction,
-            productInfo: {
-              name: product.name,
-              description: product.description,
-              category: product.category,
-              brand: product.brand
-            }
+        console.log('=== ENTERING CONTENT GENERATION SECTION ===');
+        const response = await generationAPI.generateWithOpenAI({
+          type: 'text',
+          instruction: instruction,
+          productInfo: {
+            name: product.name,
+            description: product.description || ''
+          },
+          formatSpecs: {
+            maxTokens: 500,
+            temperature: 0.7
           }
         });
 
-        if (error) {
-          throw new Error(error.message);
-        }
-
+        const data = response.data;
+        console.log('OpenAI API response:', data);
+        
         if (!data.success && !data.result) {
           throw new Error(data.error || 'Failed to generate content');
+        }
+
+        // Extract the actual content from the response
+        const content = data.result?.data?.result || data.result || data.data?.result;
+        
+        if (!content) {
+          throw new Error('No content received from API');
         }
 
         const asset: GeneratedAsset = {
           id: `content-${Date.now()}`,
           type: 'content',
-          content: data.result,
+          content: content,
           instruction: instruction,
           timestamp: new Date(),
           source_system: 'openai'
         };
 
+        console.log('Created content asset:', asset);
         setGeneratedAsset(asset);
         setShowResults(true);
+        // Add to global generation results
+        console.log('About to call addGenerationResult with asset:', asset);
+        try {
+          addGenerationResult(asset);
+          console.log('Successfully called addGenerationResult');
+        } catch (error) {
+          console.error('Error calling addGenerationResult:', error);
+        }
 
         toast({
           title: "Content Generated",
           description: "Your marketing content has been created successfully!",
         });
       } else {
-        // For other generation types (image, video, formats, ad), use RunwayML
+        // For other generation types (image, video, formats, ad), use the appropriate API
         let requestBody: any = {
           type: currentGenerationType,
           instruction: instruction,
@@ -560,43 +650,185 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           requestBody.imageUrl = product.images[0];
         }
 
-        console.log(`Calling runwayml-generate with:`, requestBody);
+        console.log(`Calling generation API with:`, requestBody);
 
-        const { data, error } = await supabase.functions.invoke('runwayml-generate', {
-          body: requestBody
-        });
+        // Try OpenAI first for image generation, then fallback to RunwayML
+        let data, error;
+        
+        if (currentGenerationType === 'image') {
+          console.log('=== ENTERING IMAGE GENERATION SECTION ===');
+          // Try OpenAI for image generation
+          console.log('Calling OpenAI for image generation...');
+          console.log('Request body:', {
+            type: 'image-generation',
+            instruction: instruction,
+            productInfo: {
+              name: product.name,
+              description: product.description
+            }
+          });
+          
+          let openaiResponse;
+          try {
+            console.log('About to make OpenAI API call...');
+            openaiResponse = await generationAPI.generateWithOpenAI({
+              type: 'image',
+              instruction: instruction,
+              productInfo: {
+                name: product.name,
+                description: product.description || ''
+              },
+              formatSpecs: {
+                size: '1024x1024'
+              }
+            });
+            console.log('OpenAI API call completed successfully');
+            console.log('OpenAI response object:', openaiResponse);
+          } catch (apiError) {
+            console.error('OpenAI API call failed:', apiError);
+            throw apiError;
+          }
+          
+          console.log('OpenAI response:', openaiResponse);
+          
+          if (openaiResponse.data?.success) {
+            data = openaiResponse.data;
+            error = null;
+            console.log('Using OpenAI response');
+          } else {
+            // Fallback to RunwayML
+            console.log('Falling back to RunwayML...');
+            const runwayResponse = await generationAPI.generateWithRunway({
+              type: 'image',
+              instruction: instruction,
+              productInfo: {
+                name: product.name,
+                description: product.description || ''
+              },
+              formatSpecs: {
+                width: 1024,
+                height: 1024
+              }
+            });
+            data = runwayResponse.data;
+            error = null;
+            console.log('Using RunwayML response');
+          }
+        } else {
+          // Use RunwayML for other types
+          const runwayResponse = await generationAPI.generateWithRunway({
+            type: currentGenerationType as 'image' | 'video',
+            instruction: instruction,
+            productInfo: {
+              name: product.name,
+              description: product.description || ''
+            },
+            formatSpecs: {
+              width: 1024,
+              height: 1024
+            }
+          });
+          data = runwayResponse.data;
+          error = null;
+        }
 
         if (error) {
           throw new Error(error.message);
         }
 
-        if (!data.success && !data.asset_url) {
+        console.log('Generation API response:', data);
+        console.log('Full response structure:', JSON.stringify(data, null, 2));
+        
+        // Check if the generation is still processing
+        if (data.status === 'processing' || data.status === 'pending') {
+          console.log('Generation is still processing...');
+          toast({
+            title: `${currentGenerationType} Generation Started`,
+            description: `Your ${currentGenerationType} is being generated. This may take a few minutes.`,
+          });
+          
+          // Create a placeholder asset for processing state
+          const processingAsset: GeneratedAsset = {
+            id: `${currentGenerationType}-processing-${Date.now()}`,
+            type: currentGenerationType,
+            instruction: instruction,
+            timestamp: new Date(),
+            source_system: data.service === 'openai' ? 'openai' : 'runway',
+            status: 'processing',
+            message: 'Generation in progress...'
+          };
+          
+          setGeneratedAsset(processingAsset);
+          setShowResults(true);
+          addGenerationResult(processingAsset);
+          return;
+        }
+        
+        if (!data.success && !data.asset_url && !data.result) {
           throw new Error(data.error || `Failed to generate ${currentGenerationType}`);
+        }
+
+        // Extract the actual URL from the response (handle both OpenAI and RunwayML formats)
+        let assetUrl = data.asset_url || data.data?.result || data.result?.data?.result || data.result;
+        
+        // For OpenAI image generation, the URL might be in a different format
+        if (!assetUrl && data.service === 'openai') {
+          assetUrl = data.data?.result || data.result;
+        }
+        
+        // Additional check for nested result structures
+        if (!assetUrl && data.result && typeof data.result === 'object') {
+          assetUrl = data.result.url || data.result.image_url || data.result.asset_url;
+        }
+        
+        // Additional debugging for URL extraction
+        console.log('Extracted assetUrl:', assetUrl);
+        console.log('data.asset_url:', data.asset_url);
+        console.log('data.data?.result:', data.data?.result);
+        console.log('data.result?.data?.result:', data.result?.data?.result);
+        console.log('data.result:', data.result);
+        
+        if (!assetUrl) {
+          console.error('No asset URL found in response');
+          console.error('Full response for debugging:', data);
+          throw new Error('No asset URL received from API');
         }
 
         const asset: GeneratedAsset = {
           id: data.asset_id || `${currentGenerationType}-${Date.now()}`,
           type: currentGenerationType,
-          url: data.asset_url,
+          url: assetUrl,
           instruction: instruction,
           timestamp: new Date(),
-          source_system: 'runway',
+          source_system: data.service === 'openai' ? 'openai' : 'runway',
           status: data.status,
           message: data.message
         };
 
+        console.log('Created visual asset:', asset);
+        console.log('Asset URL:', asset.url);
+        console.log('Asset type:', asset.type);
+        console.log('Asset id:', asset.id);
         setGeneratedAsset(asset);
         setShowResults(true);
+        // Add to global generation results
+        console.log('About to call addGenerationResult with visual asset:', asset);
+        try {
+          addGenerationResult(asset);
+          console.log('Successfully called addGenerationResult for visual asset');
+        } catch (error) {
+          console.error('Error calling addGenerationResult for visual asset:', error);
+        }
 
         if (data.status === 'processing') {
           toast({
             title: `${currentGenerationType} Generation Started`,
-            description: `Your ${currentGenerationType} is being generated by RunwayML. This may take a few minutes.`,
+            description: `Your ${currentGenerationType} is being generated. This may take a few minutes.`,
           });
         } else if (data.status === 'error') {
           toast({
             title: "Using Placeholder",
-            description: data.message || `RunwayML API issue detected. Using placeholder ${currentGenerationType} for testing.`,
+            description: data.message || `API issue detected. Using placeholder ${currentGenerationType} for testing.`,
             variant: "destructive",
           });
         } else {
@@ -608,13 +840,17 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       }
 
     } catch (error) {
-      console.error('Generation error:', error);
+      console.error('=== GENERATION ERROR ===');
+      console.error('Error details:', error);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
       toast({
         title: "Generation Failed",
         description: error.message || `Failed to generate ${currentGenerationType}. Please try again.`,
         variant: "destructive",
       });
     } finally {
+      console.log('Setting isGenerating to false');
       setIsGenerating(false);
     }
     
@@ -704,12 +940,33 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     }
   };
 
+  // Helper function to determine channel based on content type and instruction
+  const getChannelFromContent = (type: string, instruction: string): string => {
+    if (type === 'content') {
+      const lowerInstruction = instruction.toLowerCase();
+      if (lowerInstruction.includes('facebook') || lowerInstruction.includes('fb')) return 'facebook';
+      if (lowerInstruction.includes('instagram') || lowerInstruction.includes('ig')) return 'instagram';
+      if (lowerInstruction.includes('sms') || lowerInstruction.includes('text')) return 'sms';
+      if (lowerInstruction.includes('email') || lowerInstruction.includes('mail')) return 'email';
+      if (lowerInstruction.includes('linkedin') || lowerInstruction.includes('li')) return 'linkedin';
+      if (lowerInstruction.includes('twitter') || lowerInstruction.includes('x')) return 'twitter';
+      if (lowerInstruction.includes('tiktok')) return 'tiktok';
+      if (lowerInstruction.includes('youtube')) return 'youtube';
+      if (lowerInstruction.includes('google ads')) return 'google_ads';
+      return 'social_media';
+    }
+    
+    // For visual assets, use the selected channel
+    return selectedChannel;
+  };
+
   const handleSaveToLibrary = async () => {
     if (!generatedAsset) return;
     
     setIsSavingToLibrary(true);
     
     try {
+
       // If we have both a visual asset (previousAsset) and content (current asset), save them as a campaign
       if (previousAsset && generatedAsset.type === 'content' && generatedAsset.content) {
         // Save as a combined campaign entry
@@ -726,7 +983,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           content: `VISUAL ASSET: ${previousAsset.url || 'N/A'}\n\nMARKETING CONTENT:\n${generatedAsset.content}`,
           instruction: `Combined Campaign - Visual: ${previousAsset.instruction} | Content: ${generatedAsset.instruction}`,
           source_system: 'openai', // Since content was generated last
-          original_asset_id: generatedAsset.id
+          channel: getChannelFromContent(generatedAsset.type, generatedAsset.instruction)
         });
         
         toast({
@@ -752,7 +1009,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           content: generatedAsset.content,
           instruction: generatedAsset.instruction,
           source_system: generatedAsset.source_system as 'runway' | 'heygen' | 'openai',
-          original_asset_id: generatedAsset.id
+          channel: getChannelFromContent(generatedAsset.type, generatedAsset.instruction)
         });
         
         toast({
@@ -922,6 +1179,8 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           isImprovingInstruction={isImprovingInstruction}
           handleImproveInstruction={handleImproveInstruction}
           currentGenerationType={currentGenerationType}
+          selectedChannel={selectedChannel}
+          setSelectedChannel={setSelectedChannel}
         />
 
         {/* Generation Status */}

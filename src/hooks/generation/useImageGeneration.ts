@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/ui/use-toast";
+import { useGeneration } from "@/contexts/GenerationContext";
 
 interface GeneratedImage {
   id: string;
@@ -33,6 +34,7 @@ interface UseImageGenerationProps {
 export function useImageGeneration({ onSuccess }: UseImageGenerationProps = {}) {
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+  const { addGenerationResult } = useGeneration();
 
   const generateImage = async (
     instruction: string, 
@@ -106,6 +108,19 @@ export function useImageGeneration({ onSuccess }: UseImageGenerationProps = {}) 
         });
       }
 
+      // Add to global generation results
+      const globalAsset = {
+        id: image.id,
+        type: 'image' as const,
+        url: image.url,
+        instruction: image.instruction,
+        timestamp: image.timestamp,
+        source_system: image.source_system,
+        status: image.status,
+        message: image.message
+      };
+      addGenerationResult(globalAsset);
+      
       onSuccess?.(image);
       return image;
 
