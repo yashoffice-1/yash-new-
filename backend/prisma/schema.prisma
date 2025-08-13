@@ -62,6 +62,10 @@ model GeneratedAsset {
   templateAccessId String?      @map("template_access_id") // Reference to UserTemplateAccess
   variables      Json?          // Variables used for this generation
   
+  // Webhook and Cloudinary integration fields
+  metadata       Json?          @default("{}") // Store webhook data, Cloudinary URLs, etc.
+  cloudinaryData Json?          @default("{}") // Store Cloudinary-specific data (public_id, etc.)
+  
   // User management fields
   favorited      Boolean?       @default(false)
   title          String?

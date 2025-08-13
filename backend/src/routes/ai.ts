@@ -4,6 +4,7 @@ import { z } from 'zod';
 import axios from 'axios';
 import { authenticateToken } from '../middleware/auth';
 import { validateAndUpdateTemplateUsage } from '../middleware/template-access';
+import { CloudinaryService } from '../services/cloudinary.js';
 
 const router = Router();
 
@@ -185,6 +186,10 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
       aspect_ratio: formatSpecs?.aspectRatio || "16:9"
     };
 
+    // Add webhook URL for real-time notifications
+    const webhookUrl = process.env.WEBHOOK_URL || `${req.protocol}://${req.get('host')}/api/ai/heygen/webhook`;
+    requestBody.callback_url = webhookUrl;
+
     // Add variables if provided - this is the key part for template-based generation
     if (variables && Object.keys(variables).length > 0) {
       // Convert simple string variables to HeyGen's expected format
@@ -221,6 +226,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
     console.log('HeyGen API Request Body:', JSON.stringify(requestBody, null, 2));
     console.log('Template ID:', templateId);
     console.log('Variables:', variables);
+    console.log('Webhook URL:', requestBody.callback_url);
 
     // Create HeyGen video generation request using template
     // According to HeyGen API v2 documentation, use the template-specific endpoint
@@ -627,4 +633,216 @@ Make it engaging, SEO-friendly, and optimized for YouTube's algorithm.`;
     });
   }
 });
+
+// HeyGen Webhook Endpoint with Cloudinary Integration
+router.post('/heygen/webhook', async (req, res, next) => {
+  try {
+    const webhookData = req.body;
+    console.log('Received HeyGen webhook:', JSON.stringify(webhookData, null, 2));
+
+    const { event_type, event_data } = webhookData;
+
+    if (event_type === 'avatar_video.success') {
+      const {
+        video_id,
+        url: video_url,
+        gif_download_url,
+        video_share_page_url,
+        thumbnail_url,
+        callback_id,
+        folder_id
+      } = event_data;
+
+      console.log('Processing successful video generation:', {
+        video_id,
+        video_url,
+        gif_download_url,
+        thumbnail_url,
+        callback_id
+      });
+
+      // Find the asset using video_id
+      const asset = await prisma.generatedAsset.findFirst({
+        where: { url: `pending_${video_id}` }
+      });
+
+      if (!asset) {
+        console.error('Asset not found for video_id:', video_id);
+        return res.status(404).json({
+          success: false,
+          error: 'Asset not found',
+          video_id
+        });
+      }
+
+      console.log('Found asset:', asset.id);
+
+      // Upload video to Cloudinary
+      let cloudinaryVideoUrl = video_url;
+      let cloudinaryGifUrl = gif_download_url;
+      let cloudinaryData = {};
+
+      try {
+        console.log('Uploading video to Cloudinary...');
+        const videoUploadResult = await CloudinaryService.uploadFromUrl({
+          url: video_url,
+          fileName: `heygen-video-${video_id}`,
+          assetType: 'video',
+          folder: 'heygen-videos',
+          tags: ['heygen', 'video', 'generated']
+        });
+
+        cloudinaryVideoUrl = videoUploadResult.secure_url;
+        cloudinaryData = {
+          video: {
+            public_id: videoUploadResult.public_id,
+            secure_url: videoUploadResult.secure_url,
+            format: videoUploadResult.format,
+            width: videoUploadResult.width,
+            height: videoUploadResult.height,
+            bytes: videoUploadResult.bytes
+          }
+        };
+
+        console.log('Video uploaded to Cloudinary:', videoUploadResult.public_id);
+
+        // Upload GIF if available
+        if (gif_download_url) {
+          console.log('Uploading GIF to Cloudinary...');
+          const gifUploadResult = await CloudinaryService.uploadFromUrl({
+            url: gif_download_url,
+            fileName: `heygen-gif-${video_id}`,
+            assetType: 'image',
+            folder: 'heygen-gifs',
+            tags: ['heygen', 'gif', 'generated']
+          });
+
+          cloudinaryGifUrl = gifUploadResult.secure_url;
+          cloudinaryData = {
+            ...cloudinaryData,
+            gif: {
+              public_id: gifUploadResult.public_id,
+              secure_url: gifUploadResult.secure_url,
+              format: gifUploadResult.format,
+              width: gifUploadResult.width,
+              height: gifUploadResult.height,
+              bytes: gifUploadResult.bytes
+            }
+          };
+
+          console.log('GIF uploaded to Cloudinary:', gifUploadResult.public_id);
+        }
+
+        // Upload thumbnail if available
+        if (thumbnail_url) {
+          console.log('Uploading thumbnail to Cloudinary...');
+          const thumbnailUploadResult = await CloudinaryService.uploadFromUrl({
+            url: thumbnail_url,
+            fileName: `heygen-thumbnail-${video_id}`,
+            assetType: 'image',
+            folder: 'heygen-thumbnails',
+            tags: ['heygen', 'thumbnail', 'generated']
+          });
+
+          cloudinaryData = {
+            ...cloudinaryData,
+            thumbnail: {
+              public_id: thumbnailUploadResult.public_id,
+              secure_url: thumbnailUploadResult.secure_url,
+              format: thumbnailUploadResult.format,
+              width: thumbnailUploadResult.width,
+              height: thumbnailUploadResult.height,
+              bytes: thumbnailUploadResult.bytes
+            }
+          };
+
+          console.log('Thumbnail uploaded to Cloudinary:', thumbnailUploadResult.public_id);
+        }
+
+      } catch (cloudinaryError) {
+        console.error('Cloudinary upload failed:', cloudinaryError);
+        // Continue with original URLs if Cloudinary fails
+        cloudinaryVideoUrl = video_url;
+        cloudinaryGifUrl = gif_download_url;
+      }
+
+      // Update generated_assets table with Cloudinary URLs and metadata
+      const updatedAsset = await prisma.generatedAsset.update({
+        where: { id: asset.id },
+        data: {
+          url: cloudinaryVideoUrl,
+          status: 'completed',
+          metadata: {
+            originalVideoUrl: video_url,
+            originalGifUrl: gif_download_url,
+            sharePageUrl: video_share_page_url,
+            completedAt: new Date().toISOString(),
+            webhookData: {
+              video_id,
+              callback_id,
+              folder_id
+            }
+          },
+          cloudinaryData: cloudinaryData
+        }
+      });
+
+      console.log('Updated generated asset with Cloudinary data:', updatedAsset.id);
+
+    } else if (event_type === 'avatar_video.fail') {
+      const { video_id, error: generation_error, callback_id } = event_data;
+      
+      console.log('Processing failed video generation:', {
+        video_id,
+        error: generation_error,
+        callback_id
+      });
+
+      // Find and update the failed asset
+      const asset = await prisma.generatedAsset.findFirst({
+        where: { url: `pending_${video_id}` }
+      });
+
+      if (asset) {
+        await prisma.generatedAsset.update({
+          where: { id: asset.id },
+          data: {
+            url: 'failed',
+            status: 'failed',
+            metadata: {
+              error: generation_error,
+              failedAt: new Date().toISOString(),
+              webhookData: {
+                video_id,
+                callback_id
+              }
+            }
+          }
+        });
+
+        console.log('Updated asset status to failed:', asset.id);
+      } else {
+        console.error('Asset not found for failed video_id:', video_id);
+      }
+    } else {
+      console.log('Received unknown event type:', event_type);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Webhook processed successfully',
+      event_type,
+      processed_at: new Date().toISOString()
+    });
+
+  } catch (error :any) {
+    console.error('Error processing HeyGen webhook:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 export default router; 
