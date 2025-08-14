@@ -640,6 +640,16 @@ Make it engaging, SEO-friendly, and optimized for YouTube's algorithm.`;
   }
 });
 
+// HeyGen Webhook Endpoint - OPTIONS for validation
+router.options('/heygen/webhook', (req: any, res: any) => {
+  // Handle CORS preflight requests for HeyGen webhook validation
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Heygen-Signature');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.status(200).end();
+});
+
 // HeyGen Webhook Endpoint with Cloudinary Integration
 router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next: any) => {
   try {
