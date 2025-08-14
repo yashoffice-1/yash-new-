@@ -644,22 +644,21 @@ Make it engaging, SEO-friendly, and optimized for YouTube's algorithm.`;
 router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next: any) => {
   try {
     const webhookData = req.body;
-
+    console.log('Received HeyGen webhook:', JSON.stringify(webhookData, null, 2));
 
     const { event_type, event_data } = webhookData;
 
     if (event_type === 'avatar_video.success') {
       const {
         video_id,
-        url: video_url,
+        url: video_url, // This is the video URL
         gif_download_url,
         video_share_page_url,
-        thumbnail_url,
-        callback_id,
-        folder_id
+        folder_id,
+        callback_id
       } = event_data;
 
-
+      console.log('Processing successful video generation:', { video_id, video_url });
 
       // Find the asset using video_id
       const asset = await prisma.generatedAsset.findFirst({
@@ -675,15 +674,12 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
         });
       }
 
-
-
       // Upload video to Cloudinary
       let cloudinaryVideoUrl = video_url;
       let cloudinaryGifUrl = gif_download_url;
       let cloudinaryData: any = {};
 
       try {
-
         const videoUploadResult = await CloudinaryService.uploadFromUrl({
           url: video_url,
           fileName: `heygen-video-${video_id}`,
@@ -704,11 +700,8 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
           }
         };
 
-
-
         // Upload GIF if available
         if (gif_download_url) {
-
           const gifUploadResult = await CloudinaryService.uploadFromUrl({
             url: gif_download_url,
             fileName: `heygen-gif-${video_id}`,
@@ -729,34 +722,6 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
               bytes: gifUploadResult.bytes
             }
           };
-
-
-        }
-
-        // Upload thumbnail if available
-        if (thumbnail_url) {
-  
-          const thumbnailUploadResult = await CloudinaryService.uploadFromUrl({
-            url: thumbnail_url,
-            fileName: `heygen-thumbnail-${video_id}`,
-            assetType: 'image',
-            folder: 'heygen-thumbnails',
-            tags: ['heygen', 'thumbnail', 'generated']
-          });
-
-          cloudinaryData = {
-            ...cloudinaryData,
-            thumbnail: {
-              public_id: thumbnailUploadResult.public_id,
-              secure_url: thumbnailUploadResult.secure_url,
-              format: thumbnailUploadResult.format,
-              width: thumbnailUploadResult.width,
-              height: thumbnailUploadResult.height,
-              bytes: thumbnailUploadResult.bytes
-            }
-          };
-
-
         }
 
       } catch (cloudinaryError) {
@@ -787,24 +752,21 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
         }
       });
 
-
-
       // Broadcast real-time update to connected clients
       broadcastUpdate(updatedAsset.profileId, {
         type: 'video_completed',
         assetId: updatedAsset.id,
         videoUrl: cloudinaryVideoUrl,
         gifUrl: cloudinaryGifUrl,
-        thumbnailUrl: cloudinaryData?.thumbnail?.secure_url,
         videoId: video_id,
         message: 'Video generation completed successfully!',
         timestamp: new Date().toISOString()
       });
 
     } else if (event_type === 'avatar_video.fail') {
-      const { video_id, error: generation_error, callback_id } = event_data;
+      const { video_id, msg: failure_message, callback_id } = event_data;
       
-
+      console.log('Processing failed video generation:', { video_id, failure_message });
 
       // Find and update the failed asset
       const asset = await prisma.generatedAsset.findFirst({
@@ -818,7 +780,7 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
             url: 'failed',
             status: 'failed',
             metadata: {
-              error: generation_error,
+              error: failure_message,
               failedAt: new Date().toISOString(),
               webhookData: {
                 video_id,
@@ -828,14 +790,12 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
           }
         });
 
-
-
         // Broadcast real-time update for failed video
         broadcastUpdate(failedAsset.profileId, {
           type: 'video_failed',
           assetId: failedAsset.id,
           videoId: video_id,
-          error: generation_error,
+          error: failure_message,
           message: 'Video generation failed',
           timestamp: new Date().toISOString()
         });
