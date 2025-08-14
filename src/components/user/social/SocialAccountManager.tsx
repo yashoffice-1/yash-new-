@@ -153,7 +153,8 @@ export function SocialAccountManager() {
       setConnectionLoading(true);
       
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/social/connections', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/connections`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -188,9 +189,10 @@ export function SocialAccountManager() {
       setLoadingStats(true);
       const token = localStorage.getItem('auth_token');
       
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       const url = forceRefresh 
-        ? `http://localhost:3001/api/social/${platform}/stats?refresh=true`
-        : `http://localhost:3001/api/social/${platform}/stats`;
+        ? `${backendUrl}/api/social/${platform}/stats?refresh=true`
+        : `${backendUrl}/api/social/${platform}/stats`;
         
       const response = await fetch(url, {
         headers: {
@@ -224,9 +226,10 @@ export function SocialAccountManager() {
       setLoadingActivity(true);
       const token = localStorage.getItem('auth_token');
       
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       const url = forceRefresh 
-        ? `http://localhost:3001/api/social/${platform}/activity?refresh=true`
-        : `http://localhost:3001/api/social/${platform}/activity`;
+        ? `${backendUrl}/api/social/${platform}/activity?refresh=true`
+        : `${backendUrl}/api/social/${platform}/activity`;
         
       const response = await fetch(url, {
         headers: {
@@ -266,7 +269,8 @@ export function SocialAccountManager() {
   const saveYouTubeConnection = async (oauthResult: any) => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/social/youtube/connect', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/youtube/connect`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -301,7 +305,8 @@ export function SocialAccountManager() {
   const handleDisconnect = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3001/api/social/connections/${platform}`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/connections/${platform}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

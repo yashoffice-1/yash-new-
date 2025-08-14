@@ -28,67 +28,78 @@ export interface AssetUploadData {
 
 export class CloudinaryService {
   /**
-   * Download and upload asset to Cloudinary
+   * Download and upload asset to Cloudinary with retry logic
    */
-  static async uploadFromUrl(data: AssetUploadData): Promise<CloudinaryUploadResult> {
-    try {
-      // eslint-disable-next-line no-console
-      console.log(`Downloading asset from: ${data.url}`);
+  static async uploadFromUrl(data: AssetUploadData, maxRetries: number = 3): Promise<CloudinaryUploadResult> {
+    let lastError: Error | null = null;
 
-      // Download the asset
-      const response = await axios.get(data.url, {
-        responseType: 'arraybuffer',
-        timeout: 30000, // 30 seconds timeout
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-      });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
 
-      if (!response.data) {
-        throw new Error('Failed to download asset');
-      }
 
-      // Convert to buffer for upload
-      const buffer = Buffer.from(response.data);
-
-      // Upload to Cloudinary
-      const uploadOptions = {
-        folder: data.folder || 'generated-assets',
-        tags: data.tags || ['generated', data.assetType],
-        resource_type: (data.assetType === 'video' ? 'video' : 'image') as 'image' | 'video',
-        public_id: data.fileName || `asset_${Date.now()}`,
-        overwrite: false,
-        unique_filename: true,
-      };
-
-      // eslint-disable-next-line no-console
-      console.log('Uploading to Cloudinary with options:', uploadOptions);
-
-      const result = await new Promise<CloudinaryUploadResult>((resolve, reject) => {
-        cloudinary.uploader.upload_stream(
-          uploadOptions,
-          (error, result) => {
-            if (error) {
-              // eslint-disable-next-line no-console
-              console.error('Cloudinary upload error:', error);
-              reject(error);
-            } else if (result) {
-              // eslint-disable-next-line no-console
-              console.log('Cloudinary upload successful:', result.public_id);
-              resolve(result as CloudinaryUploadResult);
-            } else {
-              reject(new Error('No result from Cloudinary upload'));
-            }
+        // Download the asset
+        const response = await axios.get(data.url, {
+          responseType: 'arraybuffer',
+          timeout: 30000, // 30 seconds timeout
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
           }
-        ).end(buffer);
-      });
+        });
 
-      return result;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Error uploading to Cloudinary:', error);
-      throw new Error(`Failed to upload asset to Cloudinary: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        if (!response.data) {
+          throw new Error('Failed to download asset');
+        }
+
+        // Convert to buffer for upload
+        const buffer = Buffer.from(response.data);
+
+        // Upload to Cloudinary
+        const uploadOptions = {
+          folder: data.folder || 'generated-assets',
+          tags: data.tags || ['generated', data.assetType],
+          resource_type: (data.assetType === 'video' ? 'video' : 'image') as 'image' | 'video',
+          public_id: data.fileName || `asset_${Date.now()}`,
+          overwrite: false,
+          unique_filename: true,
+        };
+
+
+
+        const result = await new Promise<CloudinaryUploadResult>((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            uploadOptions,
+            (error, result) => {
+              if (error) {
+                console.error('Cloudinary upload error:', error);
+                reject(error);
+              } else if (result) {
+                console.log('Cloudinary upload successful:', result.public_id);
+                resolve(result as CloudinaryUploadResult);
+              } else {
+                reject(new Error('No result from Cloudinary upload'));
+              }
+            }
+          ).end(buffer);
+        });
+
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        console.error(`Upload attempt ${attempt} failed:`, lastError.message);
+
+        if (attempt < maxRetries) {
+          // Calculate delay with exponential backoff
+          const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Max 10 seconds
+          console.log(`Retrying in ${delay}ms...`);
+          // eslint-disable-next-line no-undef
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
+
+    // All retries failed
+    console.error(`All ${maxRetries} upload attempts failed for: ${data.url}`);
+    throw new Error(`Failed to upload asset to Cloudinary after ${maxRetries} attempts: ${lastError?.message}`);
   }
 
   /**

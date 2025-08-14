@@ -6,6 +6,7 @@ import { AvatarWithInitials } from "@/components/ui/UI_Elements/avatar-with-init
 import { Badge } from "@/components/ui/data_display/badge";
 import { LogOut, Package } from "lucide-react";
 import { useGeneration } from "@/contexts/GenerationContext";
+import { RealtimeStatusIndicator } from "@/components/common/RealtimeStatusIndicator";
 
 export function Header() {
   const { user, signOut } = useAuth();
@@ -32,6 +33,9 @@ export function Header() {
         {/* User Info and Logout */}
         {user && (
           <div className="flex items-center space-x-4">
+            {/* Real-time Status Indicator */}
+            <RealtimeStatusIndicator />
+            
             {/* Generation Results Notification - Button to open first modal */}
             {globalGenerationResults.length > 0 ? (
               <Button

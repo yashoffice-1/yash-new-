@@ -159,96 +159,49 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
       });
 
       if (response.data.success) {
-        const videoId = response.data.data.videoId;
-        
-        // Start progress monitoring
-        startProgressMonitoring(videoId);
-        
+        // Show success message - webhook will handle completion
         toast({
           title: "🎬 Video Generation Started",
-          description: "Your video is being generated. This may take a few minutes.",
+          description: "Your video is being generated. You'll be notified when it's complete.",
         });
+        
+        // Simulate initial progress for better UX
+        // This will show progress while waiting for webhook to complete
+        const totalDuration = 300; // 5 minutes in seconds
+        const targetProgress = 92; // Target 92% before completion
+        let elapsedTime = 0;
+        
+        const progressInterval = setInterval(() => {
+          elapsedTime += 3; // Update every 3 seconds
+          const progressPercentage = Math.min(targetProgress, (elapsedTime / totalDuration) * targetProgress);
+          setGenerationProgress(progressPercentage);
+          
+          // Stop simulation at 5 minutes or when we reach target
+          if (elapsedTime >= totalDuration || progressPercentage >= targetProgress) {
+            clearInterval(progressInterval);
+            setGenerationProgress(targetProgress);
+            
+            // Note: We no longer need to poll for status
+            // Webhook will handle the completion notification
+            toast({
+              title: "Processing Complete",
+              description: "Check the Asset Library for your completed video.",
+            });
+          }
+        }, 3000);
       } else {
         throw new Error(response.data.error || 'Failed to start video generation');
       }
     } catch (error) {
       console.error('Error creating video:', error);
       setIsGenerating(false);
+      setGenerationStatus('failed');
       toast({
         title: "❌ Request Failed",
         description: "Failed to send video generation request. Please try again.",
         variant: "destructive",
       });
     }
-  };
-
-  // Progress monitoring function
-  const startProgressMonitoring = async (videoId: string) => {
-    setGenerationStatus('processing');
-    setGenerationProgress(0);
-    
-    // 5-minute progress simulation (300 seconds)
-    const totalDuration = 300; // 5 minutes in seconds
-    const targetProgress = 92; // Target 92% before completion
-    let elapsedTime = 0;
-    
-    const progressInterval = setInterval(() => {
-      elapsedTime += 3; // Update every 3 seconds
-      const progressPercentage = Math.min(targetProgress, (elapsedTime / totalDuration) * targetProgress);
-      setGenerationProgress(progressPercentage);
-      
-      // Stop simulation at 5 minutes or when we reach target
-      if (elapsedTime >= totalDuration || progressPercentage >= targetProgress) {
-        clearInterval(progressInterval);
-        // Keep progress at 92% until we get completion status
-        setGenerationProgress(targetProgress);
-      }
-    }, 3000); // Update every 3 seconds
-    
-    const checkStatus = async () => {
-      try {
-        const statusResponse = await templatesAPI.getGenerationStatus(videoId); // Using apiClient
-        const data = statusResponse.data;
-        
-        if (data.success) {
-          const { status, videoUrl, errorMessage } = data.data;
-          
-          if (status === 'completed') {
-            clearInterval(progressInterval);
-            setGenerationStatus('completed');
-            setGenerationProgress(100); // Jump to 100% on completion
-            setIsGenerating(false);
-            toast({
-              title: "🎉 Video Generation Complete!",
-              description: "Your video has been generated successfully. Check the Asset Library to view it.",
-            });
-            return; // Stop monitoring
-          } else if (status === 'failed') {
-            clearInterval(progressInterval);
-            setGenerationStatus('failed');
-            setGenerationProgress(0);
-            setIsGenerating(false);
-            toast({
-              title: "❌ Video Generation Failed",
-              description: errorMessage || "Video generation failed. Please try again.",
-              variant: "destructive",
-            });
-            return; // Stop monitoring
-          } else if (status === 'processing') {
-            // Continue monitoring with simulated progress
-            setTimeout(checkStatus, 30000); // Check every 30 seconds instead of 10
-          }
-        }
-      } catch (error) {
-        console.error('Error checking video status:', error);
-        clearInterval(progressInterval); // Clear interval on error
-        setGenerationStatus('failed');
-        setIsGenerating(false);
-      }
-    };
-    
-    // Start checking status after 10 seconds
-    setTimeout(checkStatus, 10000);
   };
 
   const canCreateVideo = templateVariables.length === 0 || templateVariables.every(variable => 

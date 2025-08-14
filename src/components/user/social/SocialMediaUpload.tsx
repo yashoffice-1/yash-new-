@@ -66,7 +66,8 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
     try {
       setIsLoadingConnections(true);
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/social/connections', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/connections`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -98,7 +99,8 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
     
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/ai/youtube/generate-metadata', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/ai/youtube/generate-metadata`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -178,7 +180,8 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
 
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/social/youtube/upload', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/youtube/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

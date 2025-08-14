@@ -80,8 +80,8 @@ export const aiAPI = {
   // HeyGen generation
   heygenGenerate: (data: GenerationRequest) => apiClient.post('/ai/heygen/generate', data),
 
-  // HeyGen status check
-  heygenStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
+  // DEPRECATED: Polling-based routes - Replaced by webhook system
+  // heygenStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
 
   // RunwayML generation
   runwaymlGenerate: (data: {
@@ -188,11 +188,11 @@ export const templatesAPI = {
     // Get HeyGen template variables
     getTemplateVariables: (templateId: string) => apiClient.get(`/templates/heygen/variables/${templateId}`),
     
-    // Get video status
-    getStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
+    // DEPRECATED: Polling-based routes - Replaced by webhook system
+    // getStatus: (videoId: string) => apiClient.get(`/ai/heygen/status/${videoId}`),
     
     // Recover pending videos
-    recoverPending: () => apiClient.post('/ai/heygen/recover-pending'),
+    // recoverPending: () => apiClient.post('/ai/heygen/recover-pending'),
   },
 };
 
