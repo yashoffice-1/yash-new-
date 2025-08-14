@@ -32,7 +32,8 @@ export function SocialMediaSettings() {
     try {
       setIsLoading(true);
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/social/connections', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/connections`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -61,7 +62,8 @@ export function SocialMediaSettings() {
   const saveYouTubeConnection = async (oauthResult: any) => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3001/api/social/youtube/connect', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/youtube/connect`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -89,7 +91,8 @@ export function SocialMediaSettings() {
   const handleDisconnect = async (platform: string) => {
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3001/api/social/connections/${platform}`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/connections/${platform}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -120,52 +120,52 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
   const { saveToLibrary } = useAssetLibrary();
 
-  // ✅ Add status checking for pending assets
-  const checkPendingAssetStatus = async (result: typeof generationResults[0]) => {
-    if (!result.asset_url.startsWith('pending_')) return;
+  // DEPRECATED: Polling-based status checking - Replaced by webhook + SSE system
+  // const checkPendingAssetStatus = async (result: typeof generationResults[0]) => {
+  //   if (!result.asset_url.startsWith('pending_')) return;
 
-    try {
-      if (result.source_system === 'heygen') {
-        // Extract video ID from pending URL
-        const videoId = result.asset_url.replace('pending_', '');
-        const response = await generationAPI.getStatus(videoId);
-        const statusData = response.data.data;
+  //   try {
+  //     if (result.source_system === 'heygen') {
+  //       // Extract video ID from pending URL
+  //       const videoId = result.asset_url.replace('pending_', '');
+  //       const response = await generationAPI.getStatus(videoId);
+  //       const statusData = response.data.data;
         
-        if (statusData.status === 'completed' && statusData.videoUrl) {
-          // Update the result with the final URL
-          setGenerationResults(prev => prev.map(r => 
-            r.id === result.id 
-              ? { ...r, asset_url: statusData.videoUrl, status: 'completed' }
-              : r
-          ));
-        } else if (statusData.status === 'failed') {
-          // Update the result to failed
-          setGenerationResults(prev => prev.map(r => 
-            r.id === result.id 
-              ? { ...r, status: 'failed', error: statusData.errorMessage }
-              : r
-          ));
-        }
-      }
-      // Add similar logic for RunwayML if needed
-    } catch (error) {
-      console.error('Error checking asset status:', error);
-    }
-  };
+  //       if (statusData.status === 'completed' && statusData.videoUrl) {
+  //         // Update the result with the final URL
+  //         setGenerationResults(prev => prev.map(r => 
+  //           r.id === result.id 
+  //             ? { ...r, asset_url: statusData.videoUrl, status: 'completed' }
+  //             : r
+  //         ));
+  //       } else if (statusData.status === 'failed') {
+  //         // Update the result to failed
+  //         setGenerationResults(prev => prev.map(r => 
+  //           r.id === result.id 
+  //             ? { ...r, status: 'failed', error: statusData.errorMessage }
+  //             : r
+  //         ));
+  //       }
+  //     }
+  //     // Add similar logic for RunwayML if needed
+  //   } catch (error) {
+  //     console.error('Error checking asset status:', error);
+  //   }
+  // };
 
-  // ✅ Add useEffect to periodically check pending asset status
-  useEffect(() => {
-    if (generationResults.length === 0) return;
+  // DEPRECATED: Polling-based status checking - Replaced by webhook + SSE system
+  // useEffect(() => {
+  //   if (generationResults.length === 0) return;
 
-    const pendingAssets = generationResults.filter(r => r.asset_url.startsWith('pending_'));
-    if (pendingAssets.length === 0) return;
+  //   const pendingAssets = generationResults.filter(r => r.asset_url.startsWith('pending_'));
+  //   if (pendingAssets.length === 0) return;
 
-    const interval = setInterval(() => {
-      pendingAssets.forEach(checkPendingAssetStatus);
-    }, 10000); // Check every 10 seconds
+  //   const interval = setInterval(() => {
+  //     pendingAssets.forEach(checkPendingAssetStatus);
+  //   }, 10000); // Check every 10 seconds
 
-    return () => clearInterval(interval);
-  }, [generationResults]);
+  //   return () => clearInterval(interval);
+  // }, [generationResults]);
 
   const handleDeleteProduct = async (productId: string) => {
     try {

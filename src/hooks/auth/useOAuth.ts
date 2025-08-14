@@ -102,11 +102,18 @@ export const useOAuth = () => {
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to connect your YouTube account.",
+          variant: "destructive"
+        });
         return false;
       }
 
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      
       // Exchange authorization code for tokens
-      const tokenResponse = await fetch('http://localhost:3001/api/social/youtube/exchange-code', {
+      const tokenResponse = await fetch(`${backendUrl}/api/social/youtube/exchange-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,7 +130,7 @@ export const useOAuth = () => {
       const tokenData: TokenExchangeResponse = await tokenResponse.json();
       
       // Save the connection
-      const saveResponse = await fetch('http://localhost:3001/api/social/youtube/connect', {
+      const saveResponse = await fetch(`${backendUrl}/api/social/youtube/connect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -143,10 +150,21 @@ export const useOAuth = () => {
         throw new Error('Failed to save YouTube connection');
       }
 
+      toast({
+        title: "Success!",
+        description: "YouTube account connected successfully.",
+        variant: "default"
+      });
+
       return true;
       
     } catch (error) {
       console.error('Error handling YouTube OAuth callback:', error);
+      toast({
+        title: "Connection Failed",
+        description: "Failed to connect YouTube account. Please try again.",
+        variant: "destructive"
+      });
       return false;
     }
   }, []);

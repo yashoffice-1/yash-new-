@@ -32,7 +32,8 @@ export function EmailVerification() {
 
   const verifyEmail = async (token: string) => {
     try {
-      const response = await fetch('http://localhost:3001/api/auth/verify-email', {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/auth/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),

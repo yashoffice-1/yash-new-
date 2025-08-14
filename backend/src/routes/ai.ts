@@ -5,6 +5,7 @@ import axios from 'axios';
 import { authenticateToken } from '../middleware/auth';
 import { validateAndUpdateTemplateUsage } from '../middleware/template-access';
 import { CloudinaryService } from '../services/cloudinary.js';
+import { webhookSecurity } from '../middleware/webhook-security.js';
 
 const router = Router();
 
@@ -41,7 +42,7 @@ const youtubeMetadataSchema = z.object({
 router.post('/openai/generate', authenticateToken, async (req, res, next) => {
   try {
     const { prompt, type, options } = generateContentSchema.parse(req.body);
-    console.log('User ID:', (req as any).user.userId);
+
     const openaiApiKey = process.env.OPENAI_API_KEY;
  
     if (!openaiApiKey) {
@@ -89,7 +90,7 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
         cleanPrompt = "A professional product photograph";
       }
       
-      console.log('Cleaned prompt for image generation:', cleanPrompt);
+
       
       const response = await axios.post('https://api.openai.com/v1/images/generations', {
         prompt: cleanPrompt,
@@ -101,7 +102,7 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
           'Content-Type': 'application/json'
         }
       });
-      console.log('OpenAI Image Generation Response:', response.data);
+
       result = response.data.data[0].url;
     } else {
       throw new Error(`Unsupported content type: ${type}`);
@@ -187,8 +188,14 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
     };
 
     // Add webhook URL for real-time notifications
-    const webhookUrl = process.env.WEBHOOK_URL || `${req.protocol}://${req.get('host')}/api/ai/heygen/webhook`;
+    // For local development with ngrok, use the WEBHOOK_URL environment variable
+    // In production, this will be your hosted domain
+    const webhookUrl = process.env.WEBHOOK_URL || 
+      `${req.protocol}://${req.get('host')}/api/ai/heygen/webhook`;
+    
+    // Always use webhook URL - no fallback to polling
     requestBody.callback_url = webhookUrl;
+
 
     // Add variables if provided - this is the key part for template-based generation
     if (variables && Object.keys(variables).length > 0) {
@@ -223,10 +230,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
       requestBody.variables = formattedVariables;
     }
 
-    console.log('HeyGen API Request Body:', JSON.stringify(requestBody, null, 2));
-    console.log('Template ID:', templateId);
-    console.log('Variables:', variables);
-    console.log('Webhook URL:', requestBody.callback_url);
+
 
     // Create HeyGen video generation request using template
     // According to HeyGen API v2 documentation, use the template-specific endpoint
@@ -255,6 +259,16 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
       }
     });
 
+    // Broadcast real-time update for video generation started
+    broadcastUpdate(userId, {
+      type: 'video_started',
+      assetId: asset.id,
+      videoId: video_id,
+      templateId: templateId,
+      message: 'Video generation started!',
+      timestamp: new Date().toISOString()
+    });
+
     return res.json({
       success: true,
       data: {
@@ -281,71 +295,71 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
   }
 });
 
-// Get HeyGen video status
-router.get('/heygen/status/:videoId', authenticateToken, async (req, res, next) => {
-  try {
-    const { videoId } = req.params;
+// DEPRECATED: Polling-based status check - Replaced by webhook system
+// router.get('/heygen/status/:videoId', authenticateToken, async (req, res, next) => {
+//   try {
+//     const { videoId } = req.params;
     
-    const heygenApiKey = process.env.HEYGEN_API_KEY;
-    if (!heygenApiKey) {
-      return res.status(500).json({
-        success: false,
-        error: 'HeyGen API key not configured'
-      });
-    }
+//     const heygenApiKey = process.env.HEYGEN_API_KEY;
+//     if (!heygenApiKey) {
+//       return res.status(500).json({
+//         success: false,
+//         error: 'HeyGen API key not configured'
+//       });
+//     }
 
-    // Use the v1 status endpoint as per HeyGen documentation
-    const response = await axios.get(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
-      headers: {
-        'X-Api-Key': heygenApiKey
-      }
-    });
+//     // Use the v1 status endpoint as per HeyGen documentation
+//     const response = await axios.get(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
+//       headers: {
+//         'X-Api-Key': heygenApiKey
+//       }
+//     });
 
-    const data = response.data.data;
-    const status = data.status;
-    const videoUrl = data.video_url;
-    const errorMessage = data.error_message;
+//     const data = response.data.data;
+//     const status = data.status;
+//     const videoUrl = data.video_url;
+//     const errorMessage = data.error_message;
     
-    // HeyGen doesn't provide progress percentage, so we'll estimate based on status
-    let progress = 0;
-    if (status === 'completed') {
-      progress = 100;
-    } else if (status === 'failed') {
-      progress = 0;
-    } else if (status === 'processing') {
-      progress = 50; // Estimate 50% for processing state
-    }
+//     // HeyGen doesn't provide progress percentage, so we'll estimate based on status
+//     let progress = 0;
+//     if (status === 'completed') {
+//       progress = 100;
+//     } else if (status === 'failed') {
+//       progress = 0;
+//     } else if (status === 'processing') {
+//       progress = 50; // Estimate 50% for processing state
+//     }
 
-    // Update asset if video is ready
-    if (status === 'completed' && videoUrl) {
-      await prisma.generatedAsset.updateMany({
-        where: { url: `pending_${videoId}` },
-        data: { 
-          url: videoUrl,
-          status: 'completed'
-        }
-      });
-    } else if (status === 'failed') {
-      // Update status to failed
-      await prisma.generatedAsset.updateMany({
-        where: { url: `pending_${videoId}` },
-        data: { status: 'failed' }
-      });
-    }
+//     // Update asset if video is ready
+//     if (status === 'completed' && videoUrl) {
+//       await prisma.generatedAsset.updateMany({
+//         where: { url: `pending_${videoId}` },
+//         data: { 
+//           url: videoUrl,
+//           status: 'completed'
+//         }
+//       });
+//     } else if (status === 'failed') {
+//       // Update status to failed
+//       await prisma.generatedAsset.updateMany({
+//         where: { url: `pending_${videoId}` },
+//         data: { status: 'failed' }
+//       });
+//     }
 
-    return res.json({
-      success: true,
-      data: {
-        status,
-        progress,
-        videoUrl: status === 'completed' ? videoUrl : null,
-        errorMessage: status === 'failed' ? errorMessage : null
-      }
-    });
-  } catch (error) {
-    return next(error);
-  }
-});
+//     return res.json({
+//       success: true,
+//       data: {
+//         status,
+//         progress,
+//         videoUrl: status === 'completed' ? videoUrl : null,
+//         errorMessage: status === 'failed' ? errorMessage : null
+//       }
+//     });
+//   } catch (error) {
+//     return next(error);
+//   }
+// });
 
 // RunwayML Integration
 router.post('/runwayml/generate', authenticateToken, async (req, res, next) => {
@@ -395,128 +409,120 @@ router.post('/runwayml/generate', authenticateToken, async (req, res, next) => {
   }
 });
 
-// Recover pending HeyGen videos
-router.post('/heygen/recover-pending', authenticateToken, async (req, res, next) => {
-  try {
-    const heygenApiKey = process.env.HEYGEN_API_KEY;
-    if (!heygenApiKey) {
-      return res.status(500).json({
-        success: false,
-        error: 'HeyGen API key not configured'
-      });
-    }
+// DEPRECATED: Polling-based recovery - Replaced by webhook system
+// router.post('/heygen/recover-pending', authenticateToken, async (req, res, next) => {
+//   try {
+//     const heygenApiKey = process.env.HEYGEN_API_KEY;
+//     if (!heygenApiKey) {
+//       return res.status(500).json({
+//         success: false,
+//         error: 'HeyGen API key not configured'
+//       });
+//     }
 
-    // Get all pending HeyGen videos from database
-    const pendingAssets = await prisma.generatedAsset.findMany({
-      where: {
-        sourceSystem: 'heygen',
-        url: { startsWith: 'pending_' }
-      },
-              include: {
-          profile: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true
-            }
-          }
-        }
-      });
+//     // Get all pending HeyGen videos from database
+//     const pendingAssets = await prisma.generatedAsset.findMany({
+//       where: {
+//         sourceSystem: 'heygen',
+//         url: { startsWith: 'pending_' }
+//       },
+//               include: {
+//           profile: {
+//             select: {
+//               id: true,
+//               email: true,
+//               firstName: true,
+//               lastName: true
+//             }
+//           }
+//         }
+//       });
 
-    if (pendingAssets.length === 0) {
-      return res.json({
-      success: true,
-        message: 'No pending videos found',
-        data: []
-      });
-    }
+//     if (pendingAssets.length === 0) {
+//       return res.json({
+//       success: true,
+//         message: 'No pending videos found',
+//         data: []
+//       });
+//     }
 
-    console.log(`Found ${pendingAssets.length} pending videos to check`);
 
-    const results = [];
+
+//     const results = [];
     
-    for (const asset of pendingAssets) {
-      try {
-        // Extract video ID from pending URL
-        const videoId = asset.url.replace('pending_', '');
+//     for (const asset of pendingAssets) {
+//       try {
+//         // Extract video ID from pending URL
+//         const videoId = asset.url.replace('pending_', '');
         
-        console.log(`Checking status for video: ${videoId}`);
-        
-        // Check status from HeyGen API
-        const response = await axios.get(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
-          headers: {
-            'X-Api-Key': heygenApiKey
-          }
-        });
 
-        const data = response.data.data;
-        const status = data.status;
-        const videoUrl = data.video_url;
-        const errorMessage = data.error_message;
+        
+//         // Check status from HeyGen API
+//         const response = await axios.get(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
+//           headers: {
+//             'X-Api-Key': heygenApiKey
+//           }
+//         });
+
+//         const data = response.data.data;
+//         const status = data.status;
+//         const videoUrl = data.video_url;
+//         const errorMessage = data.error_message;
 
       
-        let message = '';
+//         let message = '';
 
-        if (status === 'completed' && videoUrl) {
-          // Update both generated_assets and asset_library
-          await prisma.generatedAsset.update({
-            where: { id: asset.id },
-      data: {
-              url: videoUrl,
-              status: 'completed'
-            }
-          });
+//         if (status === 'completed' && videoUrl) {
+//           // Update both generated_assets and asset_library
+//           await prisma.generatedAsset.update({
+//             where: { id: asset.id },
+//       data: {
+//               url: videoUrl,
+//               status: 'completed'
+//             }
+//           });
 
-          // Asset library entries are no longer needed since we unified under GeneratedAsset
+//           // Asset library entries are no longer needed since we unified under GeneratedAsset
 
          
-          message = 'Video completed and updated';
-        } else if (status === 'failed') {
-          await prisma.generatedAsset.update({
-            where: { id: asset.id },
-            data: { status: 'failed' }
-          });
+//           message = 'Video completed and updated';
+//         } else if (status === 'failed') {
+//           await prisma.generatedAsset.update({
+//             where: { id: asset.id },
+//             data: { status: 'failed' }
+//           });
 
         
-          message = `Video failed: ${errorMessage || 'Unknown error'}`;
-        } else {
-          message = `Video still processing: ${status}`;
-        }
+//           message = `Video failed: ${errorMessage || 'Unknown error'}`;
+//         } else {
+//           message = `Video still processing: ${status}`;
+//         }
+//       } catch (error) {
+//         console.error(`Error checking status for asset ${asset.id}:`, error);
+//         message = `Error checking status: ${error.message}`;
+//       }
 
-        results.push({
-          assetId: asset.id,
-          videoId,
-          status,
-          message,
-          updated: status === 'completed' || status === 'failed'
-        });
+//       results.push({
+//         assetId: asset.id,
+//         videoId: asset.url.replace('pending_', ''),
+//         message,
+//         updated: message.includes('completed') || message.includes('failed')
+//       });
+//     }
 
-      } catch (error:any) {
-        console.error(`Error checking video ${asset.url}:`, error);
-        results.push({
-          assetId: asset.id,
-          videoId: asset.url.replace('pending_', ''),
-          status: 'error',
-          message: `Error checking status: ${error.message}`,
-          updated: false
-        });
-      }
-    }
-
-    const updatedCount = results.filter(r => r.updated).length;
-    
-    return res.json({
-      success: true,
-      message: `Recovery completed. ${updatedCount} videos updated.`,
-      data: results
-    });
-
-  } catch (error) {
-    console.error('Error in bulk recovery:', error);
-    return next(error);
-  }
-});
+//     return res.json({
+//       success: true,
+//       message: `Checked ${results.length} pending videos`,
+//       data: results
+//     });
+//   } catch (error) {
+//     console.error('Error in recover-pending:', error);
+//     return res.status(500).json({
+//       success: false,
+//       error: 'Failed to recover pending videos'
+//     });
+//   }
+// });
 
 router.post('/youtube/generate-metadata', authenticateToken, async (req, res, _next) => {
   try {
@@ -594,7 +600,7 @@ Make it engaging, SEO-friendly, and optimized for YouTube's algorithm.`;
     try {
       metadata = JSON.parse(result);
     } catch (parseError) {
-      console.log('parseError', parseError);
+      console.log('JSON parsing failed', parseError);
       // If JSON parsing fails, create a structured response from the text
       const lines = result.split('\n');
       metadata = {
@@ -635,10 +641,10 @@ Make it engaging, SEO-friendly, and optimized for YouTube's algorithm.`;
 });
 
 // HeyGen Webhook Endpoint with Cloudinary Integration
-router.post('/heygen/webhook', async (req, res, next) => {
+router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next: any) => {
   try {
     const webhookData = req.body;
-    console.log('Received HeyGen webhook:', JSON.stringify(webhookData, null, 2));
+
 
     const { event_type, event_data } = webhookData;
 
@@ -653,13 +659,7 @@ router.post('/heygen/webhook', async (req, res, next) => {
         folder_id
       } = event_data;
 
-      console.log('Processing successful video generation:', {
-        video_id,
-        video_url,
-        gif_download_url,
-        thumbnail_url,
-        callback_id
-      });
+
 
       // Find the asset using video_id
       const asset = await prisma.generatedAsset.findFirst({
@@ -675,15 +675,15 @@ router.post('/heygen/webhook', async (req, res, next) => {
         });
       }
 
-      console.log('Found asset:', asset.id);
+
 
       // Upload video to Cloudinary
       let cloudinaryVideoUrl = video_url;
       let cloudinaryGifUrl = gif_download_url;
-      let cloudinaryData = {};
+      let cloudinaryData: any = {};
 
       try {
-        console.log('Uploading video to Cloudinary...');
+
         const videoUploadResult = await CloudinaryService.uploadFromUrl({
           url: video_url,
           fileName: `heygen-video-${video_id}`,
@@ -704,11 +704,11 @@ router.post('/heygen/webhook', async (req, res, next) => {
           }
         };
 
-        console.log('Video uploaded to Cloudinary:', videoUploadResult.public_id);
+
 
         // Upload GIF if available
         if (gif_download_url) {
-          console.log('Uploading GIF to Cloudinary...');
+
           const gifUploadResult = await CloudinaryService.uploadFromUrl({
             url: gif_download_url,
             fileName: `heygen-gif-${video_id}`,
@@ -730,12 +730,12 @@ router.post('/heygen/webhook', async (req, res, next) => {
             }
           };
 
-          console.log('GIF uploaded to Cloudinary:', gifUploadResult.public_id);
+
         }
 
         // Upload thumbnail if available
         if (thumbnail_url) {
-          console.log('Uploading thumbnail to Cloudinary...');
+  
           const thumbnailUploadResult = await CloudinaryService.uploadFromUrl({
             url: thumbnail_url,
             fileName: `heygen-thumbnail-${video_id}`,
@@ -756,7 +756,7 @@ router.post('/heygen/webhook', async (req, res, next) => {
             }
           };
 
-          console.log('Thumbnail uploaded to Cloudinary:', thumbnailUploadResult.public_id);
+
         }
 
       } catch (cloudinaryError) {
@@ -787,16 +787,24 @@ router.post('/heygen/webhook', async (req, res, next) => {
         }
       });
 
-      console.log('Updated generated asset with Cloudinary data:', updatedAsset.id);
+
+
+      // Broadcast real-time update to connected clients
+      broadcastUpdate(updatedAsset.profileId, {
+        type: 'video_completed',
+        assetId: updatedAsset.id,
+        videoUrl: cloudinaryVideoUrl,
+        gifUrl: cloudinaryGifUrl,
+        thumbnailUrl: cloudinaryData?.thumbnail?.secure_url,
+        videoId: video_id,
+        message: 'Video generation completed successfully!',
+        timestamp: new Date().toISOString()
+      });
 
     } else if (event_type === 'avatar_video.fail') {
       const { video_id, error: generation_error, callback_id } = event_data;
       
-      console.log('Processing failed video generation:', {
-        video_id,
-        error: generation_error,
-        callback_id
-      });
+
 
       // Find and update the failed asset
       const asset = await prisma.generatedAsset.findFirst({
@@ -804,7 +812,7 @@ router.post('/heygen/webhook', async (req, res, next) => {
       });
 
       if (asset) {
-        await prisma.generatedAsset.update({
+        const failedAsset = await prisma.generatedAsset.update({
           where: { id: asset.id },
           data: {
             url: 'failed',
@@ -820,7 +828,17 @@ router.post('/heygen/webhook', async (req, res, next) => {
           }
         });
 
-        console.log('Updated asset status to failed:', asset.id);
+
+
+        // Broadcast real-time update for failed video
+        broadcastUpdate(failedAsset.profileId, {
+          type: 'video_failed',
+          assetId: failedAsset.id,
+          videoId: video_id,
+          error: generation_error,
+          message: 'Video generation failed',
+          timestamp: new Date().toISOString()
+        });
       } else {
         console.error('Asset not found for failed video_id:', video_id);
       }
@@ -845,4 +863,130 @@ router.post('/heygen/webhook', async (req, res, next) => {
   }
 });
 
-export default router; 
+// Store connected SSE clients for broadcasting
+const sseClients = new Map<string, { res: any; userId: string }>();
+
+// Health check endpoint
+router.get('/health', async (req, res) => {
+  try {
+    // Check database connection
+    await prisma.$queryRaw`SELECT 1`;
+    
+    // Check Cloudinary configuration
+    const cloudinaryConfig = {
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      apiSecret: process.env.CLOUDINARY_API_SECRET
+    };
+    
+    const isCloudinaryConfigured = cloudinaryConfig.cloudName && 
+                                  cloudinaryConfig.apiKey && 
+                                  cloudinaryConfig.apiSecret;
+
+    const healthStatus = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: 'connected',
+        cloudinary: isCloudinaryConfigured ? 'configured' : 'not_configured',
+        heygen: process.env.HEYGEN_API_KEY ? 'configured' : 'not_configured'
+      },
+      uptime: process.uptime(),
+      memory: process.memoryUsage()
+    };
+
+    res.json(healthStatus);
+  } catch (error:any) {
+    console.error('Health check failed:', error);
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: error.message,
+      services: {
+        database: 'disconnected',
+        cloudinary: 'unknown',
+        heygen: 'unknown'
+      }
+    });
+  }
+});
+
+
+
+// SSE endpoint for real-time updates
+router.get('/heygen/updates', authenticateToken, (req, res) => {
+  const userId = (req as any).user?.userId || (req as any).user?.id;
+  
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // Set SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control',
+    'X-Accel-Buffering': 'no'
+  });
+  
+  // Send initial connection message
+  const initialMessage = `data: ${JSON.stringify({
+    type: 'connection',
+    message: 'Connected to real-time updates',
+    timestamp: new Date().toISOString()
+  })}\n\n`;
+  
+  res.write(initialMessage);
+  res.flush();
+  
+  // Store client connection for broadcasting
+  const clientId = `${userId}-${Date.now()}`;
+  sseClients.set(clientId, { res, userId });
+
+  // Handle client disconnect
+  req.on('close', () => {
+    sseClients.delete(clientId);
+  });
+
+  // Send ping every 30 seconds to keep connection alive
+  // eslint-disable-next-line no-undef
+  const keepAlive = setInterval(() => {
+    try {
+      if (sseClients.has(clientId)) {
+        res.write(`data: ${JSON.stringify({
+          type: 'ping',
+          timestamp: new Date().toISOString()
+        })}\n\n`);
+      } else {
+        // eslint-disable-next-line no-undef
+        clearInterval(keepAlive);
+      }
+    } catch (error) {
+      console.log('Error sending SSE to client', error);
+      // eslint-disable-next-line no-undef
+      clearInterval(keepAlive);
+    }
+  }, 30000);
+
+  // Explicit return for TypeScript
+  return;
+});
+
+// Helper function to broadcast updates to connected clients
+const broadcastUpdate = (userId: string, data: any) => {
+  const userClients = Array.from(sseClients.entries())
+    .filter(([_, client]) => client.userId === userId);
+
+  userClients.forEach(([clientId, client]) => {
+    try {
+      client.res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (error) {
+      console.error(`Error sending SSE to client ${clientId}:`, error);
+      sseClients.delete(clientId);
+    }
+  });
+};
+
+export default router;

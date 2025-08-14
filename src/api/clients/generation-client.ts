@@ -61,8 +61,8 @@ export const generationAPI = {
   // Get HeyGen templates
   getHeyGenTemplates: () => generationClient.get('/ai/heygen/templates'),
 
-  // Get generation status (HeyGen)
-  getStatus: (videoId: string) => generationClient.get(`/ai/heygen/status/${videoId}`),
+  // DEPRECATED: Polling-based route - Replaced by webhook system
+  // getStatus: (videoId: string) => generationClient.get(`/ai/heygen/status/${videoId}`),
 
   // Get AI generation statistics
   getStats: () => generationClient.get('/ai/stats'),

@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/forms/textarea';
 import { Loader2, Play, Eye, Calendar, Clock, Users } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
 import { templatesAPI } from '@/api/clients/backend-client';
+import { RealtimeVideoProgress } from '@/components/video-template/RealtimeVideoProgress';
 
 interface UserTemplateAccess {
   id: string;
@@ -153,9 +154,8 @@ export function UserTemplateLibrary() {
       });
 
       if (response.data.success) {
-        const videoId = response.data.data.videoId;
-        
-        // Start 5-minute progress monitoring
+        // Start progress simulation for better UX
+        // This will show progress while waiting for webhook to complete
         const totalDuration = 300; // 5 minutes in seconds
         const targetProgress = 92; // Target 92% before completion
         let elapsedTime = 0;
@@ -169,57 +169,29 @@ export function UserTemplateLibrary() {
           if (elapsedTime >= totalDuration || progressPercentage >= targetProgress) {
             clearInterval(progressInterval);
             setGenerationProgress(targetProgress);
+            
+            // Note: We rely on webhook for actual completion notification
+            // This is just a fallback message after progress simulation ends
+            toast({
+              title: "Processing Complete",
+              description: "Check the Asset Library for your completed video.",
+            });
           }
         }, 3000);
         
-        // Check actual status every 30 seconds
-        const checkStatus = async () => {
-          try {
-            const statusResponse = await templatesAPI.getGenerationStatus(videoId);
-            const statusData = statusResponse.data;
-            const { status, videoUrl, errorMessage } = statusData.data;
-            
-            if (status === 'completed') {
-              clearInterval(progressInterval);
-              setGenerationStatus('completed');
-              setGenerationProgress(100);
-              setIsGenerating(false);
-              toast({
-                title: "🎉 Video Generation Complete!",
-                description: "Your video has been generated successfully. Check the Asset Library to view it.",
-              });
-              setShowGenerationDialog(false);
-              setGenerationForm({ templateId: '', variables: {} });
-              return;
-            } else if (status === 'failed') {
-              clearInterval(progressInterval);
-              setGenerationStatus('failed');
-              setGenerationProgress(0);
-              setIsGenerating(false);
-              toast({
-                title: "❌ Video Generation Failed",
-                description: errorMessage || "Video generation failed. Please try again.",
-                variant: "destructive",
-              });
-              return;
-            } else if (status === 'processing') {
-              // Continue monitoring
-              setTimeout(checkStatus, 30000); // Check every 30 seconds instead of 10
-            }
-          } catch (error) {
-            console.error('Error checking video status:', error);
-            // Don't clear interval on error, just continue monitoring
-            setTimeout(checkStatus, 30000); // Check every 30 seconds instead of 10
-          }
-        };
-        
-        // Start checking status after 10 seconds
-        setTimeout(checkStatus, 10000);
-        
         toast({
           title: "Success",
-          description: "Template generation started successfully",
+          description: "Template generation started successfully. You'll receive a webhook notification when complete.",
         });
+        
+        // Close the dialog after starting generation
+        setTimeout(() => {
+          setShowGenerationDialog(false);
+          toast({
+            title: "Video Generation In Progress",
+            description: "Your video is being generated. You'll be notified via webhook when complete.",
+          });
+        }, 3000);
       } else {
         const error = response.data;
         toast({
@@ -727,6 +699,17 @@ export function UserTemplateLibrary() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Real-time Video Progress */}
+      <RealtimeVideoProgress 
+        className="mt-6"
+        onVideoComplete={(video) => {
+          toast({
+            title: "🎉 Video Complete!",
+            description: `Video ${video.videoId.slice(-8)} is ready for download.`,
+          });
+        }}
+      />
     </div>
   );
-} 
+}
