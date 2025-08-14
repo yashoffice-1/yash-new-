@@ -32,6 +32,8 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'processing' | 'completed' | 'failed'>('idle');
   const [generationProgress, setGenerationProgress] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [showManualCheck, setShowManualCheck] = useState(false);
 
   useEffect(() => {
     const fetchTemplateDetails = async () => {
@@ -149,6 +151,7 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
     setIsGenerating(true);
     setGenerationStatus('processing');
     setGenerationProgress(0);
+    setShowManualCheck(false);
 
     try {
       // Call the generation API using templatesAPI
@@ -159,6 +162,9 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
       });
 
       if (response.data.success) {
+        // Store video ID for manual check
+        setVideoId(response.data.data.videoId);
+        
         // Show success message - webhook will handle completion
         toast({
           title: "🎬 Video Generation Started",
@@ -175,6 +181,11 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
           elapsedTime += 3; // Update every 3 seconds
           const progressPercentage = Math.min(targetProgress, (elapsedTime / totalDuration) * targetProgress);
           setGenerationProgress(progressPercentage);
+          
+          // Show manual check option after 5 minutes if still processing
+          if (elapsedTime >= 300 && !showManualCheck) {
+            setShowManualCheck(true);
+          }
           
           // Stop simulation at 5 minutes or when we reach target
           if (elapsedTime >= totalDuration || progressPercentage >= targetProgress) {
@@ -199,6 +210,58 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
       toast({
         title: "❌ Request Failed",
         description: "Failed to send video generation request. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleManualStatusCheck = async () => {
+    if (!videoId) return;
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/check-status/${videoId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (data.data.status === 'completed') {
+          setGenerationStatus('completed');
+          setGenerationProgress(100);
+          toast({
+            title: "✅ Video Ready!",
+            description: "Video generation completed successfully!",
+          });
+        } else if (data.data.status === 'failed') {
+          setGenerationStatus('failed');
+          setGenerationProgress(0);
+          toast({
+            title: "❌ Video Generation Failed",
+            description: data.data.error || "Video generation failed.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "⏳ Still Processing",
+            description: "Video is still being generated. Please wait.",
+          });
+        }
+      } else {
+        toast({
+          title: "❌ Check Failed",
+          description: data.error || "Failed to check video status.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Manual status check error:', error);
+      toast({
+        title: "❌ Check Failed",
+        description: "Failed to check video status. Please try again.",
         variant: "destructive",
       });
     }
@@ -294,8 +357,25 @@ export function TemplateVideoCreator({ template }: TemplateVideoCreatorProps) {
                 ></div>
               </div>
               <p className="text-center text-sm text-gray-600">
-                Video generation in progress. This typically takes 2-5 minutes. You can check the Asset Library for updates.
+                Video generation in progress. This typically takes 5-8 minutes. You can check the Asset Library for updates.
               </p>
+              
+              {/* Manual check button - appears after 3 minutes */}
+              {showManualCheck && (
+                <div className="text-center">
+                  <p className="text-sm text-yellow-600 mb-2">
+                    Taking longer than expected? Check status manually.
+                  </p>
+                  <Button
+                    onClick={handleManualStatusCheck}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                  >
+                    🔍 Check Status Manually
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           

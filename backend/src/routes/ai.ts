@@ -833,6 +833,202 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
   }
 });
 
+// Manual status check endpoint (fallback when webhook fails)
+router.get('/heygen/check-status/:videoId', authenticateToken, async (req, res, next) => {
+  try {
+    const { videoId } = req.params;
+    const userId = (req as any).user?.userId || (req as any).user?.id;
+    
+    const heygenApiKey = process.env.HEYGEN_API_KEY;
+    if (!heygenApiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'HeyGen API key not configured'
+      });
+    }
+
+    console.log(`Manual status check for video: ${videoId}`);
+
+    // Check status from HeyGen API
+    const response = await axios.get(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
+      headers: {
+        'X-Api-Key': heygenApiKey
+      }
+    });
+
+    const data = response.data.data;
+    const status = data.status;
+    const videoUrl = data.video_url;
+    const gifUrl = data.gif_url;
+    const errorMessage = data.error;
+
+    console.log(`HeyGen status for ${videoId}: ${status}`);
+
+    // Find the asset in database
+    const asset = await prisma.generatedAsset.findFirst({
+      where: { 
+        url: `pending_${videoId}`,
+        profileId: userId
+      }
+    });
+
+    if (!asset) {
+      return res.status(404).json({
+        success: false,
+        error: 'Asset not found for this video ID'
+      });
+    }
+
+    // Process based on status
+    if (status === 'completed' && videoUrl) {
+      // Same processing logic as webhook
+      let cloudinaryVideoUrl = videoUrl;
+      let cloudinaryGifUrl = gifUrl;
+      let cloudinaryData: any = {};
+
+      try {
+        const videoUploadResult = await CloudinaryService.uploadFromUrl({
+          url: videoUrl,
+          fileName: `heygen-video-${videoId}`,
+          assetType: 'video',
+          folder: 'heygen-videos',
+          tags: ['heygen', 'video', 'generated']
+        });
+
+        cloudinaryVideoUrl = videoUploadResult.secure_url;
+        cloudinaryData = {
+          video: {
+            public_id: videoUploadResult.public_id,
+            secure_url: videoUploadResult.secure_url,
+            format: videoUploadResult.format,
+            width: videoUploadResult.width,
+            height: videoUploadResult.height,
+            bytes: videoUploadResult.bytes
+          }
+        };
+
+        // Upload GIF if available
+        if (gifUrl) {
+          const gifUploadResult = await CloudinaryService.uploadFromUrl({
+            url: gifUrl,
+            fileName: `heygen-gif-${videoId}`,
+            assetType: 'image',
+            folder: 'heygen-gifs',
+            tags: ['heygen', 'gif', 'generated']
+          });
+
+          cloudinaryGifUrl = gifUploadResult.secure_url;
+          cloudinaryData = {
+            ...cloudinaryData,
+            gif: {
+              public_id: gifUploadResult.public_id,
+              secure_url: gifUploadResult.secure_url,
+              format: gifUploadResult.format,
+              width: gifUploadResult.width,
+              height: gifUploadResult.height,
+              bytes: gifUploadResult.bytes
+            }
+          };
+        }
+
+      } catch (cloudinaryError) {
+        console.error('Cloudinary upload failed:', cloudinaryError);
+        cloudinaryVideoUrl = videoUrl;
+        cloudinaryGifUrl = gifUrl;
+      }
+
+      // Update database
+      const updatedAsset = await prisma.generatedAsset.update({
+        where: { id: asset.id },
+        data: {
+          url: cloudinaryVideoUrl,
+          status: 'completed',
+          metadata: {
+            originalVideoUrl: videoUrl,
+            originalGifUrl: gifUrl,
+            completedAt: new Date().toISOString(),
+            manualCheck: true,
+            webhookData: { video_id: videoId }
+          },
+          cloudinaryData: cloudinaryData
+        }
+      });
+
+      // Broadcast real-time update
+      broadcastUpdate(userId, {
+        type: 'video_completed',
+        assetId: updatedAsset.id,
+        videoUrl: cloudinaryVideoUrl,
+        gifUrl: cloudinaryGifUrl,
+        videoId: videoId,
+        message: 'Video generation completed successfully! (Manual check)',
+        timestamp: new Date().toISOString()
+      });
+
+      return res.json({
+        success: true,
+        data: {
+          status: 'completed',
+          videoUrl: cloudinaryVideoUrl,
+          gifUrl: cloudinaryGifUrl,
+          message: 'Video processed and updated successfully'
+        }
+      });
+
+    } else if (status === 'failed') {
+      // Update failed status
+      const failedAsset = await prisma.generatedAsset.update({
+        where: { id: asset.id },
+        data: {
+          url: 'failed',
+          status: 'failed',
+          metadata: {
+            error: errorMessage || 'Video generation failed',
+            failedAt: new Date().toISOString(),
+            manualCheck: true,
+            webhookData: { video_id: videoId }
+          }
+        }
+      });
+
+      // Broadcast failure
+      broadcastUpdate(userId, {
+        type: 'video_failed',
+        assetId: failedAsset.id,
+        videoId: videoId,
+        error: errorMessage || 'Video generation failed',
+        message: 'Video generation failed (Manual check)',
+        timestamp: new Date().toISOString()
+      });
+
+      return res.json({
+        success: false,
+        data: {
+          status: 'failed',
+          error: errorMessage || 'Video generation failed'
+        }
+      });
+
+    } else {
+      // Still processing
+      return res.json({
+        success: true,
+        data: {
+          status: 'processing',
+          message: 'Video is still being processed'
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Manual status check error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to check video status'
+    });
+  }
+});
+
 // Store connected SSE clients for broadcasting
 const sseClients = new Map<string, { res: any; userId: string }>();
 
