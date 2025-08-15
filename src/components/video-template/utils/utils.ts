@@ -20,7 +20,7 @@ export const extractProductData = (variable: string, selectedProduct: InventoryI
       return ""; // Will be filled by AI suggestion
     case "feature_one":
     case "feature_two": 
-    case "feature_three":
+    case "feature_three": {
       // Try to extract features from description
       const description = selectedProduct.description || "";
       if (description) {
@@ -29,6 +29,7 @@ export const extractProductData = (variable: string, selectedProduct: InventoryI
         return features[index]?.trim().replace(/[.!?]$/, '') || "";
       }
       return "";
+    }
     default:
       return "";
   }

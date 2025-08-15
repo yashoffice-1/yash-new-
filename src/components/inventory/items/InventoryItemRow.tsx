@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/layout/card";
 import { Button } from "@/components/ui/forms/button";
 import { Badge } from "@/components/ui/data_display/badge";
 import { Package, Image, Video, FileText, Layers } from "lucide-react";
-import { GenerationModal } from "./generators/GenerationModal";
+import { GenerationModal } from "@/components/inventory/generators/GenerationModal";
 
 interface InventoryItem {
   id: string;
@@ -15,7 +15,7 @@ interface InventoryItem {
   category: string | null;
   brand: string | null;
   images: string[];
-  metadata: any;
+  metadata: Record<string, unknown>;
   status: string;
   created_at: string;
   updated_at: string;
@@ -23,23 +23,23 @@ interface InventoryItem {
 
 interface InventoryItemRowProps {
   product: InventoryItem;
-  onGenerate: (productId: string, type: 'image' | 'video' | 'content') => void;
+  onGenerate: (productId: string, type: 'image' | 'video' | 'content' | 'formats') => void;
 }
 
 export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps) {
   const [showModal, setShowModal] = useState(false);
-  const [generationType, setGenerationType] = useState<'image' | 'video' | 'content'>('image');
+  const [generationType, setGenerationType] = useState<'image' | 'video' | 'content' | 'formats'>('image');
   
   const primaryImage = product.images?.[0];
 
-  const handleGenerateClick = (type: 'image' | 'video' | 'content') => {
+  const handleGenerateClick = (type: 'image' | 'video' | 'content' | 'formats') => {
     setGenerationType(type);
     setShowModal(true);
   };
 
   const handleConfirmGeneration = async (instruction: string) => {
     // Trigger the original onGenerate callback
-    onGenerate(product.id, generationType);
+    onGenerate(product.id, generationType as 'image' | 'video' | 'content' | 'formats');
   };
 
   const handleCloseGenerationModal = () => {
@@ -54,7 +54,7 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
         return 'Video Generation';
       case 'content':
         return 'Content Generation';
-      case 'content':
+      case 'formats':
         return 'Format Generation';
       default:
         return 'Generation';
@@ -143,11 +143,11 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleGenerateClick('content')}
+                onClick={() => handleGenerateClick('formats')}
                 className="flex items-center space-x-1"
               >
                 <Layers className="h-4 w-4" />
-                <span className="hidden sm:inline">Content</span>
+                <span className="hidden sm:inline">Formats</span>
               </Button>
             </div>
           </div>
