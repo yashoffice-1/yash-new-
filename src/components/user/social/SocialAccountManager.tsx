@@ -426,7 +426,7 @@ export function SocialAccountManager() {
                       onClick={() => {
                         const platformUrls = {
                           youtube: `https://studio.youtube.com/channel/${connection?.channelId || ''}`,
-                          facebook: 'https://www.facebook.com',
+                          facebook: `https://www.facebook.com/${connection?.channelId || ''}/settings`,
                           instagram: 'https://www.instagram.com',
                           twitter: 'https://twitter.com',
                           linkedin: 'https://www.linkedin.com',
@@ -448,7 +448,7 @@ export function SocialAccountManager() {
                       onClick={() => {
                         const platformUrls = {
                           youtube: `https://www.youtube.com/channel/${connection?.channelId || ''}`,
-                          facebook: 'https://www.facebook.com',
+                          facebook: `https://www.facebook.com/${connection?.channelId || ''}`,
                           instagram: 'https://www.instagram.com',
                           twitter: 'https://twitter.com',
                           linkedin: 'https://www.linkedin.com',
@@ -463,6 +463,19 @@ export function SocialAccountManager() {
                       <ExternalLink className="h-4 w-4 mr-2" />
                       View on {platformInfo.name}
                     </Button>
+                    {platform === 'facebook' && connection?.channelId && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => {
+                          window.open(`https://www.facebook.com/${connection.channelId}/insights`, '_blank');
+                        }}
+                      >
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Page Insights
+                      </Button>
+                    )}
                     <Button 
                       variant="destructive" 
                       size="sm" 

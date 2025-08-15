@@ -149,31 +149,24 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
   const handleUploadToYouTube = async () => {
     if (!asset?.asset_url) {
       toast({
-        title: "No Video Available",
-        description: "Please generate a video first before uploading.",
+        title: "Error",
+        description: "No video URL available for upload.",
         variant: "destructive"
       });
       return;
     }
 
-    if (!uploadFormData.title.trim()) {
-      toast({
-        title: "Title Required",
-        description: "Please enter a title for your video.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setUploadingTo('youtube');
     setIsLoading(true);
-    setUploadStatus('uploading');
+    setUploadingTo('youtube');
     setUploadProgress(0);
 
-    // Simulate progress
+    // Simulate progress updates
     const progressInterval = setInterval(() => {
       setUploadProgress(prev => {
-        if (prev >= 90) return prev;
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
         return prev + Math.random() * 10;
       });
     }, 500);
@@ -218,6 +211,77 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
       toast({
         title: "Upload Failed",
         description: error instanceof Error ? error.message : "Failed to upload video to YouTube.",
+        variant: "destructive"
+      });
+    } finally {
+      clearInterval(progressInterval);
+      setUploadingTo(null);
+      setIsLoading(false);
+    }
+  };
+
+  const handleUploadToInstagram = async () => {
+    if (!asset?.asset_url) {
+      toast({
+        title: "Error",
+        description: "No video URL available for upload.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setUploadingTo('instagram');
+    setUploadProgress(0);
+
+    // Simulate progress updates
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
+        }
+        return prev + Math.random() * 10;
+      });
+    }, 500);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/social/instagram/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          videoUrl: asset.asset_url,
+          caption: uploadFormData.description || uploadFormData.title,
+          assetId: asset.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setUploadProgress(100);
+        setUploadStatus('success');
+        toast({
+          title: "Upload Successful! 🎉",
+          description: `Video uploaded to Instagram: ${result.mediaId}`,
+        });
+        if (onUploadComplete) {
+          onUploadComplete(result);
+        }
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading to Instagram:', error);
+      setUploadStatus('error');
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload video to Instagram.",
         variant: "destructive"
       });
     } finally {
@@ -553,6 +617,85 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
             </div>
           )}
 
+          {/* Instagram Upload Section */}
+          {isConnected('instagram') && (
+            <div className="space-y-6">
+              <div className="flex items-center space-x-2">
+                <div className="w-5 h-5 bg-gradient-to-r from-purple-500 to-pink-500 rounded"></div>
+                <h3 className="text-lg font-semibold">Upload to Instagram</h3>
+              </div>
+              
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="instagram-caption">Caption</Label>
+                  <Textarea
+                    id="instagram-caption"
+                    value={uploadFormData.description}
+                    onChange={(e) => setUploadFormData({ ...uploadFormData, description: e.target.value })}
+                    placeholder="Write an engaging caption for your Instagram post..."
+                    rows={4}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-gray-500">
+                    {uploadFormData.description.length}/2200 characters (Instagram limit)
+                  </p>
+                </div>
+
+                {/* Upload Progress for Instagram */}
+                <div className={`space-y-2 transition-all duration-300 ${uploadingTo === 'instagram' ? 'opacity-100 max-h-20' : 'opacity-0 max-h-0 overflow-hidden'}`}>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Uploading to Instagram...</span>
+                    <span>{Math.round(uploadProgress)}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                  <p className="text-xs text-gray-500">
+                    This may take a few minutes depending on video size
+                  </p>
+                </div>
+
+                {/* Success State for Instagram */}
+                <div className={`transition-all duration-300 ${uploadStatus === 'success' && uploadingTo === 'instagram' ? 'opacity-100 max-h-24' : 'opacity-0 max-h-0 overflow-hidden'}`}>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="font-medium text-green-800">Upload Successful!</span>
+                    </div>
+                    <p className="text-sm text-green-700 mt-1">
+                      Your video has been uploaded to Instagram successfully.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Upload Button for Instagram */}
+                <Button
+                  onClick={handleUploadToInstagram}
+                  disabled={isLoading || !asset?.asset_url || (uploadStatus === 'success' && uploadingTo === 'instagram')}
+                  className="w-full h-12 text-base font-medium transition-all duration-200"
+                  size="lg"
+                >
+                  <div className="flex items-center justify-center space-x-2 min-h-[20px]">
+                    {uploadingTo === 'instagram' ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span>Uploading...</span>
+                      </>
+                    ) : uploadStatus === 'success' && uploadingTo === 'instagram' ? (
+                      <>
+                        <CheckCircle className="h-5 w-5" />
+                        <span>Uploaded Successfully</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5" />
+                        <span>Upload to Instagram</span>
+                      </>
+                    )}
+                  </div>
+                </Button>
+              </div>
+            </div>
+          )}
+
           <Separator />
 
           {/* Coming Soon Platforms */}
@@ -577,12 +720,12 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
 
               <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center">
-                    <div className="w-5 h-5 bg-pink-600 rounded"></div>
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <div className="w-5 h-5 bg-blue-600 rounded"></div>
                   </div>
                   <div>
-                    <p className="font-medium">Instagram</p>
-                    <p className="text-sm text-gray-600">Share videos to your Instagram account</p>
+                    <p className="font-medium">LinkedIn</p>
+                    <p className="text-sm text-gray-600">Share professional content</p>
                   </div>
                 </div>
                 <Badge variant="outline">Coming Soon</Badge>
@@ -590,12 +733,12 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
 
               <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <div className="w-5 h-5 bg-blue-600 rounded"></div>
+                  <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
+                    <div className="w-5 h-5 bg-white rounded"></div>
                   </div>
                   <div>
-                    <p className="font-medium">LinkedIn</p>
-                    <p className="text-sm text-gray-600">Share professional content</p>
+                    <p className="font-medium">TikTok</p>
+                    <p className="text-sm text-gray-600">Share short-form videos</p>
                   </div>
                 </div>
                 <Badge variant="outline">Coming Soon</Badge>

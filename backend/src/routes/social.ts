@@ -623,169 +623,169 @@ router.post('/:platform/settings', authenticateToken, async (req, res) => {
   }
 });
 
-// Get platform recent activity with caching
-router.get('/:platform/activity', authenticateToken, async (req, res) => {
-  try {
-    const userId = (req as any).user.userId;
-    const { platform } = req.params;
-    const forceRefresh = req.query.refresh === 'true';
+// // Get platform recent activity with caching
+// router.get('/:platform/activity', authenticateToken, async (req, res) => {
+//   try {
+//     const userId = (req as any).user.userId;
+//     const { platform } = req.params;
+//     const forceRefresh = req.query.refresh === 'true';
 
-    // Get the user's platform connection
-    const connection = await prisma.socialMediaConnection.findFirst({
-      where: {
-        profileId: userId,
-        platform: platform,
-        isActive: true
-      },
-      include: {
-        cachedData: {
-          where: {
-            dataType: 'activity'
-          }
-        }
-      }
-    });
+//     // Get the user's platform connection
+//     const connection = await prisma.socialMediaConnection.findFirst({
+//       where: {
+//         profileId: userId,
+//         platform: platform,
+//         isActive: true
+//       },
+//       include: {
+//         cachedData: {
+//           where: {
+//             dataType: 'activity'
+//           }
+//         }
+//       }
+//     });
 
-    if (!connection) {
-      return res.status(404).json({ error: 'Platform connection not found' });
-    }
+//     if (!connection) {
+//       return res.status(404).json({ error: 'Platform connection not found' });
+//     }
 
-    // Check if we have valid cached data
-      const cachedActivity = connection.cachedData[0];
-      if (!forceRefresh && isCacheValid(cachedActivity)) {
-        return res.json({ 
-          activity: cachedActivity.data,
-          cached: true,
-          lastUpdated: cachedActivity.lastFetchedAt
-        });
-      }
+//     // Check if we have valid cached data
+//       const cachedActivity = connection.cachedData[0];
+//       if (!forceRefresh && isCacheValid(cachedActivity)) {
+//         return res.json({ 
+//           activity: cachedActivity.data,
+//           cached: true,
+//           lastUpdated: cachedActivity.lastFetchedAt
+//         });
+//       }
 
-      // For YouTube, fetch recent videos
-      if (platform === 'youtube') {
-      try {
-        const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=5`,
-          {
-            headers: {
-              'Authorization': `Bearer ${connection.accessToken}`
-            }
-          }
-        );
+//       // For YouTube, fetch recent videos
+//       if (platform === 'youtube') {
+//       try {
+//         const response = await fetch(
+//           `https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=5`,
+//           {
+//             headers: {
+//               'Authorization': `Bearer ${connection.accessToken}`
+//             }
+//           }
+//         );
 
-        if (response.ok) {
-          const data = await response.json() as YouTubeVideosResponse;
-          const activity = data.items?.map((item: YouTubeVideoItem) => ({
-            timestamp: new Date(item.snippet.publishedAt).toLocaleDateString(),
-            message: item.snippet.title,
-            metrics: {
-              views: 'N/A',
-              likes: 'N/A',
-              comments: 'N/A'
-            }
-          })) || [];
+//         if (response.ok) {
+//           const data = await response.json() as YouTubeVideosResponse;
+//           const activity = data.items?.map((item: YouTubeVideoItem) => ({
+//             timestamp: new Date(item.snippet.publishedAt).toLocaleDateString(),
+//             message: item.snippet.title,
+//             metrics: {
+//               views: 'N/A',
+//               likes: 'N/A',
+//               comments: 'N/A'
+//             }
+//           })) || [];
 
-          // Cache the activity data
-          await prisma.socialMediaCachedData.upsert({
-            where: {
-              connectionId_dataType: {
-                connectionId: connection.id,
-                dataType: 'activity'
-              }
-            },
-            update: {
-              data: activity,
-              lastFetchedAt: new Date(),
-              expiresAt: getCacheExpiry('activity')
-            },
-            create: {
-              connectionId: connection.id,
-              dataType: 'activity',
-              data: activity,
-              expiresAt: getCacheExpiry('activity')
-            }
-          });
+//           // Cache the activity data
+//           await prisma.socialMediaCachedData.upsert({
+//             where: {
+//               connectionId_dataType: {
+//                 connectionId: connection.id,
+//                 dataType: 'activity'
+//               }
+//             },
+//             update: {
+//               data: activity,
+//               lastFetchedAt: new Date(),
+//               expiresAt: getCacheExpiry('activity')
+//             },
+//             create: {
+//               connectionId: connection.id,
+//               dataType: 'activity',
+//               data: activity,
+//               expiresAt: getCacheExpiry('activity')
+//             }
+//           });
 
-         return  res.json({ 
-            activity,
-            cached: false,
-            lastUpdated: new Date()
-          });
-        } else {
-          // Return cached data if available
-          if (cachedActivity) {
-           return  res.json({ 
-              activity: cachedActivity.data,
-              cached: true,
-              lastUpdated: cachedActivity.lastFetchedAt,
-            });
-          } else {
-            return res.json({ activity: [] });
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching YouTube activity:', error);
-        if (cachedActivity) {
-         return  res.json({ 
-            activity: cachedActivity.data,
-            cached: true,
-            lastUpdated: cachedActivity.lastFetchedAt,
-            note: 'Using cached data due to API error'
-          });
-        } else {
-          return res.json({ activity: [] });
-        }
-      }
-    } else {
-      // For other platforms, return empty activity for now
-      return res.json({ activity: [] });
-    }
-  } catch (error) {
-    console.error('Error getting platform activity:', error);
-    return res.status(500).json({ error: 'Failed to get platform activity' });
-  }
-});
+//          return  res.json({ 
+//             activity,
+//             cached: false,
+//             lastUpdated: new Date()
+//           });
+//         } else {
+//           // Return cached data if available
+//           if (cachedActivity) {
+//            return  res.json({ 
+//               activity: cachedActivity.data,
+//               cached: true,
+//               lastUpdated: cachedActivity.lastFetchedAt,
+//             });
+//           } else {
+//             return res.json({ activity: [] });
+//           }
+//         }
+//       } catch (error) {
+//         console.error('Error fetching YouTube activity:', error);
+//         if (cachedActivity) {
+//          return  res.json({ 
+//             activity: cachedActivity.data,
+//             cached: true,
+//             lastUpdated: cachedActivity.lastFetchedAt,
+//             note: 'Using cached data due to API error'
+//           });
+//         } else {
+//           return res.json({ activity: [] });
+//         }
+//       }
+//     } else {
+//       // For other platforms, return empty activity for now
+//       return res.json({ activity: [] });
+//     }
+//   } catch (error) {
+//     console.error('Error getting platform activity:', error);
+//     return res.status(500).json({ error: 'Failed to get platform activity' });
+//   }
+// });
 
-// Get platform statistics (generic endpoint)
-router.get('/:platform/stats', authenticateToken, async (req, res) => {
-  try {
-    const userId = (req as any).user.userId;
-    const { platform } = req.params;
+// // Get platform statistics (generic endpoint)
+// router.get('/:platform/stats', authenticateToken, async (req, res) => {
+//   try {
+//     const userId = (req as any).user.userId;
+//     const { platform } = req.params;
     
-    // Get the user's platform connection
-    const connection = await prisma.socialMediaConnection.findFirst({
-      where: {
-        profileId: userId,
-        platform: platform,
-        isActive: true
-      }
-    });
+//     // Get the user's platform connection
+//     const connection = await prisma.socialMediaConnection.findFirst({
+//       where: {
+//         profileId: userId,
+//         platform: platform,
+//         isActive: true
+//       }
+//     });
 
-    if (!connection) {
-      return res.status(404).json({ error: 'Platform connection not found' });
-    }
+//     if (!connection) {
+//       return res.status(404).json({ error: 'Platform connection not found' });
+//     }
 
-    // For now, return empty stats for non-YouTube platforms
-    // In the future, this would integrate with each platform's API
-    if (platform !== 'youtube') {
-      return res.json({ 
-        stats: { 
-          followers: 0, 
-          posts: 0, 
-          engagement: 0, 
-          lastPost: 'N/A' 
-        } 
-      });
+//     // For now, return empty stats for non-YouTube platforms
+//     // In the future, this would integrate with each platform's API
+//     if (platform !== 'youtube') {
+//       return res.json({ 
+//         stats: { 
+//           followers: 0, 
+//           posts: 0, 
+//           engagement: 0, 
+//           lastPost: 'N/A' 
+//         } 
+//       });
      
-    }
+//     }
 
-    // For YouTube, use the existing YouTube stats logic
-    // This will be handled by the specific /youtube/stats route
-    return res.status(404).json({ error: 'Use /youtube/stats for YouTube statistics' });
-  } catch (error) {
-    console.error('Error getting platform stats:', error);
-    return res.status(500).json({ error: 'Failed to get platform stats' });
-  }
-});
+//     // For YouTube, use the existing YouTube stats logic
+//     // This will be handled by the specific /youtube/stats route
+//     return res.status(404).json({ error: 'Use /youtube/stats for YouTube statistics' });
+//   } catch (error) {
+//     console.error('Error getting platform stats:', error);
+//     return res.status(500).json({ error: 'Failed to get platform stats' });
+//   }
+// });
 
 // YouTube video upload endpoint
 router.post('/youtube/upload', authenticateToken, async (req, res) => {
@@ -1214,6 +1214,963 @@ router.get('/uploads/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error getting social media upload:', error);
     return res.status(500).json({ error: 'Failed to get social media upload' });
+  }
+});
+
+// Facebook Integration (using Facebook Graph API)
+router.post('/facebook/exchange-code', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.body;
+    const userId = (req as any).user.userId;
+
+    console.log('Exchanging Facebook authorization code for tokens');
+
+    // Exchange authorization code for access token using Facebook Graph API
+    const tokenUrl = new URL('https://graph.facebook.com/v18.0/oauth/access_token');
+    tokenUrl.searchParams.set('client_id', process.env.FACEBOOK_CLIENT_ID || '');
+    tokenUrl.searchParams.set('client_secret', process.env.FACEBOOK_CLIENT_SECRET || '');
+    tokenUrl.searchParams.set('redirect_uri', `${process.env.FRONTEND_URL || 'http://localhost:8080'}/oauth/callback`);
+    tokenUrl.searchParams.set('code', code);
+
+    const tokenResponse = await fetch(tokenUrl.toString());
+
+    if (!tokenResponse.ok) {
+      console.error('Facebook token exchange failed:', tokenResponse.status, tokenResponse.statusText);
+      const errorText = await tokenResponse.text();
+      console.error('Error response:', errorText);
+      return res.status(400).json({ error: 'Failed to exchange Facebook authorization code' });
+    }
+
+    const tokenData = await tokenResponse.json() as {
+      access_token: string;
+      token_type: string;
+      expires_in: number;
+    };
+
+    console.log('Facebook token exchange successful:', {
+      hasAccessToken: !!tokenData.access_token,
+      tokenType: tokenData.token_type,
+      expiresIn: tokenData.expires_in
+    });
+
+    // Get user's Facebook Pages
+    const userResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`);
+    
+    if (!userResponse.ok) {
+      console.error('Failed to get user pages');
+      return res.status(400).json({ error: 'Failed to get user pages' });
+    }
+
+    const userData = await userResponse.json() as {
+      data: Array<{
+        id: string;
+        name: string;
+        access_token: string;
+      }>;
+    };
+
+    // Get the first page (you could let user choose which page to connect)
+    if (userData.data.length === 0) {
+      return res.status(400).json({ error: 'No Facebook pages found. Please create a Facebook page first.' });
+    }
+
+    const pageId = userData.data[0].id;
+    const pageName = userData.data[0].name;
+    const pageAccessToken = userData.data[0].access_token;
+
+    // Get user info
+    const userInfoResponse = await fetch(`https://graph.facebook.com/v18.0/me?access_token=${tokenData.access_token}`);
+    
+    if (!userInfoResponse.ok) {
+      console.error('Failed to get user info');
+      return res.status(400).json({ error: 'Failed to get user info' });
+    }
+
+    const userInfo = await userInfoResponse.json() as {
+      id: string;
+      name: string;
+    };
+
+    return res.json({
+      access_token: pageAccessToken, // Use page access token for Facebook operations
+      user_id: userInfo.id,
+      username: userInfo.name,
+      page_id: pageId,
+      page_name: pageName
+    });
+
+  } catch (error) {
+    console.error('Error exchanging Facebook authorization code:', error);
+    return res.status(500).json({ error: 'Failed to exchange Facebook authorization code' });
+  }
+});
+
+// Save Facebook connection to database
+router.post('/facebook/connect', authenticateToken, async (req, res) => {
+  try {
+    const { accessToken, userId, username, pageId, pageName } = req.body;
+    const profileId = (req as any).user.userId;
+
+    // Calculate token expiry (Facebook tokens typically last 60 days)
+    const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
+
+    const connection = await prisma.socialMediaConnection.upsert({
+      where: {
+        profileId_platform: {
+          profileId: profileId,
+          platform: 'facebook'
+        }
+      },
+      update: {
+        accessToken,
+        tokenExpiresAt,
+        platformUserId: userId,
+        platformUsername: username,
+        channelId: pageId, // Store Facebook Page ID
+        isActive: true,
+        updatedAt: new Date()
+      },
+      create: {
+        profileId: profileId,
+        platform: 'facebook',
+        accessToken,
+        tokenExpiresAt,
+        platformUserId: userId,
+        platformUsername: username,
+        channelId: pageId,
+        isActive: true
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      connection: {
+        id: connection.id,
+        platform: connection.platform,
+        platformUsername: connection.platformUsername,
+        channelId: connection.channelId,
+        isActive: connection.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Error saving Facebook connection:', error);
+    res.status(500).json({ error: 'Failed to save Facebook connection' });
+  }
+});
+
+// Get Facebook Page statistics with caching
+router.get('/facebook/stats', authenticateToken, async (req, res) => {
+  console.log('=== FACEBOOK STATS ROUTE HIT ===');
+  try {
+    const userId = (req as any).user.userId;
+    const forceRefresh = req.query.refresh === 'true';
+    
+    // Get the user's Facebook connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: 'facebook',
+        isActive: true
+      },
+      include: {
+        cachedData: {
+          where: {
+            dataType: 'stats'
+          }
+        }
+      }
+    });
+
+    if (!connection) {
+      return res.status(404).json({ error: 'Facebook connection not found' });
+    }
+
+    // Check if we have valid cached data and user didn't force refresh
+    const cachedStats = connection.cachedData[0];
+   
+    
+    if (!forceRefresh && isCacheValid(cachedStats)) {
+      console.log('cachedStats is valid');
+      return res.json({ 
+        stats: cachedStats.data,
+        cached: true,
+        lastUpdated: cachedStats.lastFetchedAt,
+      });
+    }
+
+    // Check if token is expired
+    if (connection.tokenExpiresAt && new Date() >= connection.tokenExpiresAt) {
+      if (forceRefresh) {
+        return res.status(401).json({ error: 'Facebook token expired. Please reconnect your account.' });
+      }
+      if (cachedStats) {
+        return res.json({ 
+          stats: cachedStats.data,
+          cached: true,
+          lastUpdated: cachedStats.lastFetchedAt,
+          note: 'Using cached data due to expired token'
+        });
+      } else {
+        return res.status(401).json({ error: 'Facebook token expired and no cached data available' });
+      }
+    }
+
+    // Fetch fresh data from Facebook Graph API
+    try {
+      console.log('Fetching Facebook insights for page:', connection.channelId);
+      
+      // Get page insights (followers, reach, etc.)
+      // Try with basic metrics first, then fallback to page info
+      const insightsResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${connection.channelId}/insights?metric=page_fans&period=day&access_token=${connection.accessToken}`
+      );
+
+     
+      if (!insightsResponse.ok) {
+        const errorText = await insightsResponse.text();
+        console.error('Facebook insights API error:', errorText);
+        throw new Error(`Facebook insights API failed: ${insightsResponse.status} - ${errorText}`);
+      }
+
+      const insightsData = await insightsResponse.json() as any;
+      console.log('Insights data received:', JSON.stringify(insightsData, null, 2));
+      
+      // Get recent posts for engagement metrics
+    
+      
+      const postsResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${connection.channelId}/posts?fields=id,message,created_time&limit=5&access_token=${connection.accessToken}`
+      );
+
+   
+      
+      let recentPosts: any[] = [];
+      let totalEngagement = 0;
+      let totalReach = 0;
+
+      if (postsResponse.ok) {
+        const postsData = await postsResponse.json() as any;
+        console.log('Posts data received:', JSON.stringify(postsData, null, 2));
+        recentPosts = postsData.data || [];
+        
+        // For now, we'll just count posts since insights might not be available
+        console.log('Found', recentPosts.length, 'recent posts');
+      }
+
+      // Extract insights data
+      const followers = insightsData.data?.find((item: any) => item.name === 'page_fans')?.values[0]?.value || 0;
+      
+      // If insights fail, try to get basic page info
+      let pageInfo = null;
+      if (!insightsData.data || insightsData.data.length === 0) {
+        console.log('No insights data available, fetching basic page info');
+        try {
+          const pageResponse = await fetch(
+            `https://graph.facebook.com/v18.0/${connection.channelId}?fields=name,fan_count&access_token=${connection.accessToken}`
+          );
+          if (pageResponse.ok) {
+            pageInfo = await pageResponse.json() as any;
+            console.log('Page info received:', JSON.stringify(pageInfo, null, 2));
+          }
+        } catch (error) {
+          console.error('Error fetching page info:', error);
+        }
+      }
+
+      // For now, use basic metrics since detailed insights might not be available
+      const impressions = 0; // Will be calculated from posts if available
+      const engagedUsers = 0; // Will be calculated from posts if available
+      const engagementRate = 0;
+
+      const stats = {
+        followers: parseInt(followers) || parseInt(pageInfo?.fan_count) || 0,
+        reach: impressions,
+        engagement: engagedUsers,
+        engagementRate: engagementRate,
+        recentPosts: recentPosts.length,
+        totalEngagement: totalEngagement,
+        totalReach: totalReach,
+        lastPost: recentPosts.length > 0 ? formatTimeAgo(new Date(recentPosts[0].created_time)) : 'N/A'
+      };
+
+      console.log('Calculated stats:', stats);
+
+      // Cache the data
+      await prisma.socialMediaCachedData.upsert({
+        where: {
+          connectionId_dataType: {
+            connectionId: connection.id,
+            dataType: 'stats'
+          }
+        },
+        update: {
+          data: stats,
+          lastFetchedAt: new Date(),
+          expiresAt: getCacheExpiry('stats')
+        },
+        create: {
+          connectionId: connection.id,
+          dataType: 'stats',
+          data: stats,
+          expiresAt: getCacheExpiry('stats')
+        }
+      });
+
+      return res.json({ 
+        stats,
+        cached: false,
+        lastUpdated: new Date()
+      });
+
+    } catch (error) {
+      console.error('Error fetching Facebook stats:', error);
+      
+      if (forceRefresh) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch fresh data from Facebook API',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+      
+      // Return cached data if available
+      if (cachedStats) {
+        return res.json({ 
+          stats: cachedStats.data,
+          cached: true,
+          lastUpdated: cachedStats.lastFetchedAt,
+          note: 'Using cached data due to API error'
+        });
+      } else {  
+        console.log('cachedStats is not valid in catch block');
+        return res.json({ 
+          stats: { 
+            followers: 0, 
+            reach: 0, 
+            engagement: 0, 
+            engagementRate: 0,
+            recentPosts: 0,
+            totalEngagement: 0,
+            totalReach: 0,
+            lastPost: 'N/A' 
+          } 
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error getting Facebook stats:', error);
+    return res.status(500).json({ error: 'Failed to get Facebook stats' });
+  }
+});
+
+// Get Facebook recent activity with caching
+router.get('/facebook/activity', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const forceRefresh = req.query.refresh === 'true';
+
+    // Get the user's Facebook connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: 'facebook',
+        isActive: true
+      },
+      include: {
+        cachedData: {
+          where: {
+            dataType: 'activity'
+          }
+        }
+      }
+    });
+
+    if (!connection) {
+      return res.status(404).json({ error: 'Facebook connection not found' });
+    }
+
+    // Check if we have valid cached data
+    const cachedActivity = connection.cachedData[0];
+    if (!forceRefresh && isCacheValid(cachedActivity)) {
+      return res.json({ 
+        activity: cachedActivity.data,
+        cached: true,
+        lastUpdated: cachedActivity.lastFetchedAt
+      });
+    }
+
+    // Check if token is expired
+    if (connection.tokenExpiresAt && new Date() >= connection.tokenExpiresAt) {
+      if (forceRefresh) {
+        return res.status(401).json({ error: 'Facebook token expired. Please reconnect your account.' });
+      }
+      if (cachedActivity) {
+        return res.json({ 
+          activity: cachedActivity.data,
+          cached: true,
+          lastUpdated: cachedActivity.lastFetchedAt,
+          note: 'Using cached data due to expired token'
+        });
+      } else {
+        return res.status(401).json({ error: 'Facebook token expired and no cached data available' });
+      }
+    }
+
+    try {
+      console.log('Fetching Facebook activity for page:', connection.channelId);
+      
+      // Fetch recent posts with updated fields for v18.0
+      const response = await fetch(
+        `https://graph.facebook.com/v18.0/${connection.channelId}/posts?fields=id,message,created_time,status_type&limit=10&access_token=${connection.accessToken}`
+      );
+
+      console.log('Activity response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json() as any;
+        console.log('Activity data received:', JSON.stringify(data, null, 2));
+        const activity = data.data?.map((post: any) => {
+          return {
+            id: post.id,
+            timestamp: formatTimeAgo(new Date(post.created_time)),
+            message: post.message ? (post.message.substring(0, 100) + (post.message.length > 100 ? '...' : '')) : 'No message',
+            type: post.status_type || 'post',
+            metrics: {
+              reach: 'N/A', // Insights not available
+              engagement: 'N/A', // Insights not available
+              clicks: 'N/A', // Insights not available
+              likes: 'N/A' // Would need additional API call for detailed reactions
+            }
+          };
+        }) || [];
+
+        console.log('Processed activity data:', activity.length, 'posts found');
+
+        // Cache the activity data
+        await prisma.socialMediaCachedData.upsert({
+          where: {
+            connectionId_dataType: {
+              connectionId: connection.id,
+              dataType: 'activity'
+            }
+          },
+          update: {
+            data: activity,
+            lastFetchedAt: new Date(),
+            expiresAt: getCacheExpiry('activity')
+          },
+          create: {
+            connectionId: connection.id,
+            dataType: 'activity',
+            data: activity,
+            expiresAt: getCacheExpiry('activity')
+          }
+        });
+
+        return res.json({ 
+          activity,
+          cached: false,
+          lastUpdated: new Date()
+        });
+      } else {
+        const errorText = await response.text();
+        console.error('Facebook activity API error:', errorText);
+        throw new Error(`Facebook API failed: ${response.status} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Error fetching Facebook activity:', error);
+      
+      if (forceRefresh) {
+        return res.status(500).json({ 
+          error: 'Failed to fetch fresh data from Facebook API',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+      
+      if (cachedActivity) {
+        return res.json({ 
+          activity: cachedActivity.data,
+          cached: true,
+          lastUpdated: cachedActivity.lastFetchedAt,
+          note: 'Using cached data due to API error'
+        });
+      } else {
+        return res.json({ activity: [] });
+      }
+    }
+  } catch (error) {
+    console.error('Error getting Facebook activity:', error);
+    return res.status(500).json({ error: 'Failed to get Facebook activity' });
+  }
+});
+
+// Helper function to format time ago
+function formatTimeAgo(date: Date): string {
+  const now = new Date();
+  const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+
+  if (diffInHours < 1) {
+    return 'Just now';
+  } else if (diffInHours < 24) {
+    return `${diffInHours} hours ago`;
+  } else {
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} days ago`;
+  }
+}
+
+// Facebook post upload endpoint
+router.post('/facebook/upload', authenticateToken, async (req, res) => {
+  try {
+    const { message, link, assetId } = req.body;
+    const userId = (req as any).user.userId;
+
+    // Validate required fields
+    if (!message && !link) {
+      return res.status(400).json({ 
+        error: 'Message or link is required' 
+      });
+    }
+
+    // Check if Facebook credentials are configured
+    if (!process.env.FACEBOOK_CLIENT_ID || !process.env.FACEBOOK_CLIENT_SECRET) {
+      console.error('Facebook credentials not configured');
+      return res.status(500).json({ 
+        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET in your environment variables.' 
+      });
+    }
+
+    // Get the user's Facebook connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: 'facebook',
+        isActive: true
+      }
+    });
+
+    if (!connection) {
+      return res.status(404).json({ 
+        error: 'Facebook account not connected. Please connect your Facebook account first.' 
+      });
+    }
+
+    // Check if token is expired
+    if (connection.tokenExpiresAt && new Date() > connection.tokenExpiresAt) {
+      return res.status(401).json({ 
+        error: 'Facebook token expired. Please reconnect your account.' 
+      });
+    }
+
+    // Prepare post data
+    const postData: any = {
+      message: message || '',
+      access_token: connection.accessToken
+    };
+
+    // Add link if provided
+    if (link) {
+      postData.link = link;
+    }
+
+    // Create the post
+    const response = await axios.post(
+      `https://graph.facebook.com/v18.0/${connection.channelId}/feed`,
+      postData
+    );
+
+    if (response.status !== 200) {
+      console.error('Failed to create Facebook post:', response.data);
+      return res.status(response.status).json({ 
+        error: `Failed to create post: ${response.data?.error?.message || 'Unknown error'}` 
+      });
+    }
+
+    const postResult = response.data;
+    const postId = postResult.id;
+
+    console.log('Facebook post created successfully:', postId);
+
+    // Store upload record in database
+    const uploadRecord = await prisma.socialMediaUpload.create({
+      data: {
+        profileId: userId,
+        platform: 'facebook',
+        contentType: 'post',
+        uploadUrl: `https://www.facebook.com/${postId}`,
+        platformId: postId,
+        title: message?.substring(0, 100) || 'Facebook Post',
+        description: message,
+        tags: [],
+        metadata: {
+          postId: postId,
+          message: message,
+          link: link,
+          type: link ? 'link' : 'text'
+        },
+        status: 'uploaded',
+        assetId: assetId || null
+      }
+    });
+
+    return res.json({
+      success: true,
+      postId: postId,
+      url: `https://www.facebook.com/${postId}`,
+      uploadRecord
+    });
+
+  } catch (error) {
+    console.error('Error uploading to Facebook:', error);
+    
+    const errorMessage = 'Failed to upload post to Facebook';
+    let errorDetails = '';
+    
+    if (axios.isAxiosError(error)) {
+      errorDetails = `Status: ${error.response?.status}, Message: ${error.response?.data?.error?.message || error.message}`;
+      console.error('Axios error details:', errorDetails);
+    } else if (error instanceof Error) {
+      errorDetails = error.message;
+      console.error('Standard error:', errorDetails);
+    }
+    
+    return res.status(500).json({ 
+      error: errorMessage,
+      details: errorDetails
+    });
+  }
+});
+
+// Instagram Integration (using Facebook Graph API)
+router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.body;
+  
+    const userId = (req as any).user.userId;
+
+   
+    // Exchange authorization code for access token using Facebook Graph API
+    const tokenUrl = new URL('https://graph.facebook.com/v18.0/oauth/access_token');
+    tokenUrl.searchParams.set('client_id', process.env.FACEBOOK_CLIENT_ID || '');
+    tokenUrl.searchParams.set('client_secret', process.env.FACEBOOK_CLIENT_SECRET || '');
+    tokenUrl.searchParams.set('redirect_uri', `${process.env.FRONTEND_URL || 'http://localhost:8080'}/oauth/callback`);
+    tokenUrl.searchParams.set('code', code);
+ 
+    const tokenResponse = await fetch(tokenUrl.toString());
+
+    if (!tokenResponse.ok) {
+      console.error('Instagram token exchange failed:', tokenResponse.status, tokenResponse.statusText);
+      const errorText = await tokenResponse.text();
+      console.error('Error response:', errorText);
+      return res.status(400).json({ error: 'Failed to exchange Instagram authorization code' });
+    }
+
+    const tokenData = await tokenResponse.json() as {
+      access_token: string;
+      token_type: string;
+      expires_in: number;
+    };
+
+    console.log('Instagram token exchange successful:', {
+      hasAccessToken: !!tokenData.access_token,
+      tokenType: tokenData.token_type,
+      expiresIn: tokenData.expires_in
+    });
+
+    // Get user's Instagram Business Account
+    const userResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`);
+    
+    if (!userResponse.ok) {
+      console.error('Failed to get user accounts');
+      return res.status(400).json({ error: 'Failed to get user accounts' });
+    }
+
+    const userData = await userResponse.json() as {
+      data: Array<{
+        id: string;
+        name: string;
+        access_token: string;
+      }>;
+    };
+
+    // Get Instagram Business Account for the first page
+    if (userData.data.length === 0) {
+      return res.status(400).json({ error: 'No Facebook pages found. Please create a Facebook page first.' });
+    }
+
+    const pageId = userData.data[0].id;
+    const pageAccessToken = userData.data[0].access_token;
+
+    // Get Instagram Business Account
+    const instagramResponse = await fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account&access_token=${pageAccessToken}`);
+    
+    if (!instagramResponse.ok) {
+      console.error('Failed to get Instagram business account');
+      return res.status(400).json({ error: 'No Instagram Business Account found. Please connect your Instagram account to your Facebook page.' });
+    }
+
+    const instagramData = await instagramResponse.json() as {
+      instagram_business_account: {
+        id: string;
+      };
+    };
+
+    if (!instagramData.instagram_business_account) {
+      return res.status(400).json({ error: 'No Instagram Business Account found. Please connect your Instagram account to your Facebook page.' });
+    }
+
+    // Get Instagram account details
+    const instagramAccountResponse = await fetch(`https://graph.facebook.com/v18.0/${instagramData.instagram_business_account.id}?fields=id,username,name&access_token=${pageAccessToken}`);
+    
+    if (!instagramAccountResponse.ok) {
+      console.error('Failed to get Instagram account details');
+      return res.status(400).json({ error: 'Failed to get Instagram account details' });
+    }
+
+    const instagramAccount = await instagramAccountResponse.json() as {
+      id: string;
+      username: string;
+      name: string;
+    };
+
+    return res.json({
+      access_token: pageAccessToken, // Use page access token for Instagram operations
+      user_id: instagramAccount.id,
+      username: instagramAccount.username,
+      page_id: pageId,
+      instagram_business_account_id: instagramData.instagram_business_account.id
+    });
+
+  } catch (error) {
+    console.error('Error exchanging Instagram authorization code:', error);
+    return res.status(500).json({ error: 'Failed to exchange Instagram authorization code' });
+  }
+});
+
+// Save Instagram connection to database
+router.post('/instagram/connect', authenticateToken, async (req, res) => {
+  try {
+    const { accessToken, userId, username, pageId, instagramBusinessAccountId } = req.body;
+    const profileId = (req as any).user.userId;
+
+    // Calculate token expiry (Facebook tokens typically last 60 days)
+    const tokenExpiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
+
+    const connection = await prisma.socialMediaConnection.upsert({
+      where: {
+        profileId_platform: {
+          profileId: profileId,
+          platform: 'instagram'
+        }
+      },
+      update: {
+        accessToken,
+        tokenExpiresAt,
+        platformUserId: userId,
+        platformUsername: username,
+        channelId: instagramBusinessAccountId, // Store Instagram Business Account ID
+        isActive: true,
+        updatedAt: new Date()
+      },
+      create: {
+        profileId: profileId,
+        platform: 'instagram',
+        accessToken,
+        tokenExpiresAt,
+        platformUserId: userId,
+        platformUsername: username,
+        channelId: instagramBusinessAccountId,
+        isActive: true
+      }
+    });
+
+    res.json({ 
+      success: true, 
+      connection: {
+        id: connection.id,
+        platform: connection.platform,
+        platformUsername: connection.platformUsername,
+        channelId: connection.channelId,
+        isActive: connection.isActive
+      }
+    });
+  } catch (error) {
+    console.error('Error saving Instagram connection:', error);
+    res.status(500).json({ error: 'Failed to save Instagram connection' });
+  }
+});
+
+// Instagram video upload endpoint (using Instagram Graph API)
+router.post('/instagram/upload', authenticateToken, async (req, res) => {
+  try {
+    const { videoUrl, caption, assetId } = req.body;
+    const userId = (req as any).user.userId;
+
+    // Validate required fields
+    if (!videoUrl) {
+      return res.status(400).json({ 
+        error: 'Video URL is required' 
+      });
+    }
+
+    // Check if Facebook credentials are configured
+    if (!process.env.FACEBOOK_CLIENT_ID || !process.env.FACEBOOK_CLIENT_SECRET) {
+      console.error('Facebook credentials not configured');
+      return res.status(500).json({ 
+        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET in your environment variables.' 
+      });
+    }
+
+    // Get the user's Instagram connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: 'instagram',
+        isActive: true
+      }
+    });
+
+    if (!connection) {
+      return res.status(404).json({ 
+        error: 'Instagram account not connected. Please connect your Instagram account first.' 
+      });
+    }
+
+    // Check if token is expired
+    if (connection.tokenExpiresAt && new Date() > connection.tokenExpiresAt) {
+      return res.status(401).json({ 
+        error: 'Instagram token expired. Please reconnect your account.' 
+      });
+    }
+
+    // Download the video from the URL
+    let videoBuffer: ArrayBuffer;
+    try {
+      const videoResponse = await axios.get(videoUrl, {
+        responseType: 'arraybuffer'
+      });
+      
+      if (videoResponse.status !== 200) {
+        return res.status(400).json({ 
+          error: 'Failed to download video from the provided URL' 
+        });
+      }
+
+      videoBuffer = videoResponse.data;
+      console.log('Video buffer size:', videoBuffer.byteLength);
+      
+      // Instagram has a 100MB limit for videos
+      const maxSizeBytes = 100 * 1024 * 1024; // 100MB limit
+      if (videoBuffer.byteLength > maxSizeBytes) {
+        return res.status(400).json({ 
+          error: `Video file is too large (${Math.round(videoBuffer.byteLength / 1024 / 1024)}MB). Maximum size is 100MB.` 
+        });
+      }
+      
+      // Check if file is too small
+      if (videoBuffer.byteLength < 1024 * 1024) { // Less than 1MB
+        return res.status(400).json({ 
+          error: 'Video file appears to be too small or invalid' 
+        });
+      }
+    } catch (downloadError) {
+      console.error('Error downloading video:', downloadError);
+      return res.status(400).json({ 
+        error: 'Failed to download video from the provided URL',
+        details: downloadError instanceof Error ? downloadError.message : 'Unknown download error'
+      });
+    }
+
+    // Step 1: Create container for Instagram media
+    const containerResponse = await axios.post(
+      `https://graph.facebook.com/v18.0/${connection.channelId}/media`,
+      {
+        media_type: 'REELS',
+        video_url: videoUrl,
+        caption: caption || '',
+        access_token: connection.accessToken
+      }
+    );
+
+    if (containerResponse.status !== 200) {
+      console.error('Failed to create Instagram media container:', containerResponse.data);
+      return res.status(containerResponse.status).json({ 
+        error: `Failed to create media container: ${containerResponse.data?.error?.message || 'Unknown error'}` 
+      });
+    }
+
+    const containerData = containerResponse.data;
+    const creationId = containerData.id;
+
+    console.log('Instagram media container created:', creationId);
+
+    // Step 2: Publish the media
+    const publishResponse = await axios.post(
+      `https://graph.facebook.com/v18.0/${connection.channelId}/media_publish`,
+      {
+        creation_id: creationId,
+        access_token: connection.accessToken
+      }
+    );
+
+    if (publishResponse.status !== 200) {
+      console.error('Failed to publish Instagram media:', publishResponse.data);
+      return res.status(publishResponse.status).json({ 
+        error: `Failed to publish media: ${publishResponse.data?.error?.message || 'Unknown error'}` 
+      });
+    }
+
+    const publishData = publishResponse.data;
+    const mediaId = publishData.id;
+
+    console.log('Instagram media published successfully:', mediaId);
+
+    // Store upload record in database
+    const uploadRecord = await prisma.socialMediaUpload.create({
+      data: {
+        profileId: userId,
+        platform: 'instagram',
+        contentType: 'video',
+        uploadUrl: `https://www.instagram.com/p/${mediaId}/`,
+        platformId: mediaId,
+        title: caption || 'Instagram Reel',
+        description: caption,
+        tags: [],
+        metadata: {
+          mediaId: mediaId,
+          creationId: creationId,
+          caption: caption,
+          mediaType: 'REELS'
+        },
+        status: 'uploaded',
+        assetId: assetId || null
+      }
+    });
+
+    return res.json({
+      success: true,
+      mediaId: mediaId,
+      url: `https://www.instagram.com/p/${mediaId}/`,
+      uploadRecord
+    });
+
+  } catch (error) {
+    console.error('Error uploading to Instagram:', error);
+    
+    const errorMessage = 'Failed to upload video to Instagram';
+    let errorDetails = '';
+    
+    if (axios.isAxiosError(error)) {
+      errorDetails = `Status: ${error.response?.status}, Message: ${error.response?.data?.error?.message || error.message}`;
+      console.error('Axios error details:', errorDetails);
+    } else if (error instanceof Error) {
+      errorDetails = error.message;
+      console.error('Standard error:', errorDetails);
+    }
+    
+    return res.status(500).json({ 
+      error: errorMessage,
+      details: errorDetails
+    });
   }
 });
 
