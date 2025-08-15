@@ -44,7 +44,7 @@ export function EmailVerification() {
         setStatus('success');
         setMessage(result.message || 'Email verified successfully!');
         if (result.data?.token) {
-          localStorage.setItem('token', result.data.token);
+          localStorage.setItem('auth_token', result.data.token);
           localStorage.setItem('user', JSON.stringify(result.data.user));
           toast({
             title: "Success!",

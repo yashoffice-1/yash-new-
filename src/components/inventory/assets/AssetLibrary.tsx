@@ -390,7 +390,7 @@ export function AssetLibrary() {
     });
 
     try {
-      // Get the asset details from the current state instead of Supabase
+      // Get the asset details from the current state
       const asset = assets.find(a => a.id === assetId);
 
       if (!asset) {
@@ -410,66 +410,48 @@ export function AssetLibrary() {
       }
 
       if (!videoId) {
-        // DEPRECATED: Polling-based recovery - Replaced by webhook system
-        // const response = await templatesAPI.heygen.recoverPending();
-
-        // if (response.data.success) {
-        //   toast({
-        //     title: "✅ Recovery Completed",
-        //     description: `${response.data.data.length} videos checked. ${response.data.data.filter((r: any) => r.updated).length} updated.`,
-        //   });
-
-        //   // Reload assets to show the updated status
-        //   await loadAssets(currentPage);
-        //   return;
-        // } else {
-        //   throw new Error(response.data.error || 'Recovery failed');
-        // }
-        
         toast({
-          title: "⚠️ Status Update",
-          description: "Video status updates are now handled automatically via webhooks.",
+          title: "❌ No Video ID",
+          description: "Could not find video ID for this asset.",
+          variant: "destructive",
         });
         return;
       }
 
-      // DEPRECATED: Polling-based status check - Replaced by webhook system
-      // const response = await templatesAPI.heygen.getStatus(videoId);
-
-      // if (response.data.success) {
-      //   const { status, videoUrl, errorMessage } = response.data.data;
-
-      //   if (status === 'completed' && videoUrl) {
-      //     // Update the asset with the final video URL
-      //     await updateAsset(assetId, { url: videoUrl, status: 'completed' });
-      //     toast({
-      //       title: "✅ Video Ready",
-      //       description: "Video has been completed and is now available for download.",
-      //     });
-      //   } else if (status === 'failed') {
-      //     await updateAsset(assetId, { status: 'failed' });
-      //     toast({
-      //       title: "❌ Video Failed",
-      //       description: errorMessage || "Video generation failed.",
-      //       variant: "destructive",
-      //     });
-      //   } else {
-      //     toast({
-      //       title: "⏳ Still Processing",
-      //       description: "Video is still being generated. Please wait.",
-      //     });
-      //   }
-
-      //   // Reload assets to show the updated status
-      //   await loadAssets(currentPage);
-      // } else {
-      //   throw new Error(response.data.error || 'Failed to get video status');
-      // }
-      
-      toast({
-        title: "⚠️ Status Update",
-        description: "Video status updates are now handled automatically via webhooks.",
+      // Use the new manual status check endpoint
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/check-status/${videoId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
+        }
       });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (data.data.status === 'completed') {
+          toast({
+            title: "✅ Video Ready",
+            description: "Video has been completed and is now available for download.",
+          });
+        } else if (data.data.status === 'failed') {
+          toast({
+            title: "❌ Video Failed",
+            description: data.data.error || "Video generation failed.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "⏳ Still Processing",
+            description: "Video is still being generated. Please wait.",
+          });
+        }
+
+        // Reload assets to show the updated status
+        await loadAssets(currentPage);
+      } else {
+        throw new Error(data.error || 'Failed to check video status');
+      }
     } catch (error) {
       console.error('Error getting video status:', error);
       toast({
@@ -481,27 +463,78 @@ export function AssetLibrary() {
   };
 
   const handleBulkRecovery = async () => {
-    // DEPRECATED: Polling-based bulk recovery - Replaced by webhook system
-    toast({
-      title: "⚠️ Bulk Recovery",
-      description: "Video status updates are now handled automatically via webhooks.",
-    });
-    
-    // const response = await templatesAPI.heygen.recoverPending();
+    try {
+      // Find all pending HeyGen videos
+      const pendingVideos = assets?.filter(asset =>
+        (asset.source_system === "heygen") && 
+        (asset.asset_url === "pending" || asset.asset_url === "processing" || asset.asset_url?.startsWith("pending_"))
+      ) || [];
 
-    // if (response.data.success) {
-    //   const updatedCount = response.data.data.filter((r: any) => r.updated).length;
-    //   toast({
-    //     title: "✅ Bulk Recovery Completed",
-    //     description: `${response.data.data.length} videos checked. ${updatedCount} videos updated.`,
-    //   });
+      if (pendingVideos.length === 0) {
+        toast({
+          title: "No Pending Videos",
+          description: "No videos are currently pending status check.",
+        });
+        return;
+      }
 
-    //   // Reload assets to show the updated status
-    //   setCurrentPage(1);
-    //   await loadAssets(1);
-    // } else {
-    //   throw new Error(response.data.error || 'Bulk recovery failed');
-    // }
+      toast({
+        title: "🔄 Checking Video Status",
+        description: `Checking status for ${pendingVideos.length} pending videos...`,
+      });
+
+      let updatedCount = 0;
+      let failedCount = 0;
+
+      // Check each pending video
+      for (const video of pendingVideos) {
+        try {
+          // Extract video ID from pending URL
+          const videoId = video.asset_url?.replace('pending_', '') || video.asset_url?.replace('processing_', '');
+          
+          if (!videoId) continue;
+
+          const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/check-status/${videoId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const data = await response.json();
+
+          if (data.success && (data.data.status === 'completed' || data.data.status === 'failed')) {
+            updatedCount++;
+          }
+        } catch (error) {
+          console.error(`Failed to check video ${video.id}:`, error);
+          failedCount++;
+        }
+      }
+
+      // Reload assets to show updated status
+      await loadAssets(currentPage);
+
+      if (updatedCount > 0) {
+        toast({
+          title: "✅ Status Check Complete",
+          description: `${updatedCount} videos updated. ${failedCount} checks failed.`,
+        });
+      } else {
+        toast({
+          title: "⏳ Still Processing",
+          description: "Videos are still being processed. Check back later.",
+        });
+      }
+
+    } catch (error) {
+      console.error('Bulk recovery error:', error);
+      toast({
+        title: "❌ Check Failed",
+        description: "Failed to check video status. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleUpload = (asset: ExtendedAssetLibraryItem) => {

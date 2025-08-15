@@ -19,7 +19,7 @@ interface InventoryItem {
   category: string | null;
   brand: string | null;
   images: string[];
-  metadata: any;
+  metadata: Record<string, unknown>;
   status: string;
   created_at: string;
   updated_at: string;
@@ -466,7 +466,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
     if (isOpen && !instruction) {
       setInstruction(getDefaultInstruction(currentGenerationType));
     }
-  }, [isOpen, product, currentGenerationType]);
+  }, [isOpen, product, currentGenerationType, instruction, getDefaultInstruction]);
 
   // Reset state when modal closes or opens
   useEffect(() => {
@@ -636,7 +636,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
         });
       } else {
         // For other generation types (image, video, formats, ad), use the appropriate API
-        let requestBody: any = {
+        const requestBody: Record<string, unknown> = {
           type: currentGenerationType,
           instruction: instruction,
           productInfo: {

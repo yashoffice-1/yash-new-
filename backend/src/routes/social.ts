@@ -36,11 +36,11 @@ interface YouTubeChannelsResponse {
 }
 
 // Helper function to check if cache is valid
-const isCacheValid = (cachedData: any) => {
+const isCacheValid = (cachedData: Record<string, unknown>) => {
   if (!cachedData) return false;
   
   const now = new Date();
-  const expiresAt = new Date(cachedData.expiresAt);
+  const expiresAt = new Date(cachedData.expiresAt as string | number | Date);
   
   return now < expiresAt;
 };
@@ -894,7 +894,7 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
     }
 
     // Prepare video metadata as JSON string - keep it minimal to avoid size issues
-    let videoMetadata = {
+    const videoMetadata = {
       snippet: {
         title: title.substring(0, 100), // Limit title to 100 characters
         description: (description || '').substring(0, 500), // Limit description to 500 characters
@@ -1111,7 +1111,7 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
     console.error('Error uploading to YouTube:', error);
     
     // Provide more detailed error information
-    let errorMessage = 'Failed to upload video to YouTube';
+    const errorMessage = 'Failed to upload video to YouTube';
     let errorDetails = '';
     
     if (axios.isAxiosError(error)) {
@@ -1139,7 +1139,7 @@ router.get('/uploads', authenticateToken, async (req, res) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {
+    const where: Record<string, unknown> = {
       profileId: userId
     };
     
