@@ -834,7 +834,7 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
 });
 
 // Manual status check endpoint (fallback when webhook fails)
-router.get('/heygen/check-status/:videoId', authenticateToken, async (req, res, next) => {
+router.get('/heygen/check-status/:videoId', authenticateToken, async (req, res, _next) => {
   try {
     const { videoId } = req.params;
     const userId = (req as any).user?.userId || (req as any).user?.id;
