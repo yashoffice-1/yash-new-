@@ -121,7 +121,7 @@ export class CloudinaryService {
         unique_filename: true,
       };
 
-      // eslint-disable-next-line no-console
+      
       console.log('Uploading base64 to Cloudinary with options:', uploadOptions);
 
       const result = await new Promise<CloudinaryUploadResult>((resolve, reject) => {
@@ -130,11 +130,11 @@ export class CloudinaryService {
           uploadOptions,
           (error, result) => {
             if (error) {
-              // eslint-disable-next-line no-console
+              
               console.error('Cloudinary upload error:', error);
               reject(error);
             } else if (result) {
-              // eslint-disable-next-line no-console
+              
               console.log('Cloudinary upload successful:', result.public_id);
               resolve(result as CloudinaryUploadResult);
             } else {
@@ -146,7 +146,7 @@ export class CloudinaryService {
 
       return result;
     } catch (error) {
-      // eslint-disable-next-line no-console
+      
       console.error('Error uploading base64 to Cloudinary:', error);
       throw new Error(`Failed to upload base64 to Cloudinary: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -160,11 +160,11 @@ export class CloudinaryService {
       const result = await cloudinary.uploader.destroy(publicId, {
         resource_type: resourceType
       });
-      // eslint-disable-next-line no-console
+      
       console.log('Asset deleted from Cloudinary:', publicId);
       return result;
     } catch (error) {
-      // eslint-disable-next-line no-console
+      
       console.error('Error deleting asset from Cloudinary:', error);
       throw new Error(`Failed to delete asset from Cloudinary: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -180,7 +180,7 @@ export class CloudinaryService {
       });
       return result;
     } catch (error) {
-      // eslint-disable-next-line no-console
+      
       console.error('Error getting asset info from Cloudinary:', error);
       throw new Error(`Failed to get asset info from Cloudinary: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

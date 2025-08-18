@@ -26,6 +26,7 @@ interface SocialConnection {
   platform: string;
   platformUsername: string;
   platformEmail: string;
+  pageName?: string;
   channelId?: string; // Added this field
   isActive: boolean;
   createdAt: string;
@@ -437,10 +438,18 @@ export function SocialAccountManager() {
                       <span className="text-sm font-medium">Username</span>
                       <span className="text-sm">{connection.platformUsername}</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Email</span>
-                      <span className="text-sm">{connection.platformEmail}</span>
-                    </div>
+                    {platform === 'facebook' && connection.pageName && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Page Name</span>
+                        <span className="text-sm">{connection.pageName}</span>
+                      </div>
+                    )}
+                    {connection.platformEmail && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Email</span>
+                        <span className="text-sm">{connection.platformEmail}</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Connected Since</span>
                       <span className="text-sm">

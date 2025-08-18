@@ -233,6 +233,7 @@ router.get('/connections', authenticateToken, async (req, res) => {
         platform: true,
         platformUsername: true,
         platformEmail: true,
+        pageName: true,
         isActive: true,
         createdAt: true,
         channelId: true
@@ -1221,7 +1222,6 @@ router.get('/uploads/:id', authenticateToken, async (req, res) => {
 router.post('/facebook/exchange-code', authenticateToken, async (req, res) => {
   try {
     const { code } = req.body;
-    const userId = (req as any).user.userId;
 
     console.log('Exchanging Facebook authorization code for tokens');
 
@@ -1326,6 +1326,7 @@ router.post('/facebook/connect', authenticateToken, async (req, res) => {
         tokenExpiresAt,
         platformUserId: userId,
         platformUsername: username,
+        pageName: pageName, // Store Facebook Page Name
         channelId: pageId, // Store Facebook Page ID
         isActive: true,
         updatedAt: new Date()
@@ -1337,6 +1338,7 @@ router.post('/facebook/connect', authenticateToken, async (req, res) => {
         tokenExpiresAt,
         platformUserId: userId,
         platformUsername: username,
+        pageName: pageName, // Store Facebook Page Name
         channelId: pageId,
         isActive: true
       }
@@ -1348,6 +1350,7 @@ router.post('/facebook/connect', authenticateToken, async (req, res) => {
         id: connection.id,
         platform: connection.platform,
         platformUsername: connection.platformUsername,
+        pageName: connection.pageName,
         channelId: connection.channelId,
         isActive: connection.isActive
       }
@@ -1435,14 +1438,9 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
       const insightsData = await insightsResponse.json() as any;
       console.log('Insights data received:', JSON.stringify(insightsData, null, 2));
 
-      // Get recent posts for engagement metrics
-
-
       const postsResponse = await fetch(
-        `https://graph.facebook.com/v18.0/${connection.channelId}/posts?fields=id,message,created_time&limit=5&access_token=${connection.accessToken}`
+        `https://graph.facebook.com/v18.0/${connection.channelId}/posts?fields=id,message,created_time,insights.metric(post_impressions,post_engagements)&limit=5&access_token=${connection.accessToken}`
       );
-
-
 
       let recentPosts: any[] = [];
       let totalEngagement = 0;
@@ -1453,8 +1451,31 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
         console.log('Posts data received:', JSON.stringify(postsData, null, 2));
         recentPosts = postsData.data || [];
 
-        // For now, we'll just count posts since insights might not be available
+        // Calculate total engagement and reach from posts
+        for (const post of recentPosts) {
+          if (post.insights && post.insights.data) {
+            const impressions = post.insights.data.find((insight: any) => insight.name === 'post_impressions')?.values[0]?.value || 0;
+            const engagements = post.insights.data.find((insight: any) => insight.name === 'post_engagements')?.values[0]?.value || 0;
+            
+            totalReach += parseInt(impressions) || 0;
+            totalEngagement += parseInt(engagements) || 0;
+          }
+        }
+
         console.log('Found', recentPosts.length, 'recent posts');
+        console.log('Total engagement:', totalEngagement, 'Total reach:', totalReach);
+      } else {
+        console.log('Posts API failed, trying without insights...');
+        // Fallback: get posts without insights if the insights request fails
+        const fallbackPostsResponse = await fetch(
+          `https://graph.facebook.com/v18.0/${connection.channelId}/posts?fields=id,message,created_time&limit=5&access_token=${connection.accessToken}`
+        );
+        
+        if (fallbackPostsResponse.ok) {
+          const fallbackPostsData = await fallbackPostsResponse.json() as any;
+          recentPosts = fallbackPostsData.data || [];
+          console.log('Fallback: Found', recentPosts.length, 'recent posts (no insights available)');
+        }
       }
 
       // Extract insights data
@@ -1477,15 +1498,13 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
         }
       }
 
-      // For now, use basic metrics since detailed insights might not be available
-      const impressions = 0; // Will be calculated from posts if available
-      const engagedUsers = 0; // Will be calculated from posts if available
-      const engagementRate = 0;
+      // Calculate engagement rate
+      const engagementRate = totalReach > 0 ? Math.round((totalEngagement / totalReach) * 100) : 0;
 
       const stats = {
         followers: parseInt(followers) || parseInt(pageInfo?.fan_count) || 0,
-        reach: impressions,
-        engagement: engagedUsers,
+        reach: totalReach,
+        engagement: totalEngagement,
         engagementRate: engagementRate,
         recentPosts: recentPosts.length,
         totalEngagement: totalEngagement,
@@ -1857,7 +1876,7 @@ router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
   try {
     const { code } = req.body;
 
-    const userId = (req as any).user.userId;
+    const _userId = (req as any).user.userId;
 
 
     // Exchange authorization code for access token using Facebook Graph API
@@ -1961,7 +1980,7 @@ router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
 // Save Instagram connection to database
 router.post('/instagram/connect', authenticateToken, async (req, res) => {
   try {
-    const { accessToken, userId, username, pageId, instagramBusinessAccountId } = req.body;
+    const { accessToken, userId, username, instagramBusinessAccountId } = req.body;
     const profileId = (req as any).user.userId;
 
     // Calculate token expiry (Facebook tokens typically last 60 days)
