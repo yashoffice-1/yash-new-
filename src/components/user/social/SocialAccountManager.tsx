@@ -26,6 +26,7 @@ interface SocialConnection {
   platform: string;
   platformUsername: string;
   platformEmail: string;
+  pageName?: string;
   channelId?: string; // Added this field
   isActive: boolean;
   createdAt: string;
@@ -100,7 +101,7 @@ export function SocialAccountManager() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { initiateYouTubeOAuth, handleOAuthCallback } = useOAuth();
+  const { initiateYouTubeOAuth, initiateFacebookOAuth, initiateInstagramOAuth, handleOAuthCallback } = useOAuth();
   const platform = (searchParams.get('platform') || 'youtube') as PlatformType;
   
   const [connection, setConnection] = useState<SocialConnection | null>(null);
@@ -266,6 +267,22 @@ export function SocialAccountManager() {
     }
   };
 
+  const handleConnectFacebook = async () => {
+    setConnectingPlatform('facebook');
+    const success = initiateFacebookOAuth();
+    if (!success) {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleConnectInstagram = async () => {
+    setConnectingPlatform('instagram');
+    const success = initiateInstagramOAuth();
+    if (!success) {
+      setConnectingPlatform(null);
+    }
+  };
+
   const saveYouTubeConnection = async (oauthResult: any) => {
     try {
       const token = localStorage.getItem('auth_token');
@@ -292,13 +309,30 @@ export function SocialAccountManager() {
   };
 
   const handleConnect = () => {
-    if (platform === 'youtube') {
-      handleConnectYouTube();
-    } else {
+    // Check if already connected
+    if (isConnected) {
       toast({
-        title: "Integration Coming Soon",
-        description: `${platformInfo?.name} integration will be available soon.`,
+        title: "Already Connected",
+        description: `Your ${platformInfo?.name} account is already connected.`,
       });
+      return;
+    }
+    
+    switch (platform) {
+      case 'youtube':
+        handleConnectYouTube();
+        break;
+      case 'facebook':
+        handleConnectFacebook();
+        break;
+      case 'instagram':
+        handleConnectInstagram();
+        break;
+      default:
+        toast({
+          title: "Integration Coming Soon",
+          description: `${platformInfo?.name} integration will be available soon.`,
+        });
     }
   };
 
@@ -404,10 +438,18 @@ export function SocialAccountManager() {
                       <span className="text-sm font-medium">Username</span>
                       <span className="text-sm">{connection.platformUsername}</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Email</span>
-                      <span className="text-sm">{connection.platformEmail}</span>
-                    </div>
+                    {platform === 'facebook' && connection.pageName && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Page Name</span>
+                        <span className="text-sm">{connection.pageName}</span>
+                      </div>
+                    )}
+                    {connection.platformEmail && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Email</span>
+                        <span className="text-sm">{connection.platformEmail}</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Connected Since</span>
                       <span className="text-sm">
@@ -426,7 +468,7 @@ export function SocialAccountManager() {
                       onClick={() => {
                         const platformUrls = {
                           youtube: `https://studio.youtube.com/channel/${connection?.channelId || ''}`,
-                          facebook: 'https://www.facebook.com',
+                          facebook: `https://www.facebook.com/${connection?.channelId || ''}/settings`,
                           instagram: 'https://www.instagram.com',
                           twitter: 'https://twitter.com',
                           linkedin: 'https://www.linkedin.com',
@@ -448,7 +490,7 @@ export function SocialAccountManager() {
                       onClick={() => {
                         const platformUrls = {
                           youtube: `https://www.youtube.com/channel/${connection?.channelId || ''}`,
-                          facebook: 'https://www.facebook.com',
+                          facebook: `https://www.facebook.com/${connection?.channelId || ''}`,
                           instagram: 'https://www.instagram.com',
                           twitter: 'https://twitter.com',
                           linkedin: 'https://www.linkedin.com',
@@ -463,6 +505,19 @@ export function SocialAccountManager() {
                       <ExternalLink className="h-4 w-4 mr-2" />
                       View on {platformInfo.name}
                     </Button>
+                    {platform === 'facebook' && connection?.channelId && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => {
+                          window.open(`https://www.facebook.com/${connection.channelId}/insights`, '_blank');
+                        }}
+                      >
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Page Insights
+                      </Button>
+                    )}
                     <Button 
                       variant="destructive" 
                       size="sm" 

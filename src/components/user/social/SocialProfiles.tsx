@@ -40,7 +40,7 @@ interface SocialChannel {
 export function SocialProfiles() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { initiateYouTubeOAuth } = useOAuth();
+  const { initiateYouTubeOAuth, initiateInstagramOAuth, initiateFacebookOAuth } = useOAuth();
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,10 +81,33 @@ export function SocialProfiles() {
     }
   };
 
+  const handleConnectInstagram = async () => {
+    setConnectingPlatform('instagram');
+    const success = initiateInstagramOAuth();
+    if (!success) {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleConnectFacebook = async () => {
+    setConnectingPlatform('facebook');
+    const success = initiateFacebookOAuth();
+    if (!success) {
+      setConnectingPlatform(null);
+    }
+  };
+
   const handleConnect = (platform: string) => {
+    console.log('Connect button clicked for platform:', platform);
     switch (platform) {
       case 'youtube':
         handleConnectYouTube();
+        break;
+      case 'instagram':
+        handleConnectInstagram();
+        break;
+      case 'facebook':
+        handleConnectFacebook();
         break;
       default:
         toast({
