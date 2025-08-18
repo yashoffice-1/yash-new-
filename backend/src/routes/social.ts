@@ -38,10 +38,10 @@ interface YouTubeChannelsResponse {
 // Helper function to check if cache is valid
 const isCacheValid = (cachedData: Record<string, unknown>) => {
   if (!cachedData) return false;
-  
+
   const now = new Date();
   const expiresAt = new Date(cachedData.expiresAt as string | number | Date);
-  
+
   return now < expiresAt;
 };
 
@@ -130,7 +130,7 @@ router.post('/youtube/exchange-code', authenticateToken, async (req, res) => {
       refresh_token: string;
       expires_in: number;
     };
-    
+
     console.log('Token exchange successful:', {
       hasAccessToken: !!tokenData.access_token,
       hasRefreshToken: !!tokenData.refresh_token,
@@ -156,7 +156,7 @@ router.post('/youtube/exchange-code', authenticateToken, async (req, res) => {
     ).then(res => res.json()) as YouTubeChannelsResponse;
 
     const channel = channelsResponse.items?.[0];
-    
+
     if (!channel) {
       return res.status(400).json({ error: 'No YouTube channel found' });
     }
@@ -214,7 +214,7 @@ router.post('/youtube/exchange-code', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error exchanging authorization code:', error);
-   return  res.status(500).json({ error: 'Failed to exchange authorization code' });
+    return res.status(500).json({ error: 'Failed to exchange authorization code' });
   }
 });
 
@@ -222,7 +222,7 @@ router.post('/youtube/exchange-code', authenticateToken, async (req, res) => {
 router.get('/connections', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId; // Changed from .id to .userId
-    
+
     const connections = await prisma.socialMediaConnection.findMany({
       where: {
         profileId: userId,
@@ -288,8 +288,8 @@ router.post('/youtube/connect', authenticateToken, async (req, res) => {
       }
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       connection: {
         id: connection.id,
         platform: connection.platform,
@@ -333,7 +333,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
     const forceRefresh = req.query.refresh === 'true'; // Manual refresh parameter
-    
+
     // Get the user's YouTube connection
     const connection = await prisma.socialMediaConnection.findFirst({
       where: {
@@ -357,7 +357,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
     // Check if we have valid cached data and user didn't force refresh
     const cachedStats = connection.cachedData[0];
     if (!forceRefresh && isCacheValid(cachedStats)) {
-      return res.json({ 
+      return res.json({
         stats: cachedStats.data,
         cached: true,
         lastUpdated: cachedStats.lastFetchedAt,
@@ -372,7 +372,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
         const refreshResult = await refreshGoogleToken(connection.refreshToken);
         if (refreshResult) {
           accessToken = refreshResult.accessToken;
-          
+
           // Update the connection with new token
           await prisma.socialMediaConnection.update({
             where: { id: connection.id },
@@ -382,7 +382,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
               updatedAt: new Date()
             }
           });
-          
+
           console.log('Token refreshed successfully');
         } else {
           console.error('Failed to refresh token');
@@ -392,7 +392,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
           }
           // Otherwise, return cached data if available
           if (cachedStats) {
-            return res.json({ 
+            return res.json({
               stats: cachedStats.data,
               cached: true,
               lastUpdated: cachedStats.lastFetchedAt,
@@ -408,7 +408,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
           return res.status(401).json({ error: 'Access token expired and no refresh token available' });
         }
         if (cachedStats) {
-          return res.json({ 
+          return res.json({
             stats: cachedStats.data,
             cached: true,
             lastUpdated: cachedStats.lastFetchedAt,
@@ -498,7 +498,7 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
             }
           });
 
-          return res.json({ 
+          return res.json({
             stats,
             cached: false,
             lastUpdated: new Date()
@@ -510,16 +510,16 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
         // If force refresh is requested but API call failed, return error
         if (forceRefresh) {
           console.error('YouTube API call failed:', response.status, response.statusText);
-          return res.status(response.status).json({ 
+          return res.status(response.status).json({
             error: 'Failed to fetch fresh data from YouTube API',
             status: response.status,
             statusText: response.statusText
           });
         }
-        
+
         // Return cached data if available, even if expired
         if (cachedStats) {
-         return  res.json({ 
+          return res.json({
             stats: cachedStats.data,
             cached: true,
             lastUpdated: cachedStats.lastFetchedAt,
@@ -531,25 +531,25 @@ router.get('/youtube/stats', authenticateToken, async (req, res) => {
       }
     } catch (error) {
       console.error('Error fetching YouTube stats:', error);
-      
+
       // If force refresh is requested but API call failed, return error
       if (forceRefresh) {
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: 'Failed to fetch fresh data from YouTube API',
           details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
-      
+
       // Return cached data if available
       if (cachedStats) {
-        return res.json({ 
+        return res.json({
           stats: cachedStats.data,
           cached: true,
           lastUpdated: cachedStats.lastFetchedAt,
           note: 'Using cached data due to API error'
         });
       } else {
-       return  res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
+        return res.json({ stats: { subscribers: 0, videos: 0, views: 0, lastPost: 'N/A' } });
       }
     }
   } catch (error) {
@@ -563,7 +563,7 @@ router.get('/:platform/settings', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
     const { platform } = req.params;
-    
+
     // Get the user's platform connection
     const connection = await prisma.socialMediaConnection.findFirst({
       where: {
@@ -598,7 +598,7 @@ router.post('/:platform/settings', authenticateToken, async (req, res) => {
     const userId = (req as any).user.userId;
     const { platform } = req.params;
     const { settings } = req.body;
-    
+
     // Get the user's platform connection
     const connection = await prisma.socialMediaConnection.findFirst({
       where: {
@@ -750,7 +750,7 @@ router.post('/:platform/settings', authenticateToken, async (req, res) => {
 //   try {
 //     const userId = (req as any).user.userId;
 //     const { platform } = req.params;
-    
+
 //     // Get the user's platform connection
 //     const connection = await prisma.socialMediaConnection.findFirst({
 //       where: {
@@ -775,7 +775,7 @@ router.post('/:platform/settings', authenticateToken, async (req, res) => {
 //           lastPost: 'N/A' 
 //         } 
 //       });
-     
+
 //     }
 
 //     // For YouTube, use the existing YouTube stats logic
@@ -795,8 +795,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
 
     // Validate required fields
     if (!videoUrl || !title) {
-      return res.status(400).json({ 
-        error: 'Video URL and title are required' 
+      return res.status(400).json({
+        error: 'Video URL and title are required'
       });
     }
 
@@ -804,8 +804,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
     // Check if YouTube OAuth credentials are configured
     if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET) {
       console.error('YouTube OAuth credentials not configured');
-      return res.status(500).json({ 
-        error: 'YouTube OAuth credentials not configured. Please set YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET in your environment variables.' 
+      return res.status(500).json({
+        error: 'YouTube OAuth credentials not configured. Please set YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET in your environment variables.'
       });
     }
 
@@ -820,8 +820,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
 
 
     if (!connection) {
-      return res.status(404).json({ 
-        error: 'YouTube account not connected. Please connect your YouTube account first.' 
+      return res.status(404).json({
+        error: 'YouTube account not connected. Please connect your YouTube account first.'
       });
     }
 
@@ -829,15 +829,15 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
     let accessToken = connection.accessToken;
     if (connection.tokenExpiresAt && new Date() > connection.tokenExpiresAt) {
       if (!connection.refreshToken) {
-        return res.status(401).json({ 
-          error: 'YouTube token expired and no refresh token available. Please reconnect your account.' 
+        return res.status(401).json({
+          error: 'YouTube token expired and no refresh token available. Please reconnect your account.'
         });
       }
 
       const refreshResult = await refreshGoogleToken(connection.refreshToken);
       if (!refreshResult) {
-        return res.status(401).json({ 
-          error: 'Failed to refresh YouTube token. Please reconnect your account.' 
+        return res.status(401).json({
+          error: 'Failed to refresh YouTube token. Please reconnect your account.'
         });
       }
 
@@ -858,36 +858,36 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
     try {
       const videoResponse = await axios.get(videoUrl, {
         responseType: 'arraybuffer'
-      })  
-      
-    
-      
+      })
+
+
+
       if (videoResponse.status !== 200) {
-        return res.status(400).json({ 
-          error: 'Failed to download video from the provided URL' 
+        return res.status(400).json({
+          error: 'Failed to download video from the provided URL'
         });
       }
 
       videoBuffer = videoResponse.data;
       console.log('Video buffer size:', videoBuffer.byteLength);
-      
+
       // Check file size limits (YouTube has a 128GB limit, but we'll set a reasonable limit)
       const maxSizeBytes = 100 * 1024 * 1024; // 100MB limit
       if (videoBuffer.byteLength > maxSizeBytes) {
-        return res.status(400).json({ 
-          error: `Video file is too large (${Math.round(videoBuffer.byteLength / 1024 / 1024)}MB). Maximum size is 100MB.` 
+        return res.status(400).json({
+          error: `Video file is too large (${Math.round(videoBuffer.byteLength / 1024 / 1024)}MB). Maximum size is 100MB.`
         });
       }
-      
+
       // Check if file is too small (likely not a valid video)
       if (videoBuffer.byteLength < 1024 * 1024) { // Less than 1MB
-        return res.status(400).json({ 
-          error: 'Video file appears to be too small or invalid' 
+        return res.status(400).json({
+          error: 'Video file appears to be too small or invalid'
         });
       }
     } catch (downloadError) {
       console.error('Error downloading video:', downloadError);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Failed to download video from the provided URL',
         details: downloadError instanceof Error ? downloadError.message : 'Unknown download error'
       });
@@ -907,34 +907,34 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
 
     // Add metadata to form data
     let metadataString = JSON.stringify(videoMetadata);
-    
+
     // Check metadata size and reduce if needed (YouTube has strict limits)
-   
+
     // If still too large, further reduce description
     if (metadataString.length > 500) {
       console.warn('Metadata size is still large, reducing description');
       videoMetadata.snippet.description = videoMetadata.snippet.description.substring(0, 200);
       metadataString = JSON.stringify(videoMetadata);
     }
-    
+
     // If still too large, remove description entirely
     if (metadataString.length > 500) {
       console.warn('Metadata size still too large, removing description');
       delete videoMetadata.snippet.description;
       metadataString = JSON.stringify(videoMetadata);
     }
-    
+
     // If still too large, reduce title
     if (metadataString.length > 500) {
       console.warn('Metadata size still too large, reducing title');
       videoMetadata.snippet.title = videoMetadata.snippet.title.substring(0, 50);
       metadataString = JSON.stringify(videoMetadata);
     }
-    
-  
+
+
     // Choose upload method based on file size
     const isLargeFile = videoBuffer.byteLength > 10 * 1024 * 1024; // 10MB threshold
-    
+
     if (isLargeFile) {
       console.log('Using resumable upload for large file');
       // Use resumable upload for large files
@@ -955,8 +955,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
 
         if (initResponse.status !== 200) {
           console.error('Failed to initialize resumable upload:', initResponse.data);
-          return res.status(initResponse.status).json({ 
-            error: `Failed to initialize upload: ${initResponse.data?.error?.message || 'Unknown error'}` 
+          return res.status(initResponse.status).json({
+            error: `Failed to initialize upload: ${initResponse.data?.error?.message || 'Unknown error'}`
           });
         }
 
@@ -978,8 +978,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
 
         if (uploadResponse.status !== 200) {
           console.error('Resumable upload failed:', uploadResponse.data);
-          return res.status(uploadResponse.status).json({ 
-            error: `Upload failed: ${uploadResponse.data?.error?.message || 'Unknown error'}` 
+          return res.status(uploadResponse.status).json({
+            error: `Upload failed: ${uploadResponse.data?.error?.message || 'Unknown error'}`
           });
         }
 
@@ -1022,8 +1022,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
         if (axios.isAxiosError(uploadError)) {
           console.error('YouTube API error response:', uploadError.response?.data);
           console.error('YouTube API error status:', uploadError.response?.status);
-          return res.status(uploadError.response?.status || 500).json({ 
-            error: `Upload failed: ${uploadError.response?.data?.error?.message || uploadError.message}` 
+          return res.status(uploadError.response?.status || 500).json({
+            error: `Upload failed: ${uploadError.response?.data?.error?.message || uploadError.message}`
           });
         }
         throw uploadError;
@@ -1050,13 +1050,13 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
           }
         );
 
-              console.log('Multipart upload response status:', uploadResponse.status);
+        console.log('Multipart upload response status:', uploadResponse.status);
         console.log('Multipart upload response data:', uploadResponse.data);
 
         if (uploadResponse.status !== 200) {
           console.error('Multipart upload error:', uploadResponse.data);
-          return res.status(uploadResponse.status).json({ 
-            error: `Upload failed: ${uploadResponse.data?.error?.message || 'Unknown error'}` 
+          return res.status(uploadResponse.status).json({
+            error: `Upload failed: ${uploadResponse.data?.error?.message || 'Unknown error'}`
           });
         }
 
@@ -1086,7 +1086,7 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
           }
         });
 
-       return  res.json({
+        return res.json({
           success: true,
           videoId: uploadResult.id,
           title: uploadResult.snippet.title,
@@ -1099,8 +1099,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
         if (axios.isAxiosError(uploadError)) {
           console.error('YouTube API error response:', uploadError.response?.data);
           console.error('YouTube API error status:', uploadError.response?.status);
-          return res.status(uploadError.response?.status || 500).json({ 
-            error: `Upload failed: ${uploadError.response?.data?.error?.message || uploadError.message}` 
+          return res.status(uploadError.response?.status || 500).json({
+            error: `Upload failed: ${uploadError.response?.data?.error?.message || uploadError.message}`
           });
         }
         throw uploadError;
@@ -1109,11 +1109,11 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error uploading to YouTube:', error);
-    
+
     // Provide more detailed error information
     const errorMessage = 'Failed to upload video to YouTube';
     let errorDetails = '';
-    
+
     if (axios.isAxiosError(error)) {
       errorDetails = `Status: ${error.response?.status}, Message: ${error.response?.data?.error?.message || error.message}`;
       console.error('Axios error details:', errorDetails);
@@ -1121,8 +1121,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
       errorDetails = error.message;
       console.error('Standard error:', errorDetails);
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: errorMessage,
       details: errorDetails
     });
@@ -1134,7 +1134,7 @@ router.get('/uploads', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
     const { platform, contentType, status, page = '1', limit = '10' } = req.query;
-    
+
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
@@ -1142,15 +1142,15 @@ router.get('/uploads', authenticateToken, async (req, res) => {
     const where: Record<string, unknown> = {
       profileId: userId
     };
-    
+
     if (platform) {
       where.platform = platform;
     }
-    
+
     if (contentType) {
       where.contentType = contentType;
     }
-    
+
     if (status) {
       where.status = status;
     }
@@ -1189,7 +1189,7 @@ router.get('/uploads/:id', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
     const { id } = req.params;
-    
+
     const upload = await prisma.socialMediaUpload.findFirst({
       where: {
         id,
@@ -1255,7 +1255,7 @@ router.post('/facebook/exchange-code', authenticateToken, async (req, res) => {
 
     // Get user's Facebook Pages
     const userResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`);
-    
+
     if (!userResponse.ok) {
       console.error('Failed to get user pages');
       return res.status(400).json({ error: 'Failed to get user pages' });
@@ -1280,7 +1280,7 @@ router.post('/facebook/exchange-code', authenticateToken, async (req, res) => {
 
     // Get user info
     const userInfoResponse = await fetch(`https://graph.facebook.com/v18.0/me?access_token=${tokenData.access_token}`);
-    
+
     if (!userInfoResponse.ok) {
       console.error('Failed to get user info');
       return res.status(400).json({ error: 'Failed to get user info' });
@@ -1342,8 +1342,8 @@ router.post('/facebook/connect', authenticateToken, async (req, res) => {
       }
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       connection: {
         id: connection.id,
         platform: connection.platform,
@@ -1364,7 +1364,7 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
   try {
     const userId = (req as any).user.userId;
     const forceRefresh = req.query.refresh === 'true';
-    
+
     // Get the user's Facebook connection
     const connection = await prisma.socialMediaConnection.findFirst({
       where: {
@@ -1387,11 +1387,11 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
 
     // Check if we have valid cached data and user didn't force refresh
     const cachedStats = connection.cachedData[0];
-   
-    
+
+
     if (!forceRefresh && isCacheValid(cachedStats)) {
       console.log('cachedStats is valid');
-      return res.json({ 
+      return res.json({
         stats: cachedStats.data,
         cached: true,
         lastUpdated: cachedStats.lastFetchedAt,
@@ -1404,7 +1404,7 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
         return res.status(401).json({ error: 'Facebook token expired. Please reconnect your account.' });
       }
       if (cachedStats) {
-        return res.json({ 
+        return res.json({
           stats: cachedStats.data,
           cached: true,
           lastUpdated: cachedStats.lastFetchedAt,
@@ -1418,14 +1418,14 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
     // Fetch fresh data from Facebook Graph API
     try {
       console.log('Fetching Facebook insights for page:', connection.channelId);
-      
+
       // Get page insights (followers, reach, etc.)
       // Try with basic metrics first, then fallback to page info
       const insightsResponse = await fetch(
         `https://graph.facebook.com/v18.0/${connection.channelId}/insights?metric=page_fans&period=day&access_token=${connection.accessToken}`
       );
 
-     
+
       if (!insightsResponse.ok) {
         const errorText = await insightsResponse.text();
         console.error('Facebook insights API error:', errorText);
@@ -1434,16 +1434,16 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
 
       const insightsData = await insightsResponse.json() as any;
       console.log('Insights data received:', JSON.stringify(insightsData, null, 2));
-      
+
       // Get recent posts for engagement metrics
-    
-      
+
+
       const postsResponse = await fetch(
         `https://graph.facebook.com/v18.0/${connection.channelId}/posts?fields=id,message,created_time&limit=5&access_token=${connection.accessToken}`
       );
 
-   
-      
+
+
       let recentPosts: any[] = [];
       let totalEngagement = 0;
       let totalReach = 0;
@@ -1452,14 +1452,14 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
         const postsData = await postsResponse.json() as any;
         console.log('Posts data received:', JSON.stringify(postsData, null, 2));
         recentPosts = postsData.data || [];
-        
+
         // For now, we'll just count posts since insights might not be available
         console.log('Found', recentPosts.length, 'recent posts');
       }
 
       // Extract insights data
       const followers = insightsData.data?.find((item: any) => item.name === 'page_fans')?.values[0]?.value || 0;
-      
+
       // If insights fail, try to get basic page info
       let pageInfo = null;
       if (!insightsData.data || insightsData.data.length === 0) {
@@ -1516,7 +1516,7 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
         }
       });
 
-      return res.json({ 
+      return res.json({
         stats,
         cached: false,
         lastUpdated: new Date()
@@ -1524,35 +1524,35 @@ router.get('/facebook/stats', authenticateToken, async (req, res) => {
 
     } catch (error) {
       console.error('Error fetching Facebook stats:', error);
-      
+
       if (forceRefresh) {
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: 'Failed to fetch fresh data from Facebook API',
           details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
-      
+
       // Return cached data if available
       if (cachedStats) {
-        return res.json({ 
+        return res.json({
           stats: cachedStats.data,
           cached: true,
           lastUpdated: cachedStats.lastFetchedAt,
           note: 'Using cached data due to API error'
         });
-      } else {  
+      } else {
         console.log('cachedStats is not valid in catch block');
-        return res.json({ 
-          stats: { 
-            followers: 0, 
-            reach: 0, 
-            engagement: 0, 
+        return res.json({
+          stats: {
+            followers: 0,
+            reach: 0,
+            engagement: 0,
             engagementRate: 0,
             recentPosts: 0,
             totalEngagement: 0,
             totalReach: 0,
-            lastPost: 'N/A' 
-          } 
+            lastPost: 'N/A'
+          }
         });
       }
     }
@@ -1591,7 +1591,7 @@ router.get('/facebook/activity', authenticateToken, async (req, res) => {
     // Check if we have valid cached data
     const cachedActivity = connection.cachedData[0];
     if (!forceRefresh && isCacheValid(cachedActivity)) {
-      return res.json({ 
+      return res.json({
         activity: cachedActivity.data,
         cached: true,
         lastUpdated: cachedActivity.lastFetchedAt
@@ -1604,7 +1604,7 @@ router.get('/facebook/activity', authenticateToken, async (req, res) => {
         return res.status(401).json({ error: 'Facebook token expired. Please reconnect your account.' });
       }
       if (cachedActivity) {
-        return res.json({ 
+        return res.json({
           activity: cachedActivity.data,
           cached: true,
           lastUpdated: cachedActivity.lastFetchedAt,
@@ -1617,14 +1617,14 @@ router.get('/facebook/activity', authenticateToken, async (req, res) => {
 
     try {
       console.log('Fetching Facebook activity for page:', connection.channelId);
-      
+
       // Fetch recent posts with updated fields for v18.0
       const response = await fetch(
         `https://graph.facebook.com/v18.0/${connection.channelId}/posts?fields=id,message,created_time,status_type&limit=10&access_token=${connection.accessToken}`
       );
 
       console.log('Activity response status:', response.status);
-      
+
       if (response.ok) {
         const data = await response.json() as any;
         console.log('Activity data received:', JSON.stringify(data, null, 2));
@@ -1666,7 +1666,7 @@ router.get('/facebook/activity', authenticateToken, async (req, res) => {
           }
         });
 
-        return res.json({ 
+        return res.json({
           activity,
           cached: false,
           lastUpdated: new Date()
@@ -1678,16 +1678,16 @@ router.get('/facebook/activity', authenticateToken, async (req, res) => {
       }
     } catch (error) {
       console.error('Error fetching Facebook activity:', error);
-      
+
       if (forceRefresh) {
-        return res.status(500).json({ 
+        return res.status(500).json({
           error: 'Failed to fetch fresh data from Facebook API',
           details: error instanceof Error ? error.message : 'Unknown error'
         });
       }
-      
+
       if (cachedActivity) {
-        return res.json({ 
+        return res.json({
           activity: cachedActivity.data,
           cached: true,
           lastUpdated: cachedActivity.lastFetchedAt,
@@ -1721,21 +1721,21 @@ function formatTimeAgo(date: Date): string {
 // Facebook post upload endpoint
 router.post('/facebook/upload', authenticateToken, async (req, res) => {
   try {
-    const { message, link, assetId } = req.body;
+    const { message, link, videoUrl, imageUrl, assetId } = req.body;
     const userId = (req as any).user.userId;
 
     // Validate required fields
-    if (!message && !link) {
-      return res.status(400).json({ 
-        error: 'Message or link is required' 
+    if (!message && !link && !videoUrl && !imageUrl) {
+      return res.status(400).json({
+        error: 'Message, link, video URL, or image URL is required'
       });
     }
 
     // Check if Facebook credentials are configured
     if (!process.env.FACEBOOK_CLIENT_ID || !process.env.FACEBOOK_CLIENT_SECRET) {
       console.error('Facebook credentials not configured');
-      return res.status(500).json({ 
-        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET in your environment variables.' 
+      return res.status(500).json({
+        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET in your environment variables.'
       });
     }
 
@@ -1749,15 +1749,15 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
     });
 
     if (!connection) {
-      return res.status(404).json({ 
-        error: 'Facebook account not connected. Please connect your Facebook account first.' 
+      return res.status(404).json({
+        error: 'Facebook account not connected. Please connect your Facebook account first.'
       });
     }
 
     // Check if token is expired
     if (connection.tokenExpiresAt && new Date() > connection.tokenExpiresAt) {
-      return res.status(401).json({ 
-        error: 'Facebook token expired. Please reconnect your account.' 
+      return res.status(401).json({
+        error: 'Facebook token expired. Please reconnect your account.'
       });
     }
 
@@ -1772,6 +1772,16 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
       postData.link = link;
     }
 
+    // Add video if provided
+    if (videoUrl) {
+      postData.video_url = videoUrl;
+    }
+
+    // Add image if provided
+    if (imageUrl) {
+      postData.image_url = imageUrl;
+    }
+
     // Create the post
     const response = await axios.post(
       `https://graph.facebook.com/v18.0/${connection.channelId}/feed`,
@@ -1780,8 +1790,8 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
 
     if (response.status !== 200) {
       console.error('Failed to create Facebook post:', response.data);
-      return res.status(response.status).json({ 
-        error: `Failed to create post: ${response.data?.error?.message || 'Unknown error'}` 
+      return res.status(response.status).json({
+        error: `Failed to create post: ${response.data?.error?.message || 'Unknown error'}`
       });
     }
 
@@ -1805,7 +1815,9 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
           postId: postId,
           message: message,
           link: link,
-          type: link ? 'link' : 'text'
+          videoUrl: videoUrl,
+          imageUrl: imageUrl,
+          type: videoUrl ? 'video' : (imageUrl ? 'image' : (link ? 'link' : 'text'))
         },
         status: 'uploaded',
         assetId: assetId || null
@@ -1821,10 +1833,10 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error uploading to Facebook:', error);
-    
+
     const errorMessage = 'Failed to upload post to Facebook';
     let errorDetails = '';
-    
+
     if (axios.isAxiosError(error)) {
       errorDetails = `Status: ${error.response?.status}, Message: ${error.response?.data?.error?.message || error.message}`;
       console.error('Axios error details:', errorDetails);
@@ -1832,8 +1844,8 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
       errorDetails = error.message;
       console.error('Standard error:', errorDetails);
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: errorMessage,
       details: errorDetails
     });
@@ -1844,17 +1856,17 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
 router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
   try {
     const { code } = req.body;
-  
+
     const userId = (req as any).user.userId;
 
-   
+
     // Exchange authorization code for access token using Facebook Graph API
     const tokenUrl = new URL('https://graph.facebook.com/v18.0/oauth/access_token');
     tokenUrl.searchParams.set('client_id', process.env.FACEBOOK_CLIENT_ID || '');
     tokenUrl.searchParams.set('client_secret', process.env.FACEBOOK_CLIENT_SECRET || '');
     tokenUrl.searchParams.set('redirect_uri', `${process.env.FRONTEND_URL || 'http://localhost:8080'}/oauth/callback`);
     tokenUrl.searchParams.set('code', code);
- 
+
     const tokenResponse = await fetch(tokenUrl.toString());
 
     if (!tokenResponse.ok) {
@@ -1878,7 +1890,7 @@ router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
 
     // Get user's Instagram Business Account
     const userResponse = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`);
-    
+
     if (!userResponse.ok) {
       console.error('Failed to get user accounts');
       return res.status(400).json({ error: 'Failed to get user accounts' });
@@ -1902,7 +1914,7 @@ router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
 
     // Get Instagram Business Account
     const instagramResponse = await fetch(`https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account&access_token=${pageAccessToken}`);
-    
+
     if (!instagramResponse.ok) {
       console.error('Failed to get Instagram business account');
       return res.status(400).json({ error: 'No Instagram Business Account found. Please connect your Instagram account to your Facebook page.' });
@@ -1920,7 +1932,7 @@ router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
 
     // Get Instagram account details
     const instagramAccountResponse = await fetch(`https://graph.facebook.com/v18.0/${instagramData.instagram_business_account.id}?fields=id,username,name&access_token=${pageAccessToken}`);
-    
+
     if (!instagramAccountResponse.ok) {
       console.error('Failed to get Instagram account details');
       return res.status(400).json({ error: 'Failed to get Instagram account details' });
@@ -1983,8 +1995,8 @@ router.post('/instagram/connect', authenticateToken, async (req, res) => {
       }
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       connection: {
         id: connection.id,
         platform: connection.platform,
@@ -2007,16 +2019,16 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
 
     // Validate required fields
     if (!videoUrl) {
-      return res.status(400).json({ 
-        error: 'Video URL is required' 
+      return res.status(400).json({
+        error: 'Video URL is required'
       });
     }
 
     // Check if Facebook credentials are configured
     if (!process.env.FACEBOOK_CLIENT_ID || !process.env.FACEBOOK_CLIENT_SECRET) {
       console.error('Facebook credentials not configured');
-      return res.status(500).json({ 
-        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET in your environment variables.' 
+      return res.status(500).json({
+        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET in your environment variables.'
       });
     }
 
@@ -2030,15 +2042,15 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
     });
 
     if (!connection) {
-      return res.status(404).json({ 
-        error: 'Instagram account not connected. Please connect your Instagram account first.' 
+      return res.status(404).json({
+        error: 'Instagram account not connected. Please connect your Instagram account first.'
       });
     }
 
     // Check if token is expired
     if (connection.tokenExpiresAt && new Date() > connection.tokenExpiresAt) {
-      return res.status(401).json({ 
-        error: 'Instagram token expired. Please reconnect your account.' 
+      return res.status(401).json({
+        error: 'Instagram token expired. Please reconnect your account.'
       });
     }
 
@@ -2048,33 +2060,33 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
       const videoResponse = await axios.get(videoUrl, {
         responseType: 'arraybuffer'
       });
-      
+
       if (videoResponse.status !== 200) {
-        return res.status(400).json({ 
-          error: 'Failed to download video from the provided URL' 
+        return res.status(400).json({
+          error: 'Failed to download video from the provided URL'
         });
       }
 
       videoBuffer = videoResponse.data;
       console.log('Video buffer size:', videoBuffer.byteLength);
-      
+
       // Instagram has a 100MB limit for videos
       const maxSizeBytes = 100 * 1024 * 1024; // 100MB limit
       if (videoBuffer.byteLength > maxSizeBytes) {
-        return res.status(400).json({ 
-          error: `Video file is too large (${Math.round(videoBuffer.byteLength / 1024 / 1024)}MB). Maximum size is 100MB.` 
+        return res.status(400).json({
+          error: `Video file is too large (${Math.round(videoBuffer.byteLength / 1024 / 1024)}MB). Maximum size is 100MB.`
         });
       }
-      
+
       // Check if file is too small
       if (videoBuffer.byteLength < 1024 * 1024) { // Less than 1MB
-        return res.status(400).json({ 
-          error: 'Video file appears to be too small or invalid' 
+        return res.status(400).json({
+          error: 'Video file appears to be too small or invalid'
         });
       }
     } catch (downloadError) {
       console.error('Error downloading video:', downloadError);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Failed to download video from the provided URL',
         details: downloadError instanceof Error ? downloadError.message : 'Unknown download error'
       });
@@ -2093,8 +2105,8 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
 
     if (containerResponse.status !== 200) {
       console.error('Failed to create Instagram media container:', containerResponse.data);
-      return res.status(containerResponse.status).json({ 
-        error: `Failed to create media container: ${containerResponse.data?.error?.message || 'Unknown error'}` 
+      return res.status(containerResponse.status).json({
+        error: `Failed to create media container: ${containerResponse.data?.error?.message || 'Unknown error'}`
       });
     }
 
@@ -2114,8 +2126,8 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
 
     if (publishResponse.status !== 200) {
       console.error('Failed to publish Instagram media:', publishResponse.data);
-      return res.status(publishResponse.status).json({ 
-        error: `Failed to publish media: ${publishResponse.data?.error?.message || 'Unknown error'}` 
+      return res.status(publishResponse.status).json({
+        error: `Failed to publish media: ${publishResponse.data?.error?.message || 'Unknown error'}`
       });
     }
 
@@ -2155,10 +2167,10 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('Error uploading to Instagram:', error);
-    
+
     const errorMessage = 'Failed to upload video to Instagram';
     let errorDetails = '';
-    
+
     if (axios.isAxiosError(error)) {
       errorDetails = `Status: ${error.response?.status}, Message: ${error.response?.data?.error?.message || error.message}`;
       console.error('Axios error details:', errorDetails);
@@ -2166,8 +2178,8 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
       errorDetails = error.message;
       console.error('Standard error:', errorDetails);
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: errorMessage,
       details: errorDetails
     });

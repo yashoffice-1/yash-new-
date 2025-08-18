@@ -30,7 +30,7 @@ export function AssetLibrary() {
   const [selectedAsset, setSelectedAsset] = useState<ExtendedAssetLibraryItem | null>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
@@ -127,7 +127,7 @@ export function AssetLibrary() {
       }
 
       const counts = await getAssetTypeCounts(baseFilters);
-      
+
       // Update all counts
       setAssetTypeCounts({
         all: counts.all,
@@ -135,7 +135,7 @@ export function AssetLibrary() {
         video: counts.video,
         content: counts.content
       });
-      
+
       setCountsLoaded(true);
     } catch (error) {
       console.error('Error loading asset type counts:', error);
@@ -149,7 +149,7 @@ export function AssetLibrary() {
         page,
         limit
       };
-      
+
       // Add filters based on current state
       if (selectedType !== 'all') {
         filters.asset_type = selectedType;
@@ -164,7 +164,7 @@ export function AssetLibrary() {
       console.log('Filters for loadAssets:', filters);
       const result = await getLibraryAssets(filters);
       console.log('Loaded assets from library:', result);
-      
+
       setAssets(result.assets);
       setFilteredAssets(result.assets);
       setPagination(result.pagination);
@@ -299,7 +299,7 @@ export function AssetLibrary() {
             ...prev,
             all: currentCount
           }));
-          
+
           // Load detailed counts
           loadAssetTypeCounts();
         }
@@ -466,7 +466,7 @@ export function AssetLibrary() {
     try {
       // Find all pending HeyGen videos
       const pendingVideos = assets?.filter(asset =>
-        (asset.source_system === "heygen") && 
+        (asset.source_system === "heygen") &&
         (asset.asset_url === "pending" || asset.asset_url === "processing" || asset.asset_url?.startsWith("pending_"))
       ) || [];
 
@@ -491,7 +491,7 @@ export function AssetLibrary() {
         try {
           // Extract video ID from pending URL
           const videoId = video.asset_url?.replace('pending_', '') || video.asset_url?.replace('processing_', '');
-          
+
           if (!videoId) continue;
 
           const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/heygen/check-status/${videoId}`, {
@@ -538,13 +538,13 @@ export function AssetLibrary() {
   };
 
   const handleUpload = (asset: ExtendedAssetLibraryItem) => {
-    if (asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending') {
+    if ((asset.asset_type === 'video' || asset.asset_type === 'image') && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending') {
       setSelectedAssetForUpload(asset);
       setShowUploadModal(true);
     } else {
       toast({
         title: "Upload Not Available",
-        description: "Only completed videos can be uploaded to social media platforms.",
+        description: "Only completed videos and images can be uploaded to social media platforms.",
         variant: "destructive"
       });
     }
@@ -872,13 +872,13 @@ export function AssetLibrary() {
                             </Button>
                           )}
 
-                          {asset.asset_type === 'video' && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending' && (
+                          {(asset.asset_type === 'video' || asset.asset_type === 'image') && asset.asset_url && asset.asset_url !== 'processing' && asset.asset_url !== 'pending' && (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleUpload(asset)}
                               className="text-green-600 hover:text-green-700 border-green-200"
-                              title="Upload video to social media"
+                              title={`Upload ${asset.asset_type} to social media`}
                             >
                               <Share2 className="h-4 w-4" />
                             </Button>
@@ -898,7 +898,7 @@ export function AssetLibrary() {
                   </Card>
                 ))}
               </div>
-              
+
               {/* Pagination Controls */}
               {pagination && pagination.pages > 1 && (
                 <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">

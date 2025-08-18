@@ -100,7 +100,7 @@ export function SocialAccountManager() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { initiateYouTubeOAuth, handleOAuthCallback } = useOAuth();
+  const { initiateYouTubeOAuth, initiateFacebookOAuth, initiateInstagramOAuth, handleOAuthCallback } = useOAuth();
   const platform = (searchParams.get('platform') || 'youtube') as PlatformType;
   
   const [connection, setConnection] = useState<SocialConnection | null>(null);
@@ -266,6 +266,22 @@ export function SocialAccountManager() {
     }
   };
 
+  const handleConnectFacebook = async () => {
+    setConnectingPlatform('facebook');
+    const success = initiateFacebookOAuth();
+    if (!success) {
+      setConnectingPlatform(null);
+    }
+  };
+
+  const handleConnectInstagram = async () => {
+    setConnectingPlatform('instagram');
+    const success = initiateInstagramOAuth();
+    if (!success) {
+      setConnectingPlatform(null);
+    }
+  };
+
   const saveYouTubeConnection = async (oauthResult: any) => {
     try {
       const token = localStorage.getItem('auth_token');
@@ -292,13 +308,30 @@ export function SocialAccountManager() {
   };
 
   const handleConnect = () => {
-    if (platform === 'youtube') {
-      handleConnectYouTube();
-    } else {
+    // Check if already connected
+    if (isConnected) {
       toast({
-        title: "Integration Coming Soon",
-        description: `${platformInfo?.name} integration will be available soon.`,
+        title: "Already Connected",
+        description: `Your ${platformInfo?.name} account is already connected.`,
       });
+      return;
+    }
+    
+    switch (platform) {
+      case 'youtube':
+        handleConnectYouTube();
+        break;
+      case 'facebook':
+        handleConnectFacebook();
+        break;
+      case 'instagram':
+        handleConnectInstagram();
+        break;
+      default:
+        toast({
+          title: "Integration Coming Soon",
+          description: `${platformInfo?.name} integration will be available soon.`,
+        });
     }
   };
 
