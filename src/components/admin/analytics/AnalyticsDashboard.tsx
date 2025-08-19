@@ -378,26 +378,58 @@ export function AnalyticsDashboard() {
                 <CardTitle>Generation Costs</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                                 <div className="flex justify-between">
-                   <span>HeyGen</span>
-                   <span className="font-bold">${safeGet(analyticsData, 'business.costs.byPlatform.heygen', 0)}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span>OpenAI</span>
-                   <span className="font-bold">${safeGet(analyticsData, 'business.costs.byPlatform.openai', 0)}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span>RunwayML</span>
-                   <span className="font-bold">${safeGet(analyticsData, 'business.costs.byPlatform.runwayml', 0)}</span>
-                 </div>
-                 <div className="border-t pt-2 mt-2">
-                   <div className="flex justify-between font-bold">
-                     <span>Total</span>
-                     <span>${safeGet(analyticsData, 'business.costs.total', 0)}</span>
-                   </div>
-                 </div>
+                <div className="flex justify-between">
+                  <span>Total Cost</span>
+                  <span className="font-bold">${safeGet(analyticsData, 'business.costs.total', 0).toFixed(4)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Avg per Generation</span>
+                  <span className="font-bold">${safeGet(analyticsData, 'business.costs.perGeneration', 0).toFixed(4)}</span>
+                </div>
+                <div className="border-t pt-2 mt-2">
+                  <div className="text-sm font-medium mb-2">By Platform:</div>
+                  {Object.entries(safeGet(analyticsData, 'business.costs.byPlatform', {})).map(([platform, cost]) => (
+                    <div key={platform} className="flex justify-between text-sm">
+                      <span className="capitalize">{platform}</span>
+                      <span className="font-medium">${(cost as number).toFixed(4)}</span>
+                    </div>
+                  ))}
+                </div>
+                {safeGet(analyticsData, 'business.costs.platformCounts') && (
+                  <div className="border-t pt-2 mt-2">
+                    <div className="text-sm font-medium mb-2">Generation Counts:</div>
+                    {Object.entries(safeGet(analyticsData, 'business.costs.platformCounts', {})).map(([platform, count]) => (
+                      <div key={platform} className="flex justify-between text-sm">
+                        <span className="capitalize">{platform}</span>
+                        <span className="font-medium">{count as number}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            {safeGet(analyticsData, 'business.costs.byAssetType') && Object.keys(safeGet(analyticsData, 'business.costs.byAssetType', {})).length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Costs by Asset Type</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {Object.entries(safeGet(analyticsData, 'business.costs.byAssetType', {})).map(([assetType, cost]) => (
+                    <div key={assetType} className="flex justify-between">
+                      <span className="capitalize">{assetType}</span>
+                      <span className="font-bold">${(cost as number).toFixed(4)}</span>
+                    </div>
+                  ))}
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between font-bold">
+                      <span>Total</span>
+                      <span>${(Object.values(safeGet(analyticsData, 'business.costs.byAssetType', {})).reduce((sum: number, cost: any) => sum + (cost || 0), 0) as number).toFixed(4)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
@@ -672,19 +704,36 @@ export function AnalyticsDashboard() {
               <CardHeader>
                 <CardTitle>Platform Costs</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                                 <div className="flex justify-between">
-                   <span>HeyGen</span>
-                   <span className="font-bold">${safeGet(analyticsData, 'business.costs.byPlatform.heygen', 0)}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span>OpenAI</span>
-                   <span className="font-bold">${safeGet(analyticsData, 'business.costs.byPlatform.openai', 0)}</span>
-                 </div>
-                 <div className="flex justify-between">
-                   <span>RunwayML</span>
-                   <span className="font-bold">${safeGet(analyticsData, 'business.costs.byPlatform.runwayml', 0)}</span>
-                 </div>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={200}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={Object.entries(safeGet(analyticsData, 'business.costs.byPlatform', {})).map(([platform, cost]) => ({
+                        name: platform.charAt(0).toUpperCase() + platform.slice(1),
+                        value: cost as number
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={60}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {COLORS.map((color, index) => (
+                        <Cell key={`cell-${index}`} fill={color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`$${Number(value).toFixed(4)}`, 'Cost']} />
+                    <Legend />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                  {Object.entries(safeGet(analyticsData, 'business.costs.byPlatform', {})).map(([platform, cost]) => (
+                    <div key={platform} className="flex justify-between text-sm">
+                      <span className="capitalize">{platform}</span>
+                      <span className="font-medium">${(cost as number).toFixed(4)}</span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </div>

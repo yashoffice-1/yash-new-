@@ -91,11 +91,9 @@ export interface AnalyticsData {
     costs: {
       total: number;
       perGeneration: number;
-      byPlatform: {
-        heygen: number;
-        openai: number;
-        runwayml: number;
-      };
+      byPlatform: Record<string, number>;
+      platformCounts?: Record<string, number>;
+      byAssetType?: Record<string, number>;
     };
     revenue: {
       total: number;
