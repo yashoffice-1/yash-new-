@@ -260,17 +260,28 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
     try {
       const token = localStorage.getItem('auth_token');
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      
+      // Prepare request body based on asset type
+      const requestBody: any = {
+        caption: uploadFormData.description || uploadFormData.title,
+        assetId: asset.id,
+        mediaType: 'auto' // Let backend determine best media type
+      };
+
+      // Add the appropriate URL field based on asset type
+      if (asset.asset_type === 'video') {
+        requestBody.videoUrl = asset.asset_url;
+      } else if (asset.asset_type === 'image') {
+        requestBody.imageUrl = asset.asset_url;
+      }
+
       const response = await fetch(`${backendUrl}/api/social/instagram/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          videoUrl: asset.asset_url,
-          caption: uploadFormData.description || uploadFormData.title,
-          assetId: asset.id
-        })
+        body: JSON.stringify(requestBody)
       });
 
       const result = await response.json();
@@ -278,9 +289,11 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
       if (result.success) {
         setUploadProgress(100);
         setUploadStatus('success');
+        const mediaTypeText = result.instagramMediaType === 'REELS' ? 'Reel' : 
+                             result.instagramMediaType === 'IMAGE' ? 'Post' : 'Video';
         toast({
           title: "Upload Successful! 🎉",
-          description: `Video uploaded to Instagram: ${result.mediaId}`,
+          description: `${asset.asset_type === 'image' ? 'Image' : 'Video'} uploaded to Instagram as ${mediaTypeText}: ${result.mediaId}`,
         });
         if (onUploadComplete) {
           onUploadComplete(result);
@@ -293,7 +306,7 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
       setUploadStatus('error');
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to upload video to Instagram.",
+        description: error instanceof Error ? error.message : `Failed to upload ${asset.asset_type} to Instagram.`,
         variant: "destructive"
       });
     } finally {
@@ -763,7 +776,7 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
                   </div>
                   <Progress value={uploadProgress} className="h-2" />
                   <p className="text-xs text-gray-500">
-                    This may take a few minutes depending on video size
+                    This may take a few minutes depending on {asset?.asset_type === 'image' ? 'image' : 'video'} size
                   </p>
                 </div>
 
@@ -775,7 +788,7 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
                       <span className="font-medium text-green-800">Upload Successful!</span>
                     </div>
                     <p className="text-sm text-green-700 mt-1">
-                      Your video has been uploaded to Instagram successfully.
+                      Your {asset?.asset_type === 'image' ? 'image' : 'video'} has been uploaded to Instagram successfully.
                     </p>
                   </div>
                 </div>
@@ -801,7 +814,7 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
                     ) : (
                       <>
                         <Upload className="h-5 w-5" />
-                        <span>Upload to Instagram</span>
+                        <span>Upload {asset?.asset_type === 'image' ? 'Image' : 'Video'} to Instagram</span>
                       </>
                     )}
                   </div>

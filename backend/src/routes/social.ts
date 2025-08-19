@@ -1273,7 +1273,7 @@ router.post('/facebook/exchange-code', authenticateToken, async (req, res) => {
     if (userData.data.length === 0) {
       return res.status(400).json({ error: 'No Facebook pages found. Please create a Facebook page first.' });
     }
-
+    console.log('User data:', userData);
     const pageId = userData.data[0].id;
     const pageName = userData.data[0].name;
     const pageAccessToken = userData.data[0].access_token;
@@ -1914,8 +1914,9 @@ router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
       console.error('Failed to get user accounts');
       return res.status(400).json({ error: 'Failed to get user accounts' });
     }
-
-    const userData = await userResponse.json() as {
+    const data=await userResponse.json()
+    console.log('User data:', data);
+    const userData = data as {
       data: Array<{
         id: string;
         name: string;
@@ -2030,28 +2031,32 @@ router.post('/instagram/connect', authenticateToken, async (req, res) => {
   }
 });
 
-// Instagram video upload endpoint (using Instagram Graph API)
+// Instagram media upload endpoint (using Instagram Graph API) - supports images, videos, and reels
 router.post('/instagram/upload', authenticateToken, async (req, res) => {
   try {
-    const { videoUrl, caption, assetId } = req.body;
+    const { videoUrl, imageUrl, caption, assetId, mediaType = 'auto' } = req.body;
     const userId = (req as any).user.userId;
 
     // Validate required fields
-    if (!videoUrl) {
+    if (!videoUrl && !imageUrl) {
       return res.status(400).json({
-        error: 'Video URL is required'
+        error: 'Either video URL or image URL is required'
       });
     }
 
-    // Check if Facebook credentials are configured
+    // Determine media type and URL
+    const isVideo = !!videoUrl;
+    const mediaUrl = videoUrl || imageUrl;
+    const contentType = isVideo ? 'video' : 'image';
+
+    // Validate basic requirements
     if (!process.env.FACEBOOK_CLIENT_ID || !process.env.FACEBOOK_CLIENT_SECRET) {
-      console.error('Facebook credentials not configured');
       return res.status(500).json({
-        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET in your environment variables.'
+        error: 'Facebook credentials not configured'
       });
     }
 
-    // Get the user's Instagram connection
+    // Get Instagram connection
     const connection = await prisma.socialMediaConnection.findFirst({
       where: {
         profileId: userId,
@@ -2062,79 +2067,54 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
 
     if (!connection) {
       return res.status(404).json({
-        error: 'Instagram account not connected. Please connect your Instagram account first.'
+        error: 'Instagram account not connected'
       });
     }
 
-    // Check if token is expired
-    if (connection.tokenExpiresAt && new Date() > connection.tokenExpiresAt) {
-      return res.status(401).json({
-        error: 'Instagram token expired. Please reconnect your account.'
-      });
-    }
-
-    // Download the video from the URL
-    let videoBuffer: ArrayBuffer;
-    try {
-      const videoResponse = await axios.get(videoUrl, {
-        responseType: 'arraybuffer'
-      });
-
-      if (videoResponse.status !== 200) {
-        return res.status(400).json({
-          error: 'Failed to download video from the provided URL'
-        });
-      }
-
-      videoBuffer = videoResponse.data;
-      console.log('Video buffer size:', videoBuffer.byteLength);
-
-      // Instagram has a 100MB limit for videos
-      const maxSizeBytes = 100 * 1024 * 1024; // 100MB limit
-      if (videoBuffer.byteLength > maxSizeBytes) {
-        return res.status(400).json({
-          error: `Video file is too large (${Math.round(videoBuffer.byteLength / 1024 / 1024)}MB). Maximum size is 100MB.`
-        });
-      }
-
-      // Check if file is too small
-      if (videoBuffer.byteLength < 1024 * 1024) { // Less than 1MB
-        return res.status(400).json({
-          error: 'Video file appears to be too small or invalid'
-        });
-      }
-    } catch (downloadError) {
-      console.error('Error downloading video:', downloadError);
+    // Validate media URL and caption
+    if (!mediaUrl.startsWith('http')) {
       return res.status(400).json({
-        error: 'Failed to download video from the provided URL',
-        details: downloadError instanceof Error ? downloadError.message : 'Unknown download error'
+        error: 'Invalid media URL. Must be a valid HTTP/HTTPS URL.'
       });
     }
 
-    // Step 1: Create container for Instagram media
+    if (caption && caption.length > 2200) {
+      return res.status(400).json({
+        error: 'Caption is too long. Instagram captions have a 2200 character limit.'
+      });
+    }
+
+    // Determine Instagram media type
+    const instagramMediaType = isVideo 
+      ? (mediaType === 'auto' || mediaType === 'reels' ? 'REELS' : 'VIDEO')
+      : 'IMAGE';
+
+    // Create media container
+    const containerData = {
+      media_type: instagramMediaType,
+      caption: caption || '',
+      access_token: connection.accessToken,
+      ...(isVideo ? { video_url: mediaUrl } : { image_url: mediaUrl })
+    };
+
     const containerResponse = await axios.post(
       `https://graph.facebook.com/v18.0/${connection.channelId}/media`,
-      {
-        media_type: 'REELS',
-        video_url: videoUrl,
-        caption: caption || '',
-        access_token: connection.accessToken
-      }
+      containerData
     );
 
     if (containerResponse.status !== 200) {
-      console.error('Failed to create Instagram media container:', containerResponse.data);
       return res.status(containerResponse.status).json({
         error: `Failed to create media container: ${containerResponse.data?.error?.message || 'Unknown error'}`
       });
     }
 
-    const containerData = containerResponse.data;
-    const creationId = containerData.id;
-
+    const creationId = containerResponse.data.id;
     console.log('Instagram media container created:', creationId);
 
-    // Step 2: Publish the media
+         // Wait for media processing
+     const _mediaId = await waitForMediaProcessing(creationId, connection.accessToken, contentType);
+
+    // Publish the media
     const publishResponse = await axios.post(
       `https://graph.facebook.com/v18.0/${connection.channelId}/media_publish`,
       {
@@ -2144,33 +2124,30 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
     );
 
     if (publishResponse.status !== 200) {
-      console.error('Failed to publish Instagram media:', publishResponse.data);
       return res.status(publishResponse.status).json({
         error: `Failed to publish media: ${publishResponse.data?.error?.message || 'Unknown error'}`
       });
     }
 
-    const publishData = publishResponse.data;
-    const mediaId = publishData.id;
+    const finalMediaId = publishResponse.data.id;
 
-    console.log('Instagram media published successfully:', mediaId);
-
-    // Store upload record in database
+    // Store upload record
     const uploadRecord = await prisma.socialMediaUpload.create({
       data: {
         profileId: userId,
         platform: 'instagram',
-        contentType: 'video',
-        uploadUrl: `https://www.instagram.com/p/${mediaId}/`,
-        platformId: mediaId,
-        title: caption || 'Instagram Reel',
+        contentType: contentType,
+        uploadUrl: `https://www.instagram.com/p/${finalMediaId}/`,
+        platformId: finalMediaId,
+        title: caption || `Instagram ${isVideo ? 'Reel' : 'Post'}`,
         description: caption,
         tags: [],
         metadata: {
-          mediaId: mediaId,
+          mediaId: finalMediaId,
           creationId: creationId,
           caption: caption,
-          mediaType: 'REELS'
+          mediaType: instagramMediaType,
+          contentType: contentType
         },
         status: 'uploaded',
         assetId: assetId || null
@@ -2179,23 +2156,23 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
 
     return res.json({
       success: true,
-      mediaId: mediaId,
-      url: `https://www.instagram.com/p/${mediaId}/`,
-      uploadRecord
+      mediaId: finalMediaId,
+      url: `https://www.instagram.com/p/${finalMediaId}/`,
+      uploadRecord,
+      contentType: contentType,
+      instagramMediaType: instagramMediaType
     });
 
   } catch (error) {
     console.error('Error uploading to Instagram:', error);
-
-    const errorMessage = 'Failed to upload video to Instagram';
+    
+    const errorMessage = 'Failed to upload to Instagram';
     let errorDetails = '';
 
     if (axios.isAxiosError(error)) {
       errorDetails = `Status: ${error.response?.status}, Message: ${error.response?.data?.error?.message || error.message}`;
-      console.error('Axios error details:', errorDetails);
     } else if (error instanceof Error) {
       errorDetails = error.message;
-      console.error('Standard error:', errorDetails);
     }
 
     return res.status(500).json({
@@ -2204,5 +2181,41 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
     });
   }
 });
+
+// Helper function to wait for Instagram media processing
+async function waitForMediaProcessing(creationId: string, accessToken: string, contentType: string): Promise<string> {
+  const maxAttempts = 30;
+  const pollInterval = 2000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`Polling attempt ${attempt}/${maxAttempts} for media status...`);
+    
+    try {
+      const statusResponse = await axios.get(
+        `https://graph.facebook.com/v18.0/${creationId}?fields=status_code&access_token=${accessToken}`
+      );
+
+      const statusCode = statusResponse.data.status_code;
+      
+      if (statusCode === 'FINISHED') {
+        console.log('Media is ready for publishing!');
+        return creationId;
+      } else if (statusCode === 'ERROR') {
+        throw new Error(`Instagram rejected the ${contentType}. Please check format, size, and content requirements.`);
+      } else {
+        console.log(`Media status: ${statusCode}, waiting...`);
+        await new Promise(resolve => global.setTimeout(resolve, pollInterval));
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Instagram rejected')) {
+        throw error;
+      }
+      console.error('Error checking media status:', error);
+      await new Promise(resolve => global.setTimeout(resolve, pollInterval));
+    }
+  }
+
+  throw new Error('Media processing timeout. Please try again.');
+}
 
 export default router; 
