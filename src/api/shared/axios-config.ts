@@ -56,6 +56,9 @@ export const authClient = createApiClient(`${BACKEND_URL}/api/auth`, 10000);
 // Generation-specific client with longer timeout
 export const generationClient = createApiClient(`${BACKEND_URL}/api`, undefined);
 
+// Analytics-specific client with longer timeout for complex queries
+export const analyticsClient = createApiClient(`${BACKEND_URL}/api`, 60000); // 60 seconds timeout
+
 // Helper function for manual auth headers (for special cases)
 export const getAuthHeaders = () => {
   const token = localStorage.getItem('auth_token');

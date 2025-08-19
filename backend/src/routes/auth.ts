@@ -294,6 +294,16 @@ router.post('/signin', async (req, res, next) => {
       });
     }
 
+    // Validate JWT secret
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+      console.error('JWT_SECRET environment variable is not configured');
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error'
+      });
+    }
+
     // Generate JWT token
     const token = jwt.sign(
       { 
@@ -304,7 +314,7 @@ router.post('/signin', async (req, res, next) => {
         initials: profile.initials,
         role: profile.role
       },
-      process.env.JWT_SECRET || 'fallback-secret',
+      jwtSecret,
       { expiresIn: '7d' }
     );
 
