@@ -6,6 +6,7 @@ import { authenticateToken } from '../middleware/auth';
 import { validateAndUpdateTemplateUsage } from '../middleware/template-access';
 import { CloudinaryService } from '../services/cloudinary.js';
 import { webhookSecurity } from '../middleware/webhook-security.js';
+import { CostService } from '../services/cost-service';
 
 const router = Router();
 
@@ -53,8 +54,11 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
     }
 
     let result: string;
+    let tokensUsed: number | undefined;
+    let processingStartTime: number;
     
     if (type === 'text') {
+      processingStartTime = Date.now();
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
         model: 'gpt-4',
         messages: [{ role: 'user', content: prompt }],
@@ -68,7 +72,9 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
       });
       
       result = response.data.choices[0].message.content;
+      tokensUsed = response.data.usage?.total_tokens;
     } else if (type === 'image') {
+      processingStartTime = Date.now();
       // Clean and truncate prompt for image generation
       let cleanPrompt = prompt.trim();
       
@@ -104,15 +110,24 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
       });
 
       result = response.data.data[0].url;
+      // Estimate tokens for image generation (rough estimate)
+      tokensUsed = cleanPrompt.split(' ').length * 1.3; // Rough token estimation
     } else {
       throw new Error(`Unsupported content type: ${type}`);
     }
 
+    // Return result for assets route to handle
     return res.json({
       success: true,
       data: {
         result,
-        assetId: null // No asset created here, assets route will handle it
+        assetId: null, // Let assets route create the asset
+        metadata: {
+          tokensUsed,
+          processingTime: Math.max(1, Math.round((Date.now() - processingStartTime) / 1000)),
+          sourceSystem: 'openai',
+          assetType: type
+        }
       },
       message: 'Content generated successfully'
     });
@@ -364,7 +379,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
 // RunwayML Integration
 router.post('/runwayml/generate', authenticateToken, async (req, res, next) => {
   try {
-    const { prompt } = generateContentSchema.parse(req.body);
+    const { prompt: _prompt } = generateContentSchema.parse(req.body);
     
     const runwaymlApiKey = process.env.RUNWAYML_API_KEY;
     if (!runwaymlApiKey) {
@@ -374,26 +389,23 @@ router.post('/runwayml/generate', authenticateToken, async (req, res, next) => {
       });
     }
 
+    const processingStartTime = Date.now();
+
     // This is a placeholder - RunwayML API integration would go here
     // The actual implementation depends on RunwayML's API structure
     
-    const asset = await prisma.generatedAsset.create({
-      data: {
-        profileId: (req as any).user.id,
-        channel: 'social_media',
-        format: 'mp4',
-        sourceSystem: 'runwayml',
-        assetType: 'video',
-        url: 'pending_runwayml',
-        instruction: prompt
-      }
-    });
-
+    // Return result for assets route to handle
     return res.json({
       success: true,
       data: {
-        assetId: asset.id,
-        status: 'processing'
+        result: 'pending_runwayml', // Placeholder URL
+        assetId: null, // Let assets route create the asset
+        metadata: {
+          processingTime: Math.max(1, Math.round((Date.now() - processingStartTime) / 1000)),
+          sourceSystem: 'runwayml',
+          assetType: 'video',
+          status: 'processing'
+        }
       },
       message: 'RunwayML generation started successfully'
     });
@@ -761,6 +773,43 @@ router.post('/heygen/webhook', webhookSecurity, async (req: any, res: any, _next
           cloudinaryData: cloudinaryData
         }
       });
+
+      // Record generation cost (HeyGen video)
+      try {
+        // Estimate duration if not provided: prefer Cloudinary width/height/bytes are present, but bytes is available.
+        // Without exact duration from HeyGen in webhook, we fallback to approx size-based duration.
+        // Assume bitrate ~ 5 Mbps => ~0.625 MB/s
+        const bytes: number | undefined = cloudinaryData?.video?.bytes;
+        let estimatedDurationSec: number | undefined = undefined;
+        if (typeof bytes === 'number' && bytes > 0) {
+          const megaBytes = bytes / (1024 * 1024);
+          const mbPerSecond = 0.625; // 5 Mbps
+          estimatedDurationSec = Math.max(5, Math.round(megaBytes / mbPerSecond));
+        }
+
+        const processingStartedAt = new Date(asset.createdAt).getTime();
+        const processingEndedAt = Date.now();
+        const processingTimeSec = Math.max(1, Math.round((processingEndedAt - processingStartedAt) / 1000));
+
+        const costBreakdown = await CostService.calculateGenerationCost({
+          platform: 'heygen',
+          assetType: 'video',
+          quality: 'standard',
+          duration: estimatedDurationSec,
+          processingTime: processingTimeSec
+        });
+
+        await CostService.recordGenerationCost(
+          updatedAsset.id,
+          updatedAsset.profileId,
+          costBreakdown,
+          'heygen',
+          'video',
+          'standard'
+        );
+      } catch (costError) {
+        console.error('Failed to record HeyGen generation cost:', costError);
+      }
 
       // Broadcast real-time update to connected clients
       broadcastUpdate(updatedAsset.profileId, {

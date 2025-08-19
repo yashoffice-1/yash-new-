@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../index';
 import { authenticateToken, requireSuperadmin, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { CostService } from '../services/cost-service';
 
 const router = Router();
 
@@ -277,7 +278,8 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       totalAssets,
       totalVideos,
       totalImages,
-      totalFavorites
+      totalFavorites,
+      costAnalytics
     ] = await Promise.all([
       // User analytics
       prisma.profile.count(),
@@ -361,7 +363,10 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       prisma.generatedAsset.count(),
       prisma.generatedAsset.count({ where: { assetType: 'video' } }),
       prisma.generatedAsset.count({ where: { assetType: 'image' } }),
-      prisma.generatedAsset.count({ where: { favorited: true } })
+      prisma.generatedAsset.count({ where: { favorited: true } }),
+      
+      // Cost analytics
+      CostService.getCostAnalytics(startDate, now)
     ]);
 
     console.log(`[Analytics] Queries completed in ${Date.now() - startTime}ms`);
@@ -493,18 +498,25 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
           byUser: topApiUsers
         },
         costs: {
-          total: 1250.50, // Mock data
-          perGeneration: 0.15, // Mock data
-          byPlatform: {
-            heygen: 450.25, // Mock data
-            openai: 650.75, // Mock data
-            runwayml: 149.50 // Mock data
-          }
+          total: costAnalytics.totalCost,
+          perGeneration: costAnalytics.averageCostPerGeneration,
+          byPlatform: costAnalytics.costByPlatform.reduce((acc, item) => {
+            acc[item.platform] = item.totalCost;
+            return acc;
+          }, {} as Record<string, number>),
+          platformCounts: costAnalytics.costByPlatform.reduce((acc, item) => {
+            acc[item.platform] = item.count;
+            return acc;
+          }, {} as Record<string, number>),
+          byAssetType: costAnalytics.costByAssetType.reduce((acc, item) => {
+            acc[item.assetType] = item.totalCost;
+            return acc;
+          }, {} as Record<string, number>)
         },
         revenue: {
-          total: 3500.00, // Mock data
-          perUser: 25.50, // Mock data
-          growth: 15.5 // Mock data
+          total: 3500.00, // Mock data - will be implemented in next step
+          perUser: 25.50, // Mock data - will be implemented in next step
+          growth: 15.5 // Mock data - will be implemented in next step
         }
       }
     };

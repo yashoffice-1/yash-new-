@@ -72,17 +72,85 @@ model GeneratedAsset {
   description    String?
   tags           String[]       @default([])
   
+  // Cost tracking fields
+  generationCost Decimal?       @map("generation_cost") @db.Decimal(10,4) // Cost in USD
+  processingTime Int?           @map("processing_time") // Time in seconds
+  
   // Relations
   profile        Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
   templateAccess UserTemplateAccess? @relation(fields: [templateAccessId], references: [id])
   socialMediaUploads SocialMediaUpload[]
+  costRecord     GenerationCostRecord?
 
   @@index([profileId, createdAt])
   @@index([sourceSystem, createdAt])
   @@index([assetType, createdAt])
   @@index([status, createdAt])
   @@index([favorited])
+  @@index([generationCost])
   @@map("generated_assets")
+}
+
+// Cost tracking for each generation
+model GenerationCostRecord {
+  id              String   @id @default(cuid())
+  assetId         String   @unique @map("asset_id")
+  profileId       String   @map("profile_id")
+  sourceSystem    String   @map("source_system")
+  assetType       String   @map("asset_type")
+  
+  // Cost breakdown
+  baseCost        Decimal  @map("base_cost") @db.Decimal(10,4) // Base cost for generation
+  processingCost  Decimal  @map("processing_cost") @db.Decimal(10,4) // Additional processing cost
+  storageCost     Decimal  @map("storage_cost") @db.Decimal(10,4) // Storage cost
+  totalCost       Decimal  @map("total_cost") @db.Decimal(10,4) // Total cost
+  
+  // Metadata
+  processingTime  Int      @map("processing_time") // Time in seconds
+  tokensUsed      Int?     @map("tokens_used") // For AI models
+  quality         String?  // Quality level (basic, standard, premium)
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  asset           GeneratedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  profile         Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, createdAt])
+  @@index([sourceSystem, createdAt])
+  @@index([assetType, createdAt])
+  @@index([totalCost])
+  @@map("generation_cost_records")
+}
+
+// Platform pricing configuration
+model PlatformPricing {
+  id              String   @id @default(cuid())
+  platform        String   // 'heygen', 'openai', 'runwayml'
+  assetType       String   @map("asset_type") // 'video', 'image', 'text'
+  quality         String   // 'basic', 'standard', 'premium'
+  
+  // Pricing
+  basePrice       Decimal  @map("base_price") @db.Decimal(10,4) // Base price per generation
+  perSecondPrice  Decimal? @map("per_second_price") @db.Decimal(10,4) // Price per second (for videos)
+  perTokenPrice   Decimal? @map("per_token_price") @db.Decimal(10,4) // Price per token (for AI)
+  
+  // Limits
+  maxDuration     Int?     @map("max_duration") // Max duration in seconds
+  maxTokens       Int?     @map("max_tokens") // Max tokens
+  
+  // Status
+  isActive        Boolean  @default(true) @map("is_active")
+  
+  // Timestamps
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([platform, assetType, quality])
+  @@index([platform, assetType])
+  @@map("platform_pricing")
 }
 
 // Webhook retry queue for failed webhooks
@@ -193,6 +261,7 @@ model Profile {
   socialMediaUploads       SocialMediaUpload[]
   generatedAssets          GeneratedAsset[]
   templateAccess           UserTemplateAccess[] // NEW
+  costRecords              GenerationCostRecord[]
 
   @@index([role])
   @@index([createdAt])

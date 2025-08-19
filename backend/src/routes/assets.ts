@@ -3,6 +3,7 @@ import { prisma } from '../index';
 import { z } from 'zod';
 import { authenticateToken } from '../middleware/auth';
 import { CloudinaryService } from '../services/cloudinary.js';
+import { CostService } from '../services/cost-service';
 
 const router = Router();
 
@@ -19,6 +20,13 @@ const createAssetSchema = z.object({
   format: z.string().optional(),
   inventoryId: z.string().optional(),
   favorited: z.boolean().default(false),
+  metadata: z.object({
+    processingTime: z.number().optional(),
+    tokensUsed: z.number().optional(),
+    sourceSystem: z.string().optional(),
+    assetType: z.string().optional(),
+    status: z.string().optional()
+  }).optional(),
 });
 
 // Schema for initiating generation (minimal data)
@@ -328,6 +336,32 @@ router.post('/', authenticateToken, async (req, res, next) => {
       },
       include: getAssetIncludeOptions()
     });
+
+    // Record generation cost for all AI-generated assets
+    try {
+      // Get processing time from metadata if available
+      const processingTime = validatedData.metadata?.processingTime || 1;
+      const tokensUsed = validatedData.metadata?.tokensUsed;
+      
+      const costBreakdown = await CostService.calculateGenerationCost({
+        platform: validatedData.sourceSystem,
+        assetType: validatedData.assetType,
+        quality: 'standard',
+        tokens: tokensUsed,
+        processingTime
+      });
+
+      await CostService.recordGenerationCost(
+        asset.id,
+        asset.profileId,
+        costBreakdown,
+        validatedData.sourceSystem,
+        validatedData.assetType,
+        'standard'
+      );
+    } catch (costError) {
+      console.error('Failed to record generation cost:', costError);
+    }
 
     return res.status(201).json({
       success: true,
