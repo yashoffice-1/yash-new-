@@ -9,6 +9,7 @@ import { UserManagement } from '../management/UserManagement';
 import { SystemStats } from './SystemStats';
 import { AdminSettings } from '../settings/AdminSettings';
 import { TemplateManager } from '../management/TemplateManager';
+import { AnalyticsDashboard } from '../analytics/AnalyticsDashboard';
 import { adminAPI } from '@/api/clients/backend-client';
 
 interface SystemStatsData {
@@ -21,7 +22,7 @@ interface SystemStatsData {
 }
 
 export function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'settings' | 'templates'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'settings' | 'templates' | 'analytics'>('overview');
   const [stats, setStats] = useState<SystemStatsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -148,8 +149,8 @@ export function AdminDashboard() {
       )}
 
       {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'users' | 'settings' | 'templates')}>
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'users' | 'settings' | 'templates' | 'analytics')}>
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Overview
@@ -161,6 +162,10 @@ export function AdminDashboard() {
           <TabsTrigger value="templates" className="flex items-center gap-2">
             <FileVideo className="h-4 w-4" />
             Templates
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Analytics
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -178,6 +183,10 @@ export function AdminDashboard() {
 
         <TabsContent value="templates" className="space-y-4">
           <TemplateManager />
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <AnalyticsDashboard />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

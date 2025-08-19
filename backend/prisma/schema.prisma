@@ -77,6 +77,11 @@ model GeneratedAsset {
   templateAccess UserTemplateAccess? @relation(fields: [templateAccessId], references: [id])
   socialMediaUploads SocialMediaUpload[]
 
+  @@index([profileId, createdAt])
+  @@index([sourceSystem, createdAt])
+  @@index([assetType, createdAt])
+  @@index([status, createdAt])
+  @@index([favorited])
   @@map("generated_assets")
 }
 
@@ -146,6 +151,9 @@ model UserTemplateAccess {
   variables   TemplateVariable[]
 
   @@unique([userId, sourceSystem, externalId])
+  @@index([userId, lastUsedAt])
+  @@index([templateName])
+  @@index([sourceSystem])
   @@map("user_template_access")
 }
 
@@ -186,6 +194,10 @@ model Profile {
   generatedAssets          GeneratedAsset[]
   templateAccess           UserTemplateAccess[] // NEW
 
+  @@index([role])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([emailVerified])
   @@map("profiles")
 }
 
@@ -249,6 +261,9 @@ model SocialMediaUpload {
   // Reference to the profile
   profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
+  @@index([profileId, createdAt])
+  @@index([platform, createdAt])
+  @@index([status, createdAt])
   @@map("social_media_uploads")
 }
 
