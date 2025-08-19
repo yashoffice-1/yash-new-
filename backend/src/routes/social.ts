@@ -1750,15 +1750,14 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if Facebook credentials are configured
+    // Check Facebook credentials
     if (!process.env.FACEBOOK_CLIENT_ID || !process.env.FACEBOOK_CLIENT_SECRET) {
-      console.error('Facebook credentials not configured');
       return res.status(500).json({
-        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET in your environment variables.'
+        error: 'Facebook credentials not configured. Please set FACEBOOK_CLIENT_ID and FACEBOOK_CLIENT_SECRET.'
       });
     }
 
-    // Get the user's Facebook connection
+    // Get Facebook connection
     const connection = await prisma.socialMediaConnection.findFirst({
       where: {
         profileId: userId,
@@ -1773,69 +1772,57 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
       });
     }
 
-    // Check if token is expired
+    // Check token expiration
     if (connection.tokenExpiresAt && new Date() > connection.tokenExpiresAt) {
       return res.status(401).json({
         error: 'Facebook token expired. Please reconnect your account.'
       });
     }
 
-    // Prepare post data
-    const postData: any = {
-      message: message || '',
+    // 🔁 Build the request
+    let endpoint = '';
+    const postData: Record<string, unknown> = {
       access_token: connection.accessToken
     };
 
-    // Add link if provided
-    if (link) {
-      postData.link = link;
-    }
-
-    // Add video if provided
-    if (videoUrl) {
-      postData.video_url = videoUrl;
-    }
-
-    // Add image if provided
     if (imageUrl) {
-      postData.image_url = imageUrl;
+      endpoint = `https://graph.facebook.com/v18.0/${connection.channelId}/photos`;
+      postData.url = imageUrl;
+      postData.caption = message || '';
+    } else if (videoUrl) {
+      endpoint = `https://graph.facebook.com/v18.0/${connection.channelId}/videos`;
+      postData.file_url = videoUrl;
+      postData.description = message || '';
+    } else {
+      endpoint = `https://graph.facebook.com/v18.0/${connection.channelId}/feed`;
+      postData.message = message || '';
+      if (link) postData.link = link;
     }
 
-    // Create the post
-    const response = await axios.post(
-      `https://graph.facebook.com/v18.0/${connection.channelId}/feed`,
-      postData
-    );
+    // 🌐 Make the Facebook API call
+    const fbResponse = await axios.post(endpoint, postData);
 
-    if (response.status !== 200) {
-      console.error('Failed to create Facebook post:', response.data);
-      return res.status(response.status).json({
-        error: `Failed to create post: ${response.data?.error?.message || 'Unknown error'}`
-      });
-    }
+    // 📌 Extract post ID
+    const postId = fbResponse.data.id || fbResponse.data.post_id || fbResponse.data.video_id;
+    const postUrl = `https://www.facebook.com/${postId}`;
 
-    const postResult = response.data;
-    const postId = postResult.id;
-
-    console.log('Facebook post created successfully:', postId);
-
-    // Store upload record in database
+    // 🗂️ Save to database
     const uploadRecord = await prisma.socialMediaUpload.create({
       data: {
         profileId: userId,
         platform: 'facebook',
         contentType: 'post',
-        uploadUrl: `https://www.facebook.com/${postId}`,
+        uploadUrl: postUrl,
         platformId: postId,
         title: message?.substring(0, 100) || 'Facebook Post',
-        description: message,
+        description: message || '',
         tags: [],
         metadata: {
           postId: postId,
-          message: message,
-          link: link,
-          videoUrl: videoUrl,
-          imageUrl: imageUrl,
+          message,
+          link,
+          videoUrl,
+          imageUrl,
           type: videoUrl ? 'video' : (imageUrl ? 'image' : (link ? 'link' : 'text'))
         },
         status: 'uploaded',
@@ -1843,10 +1830,11 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
       }
     });
 
+    // ✅ Return success
     return res.json({
       success: true,
-      postId: postId,
-      url: `https://www.facebook.com/${postId}`,
+      postId,
+      url: postUrl,
       uploadRecord
     });
 
@@ -1858,10 +1846,8 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
 
     if (axios.isAxiosError(error)) {
       errorDetails = `Status: ${error.response?.status}, Message: ${error.response?.data?.error?.message || error.message}`;
-      console.error('Axios error details:', errorDetails);
     } else if (error instanceof Error) {
       errorDetails = error.message;
-      console.error('Standard error:', errorDetails);
     }
 
     return res.status(500).json({
@@ -1870,6 +1856,7 @@ router.post('/facebook/upload', authenticateToken, async (req, res) => {
     });
   }
 });
+
 
 // Instagram Integration (using Facebook Graph API)
 router.post('/instagram/exchange-code', authenticateToken, async (req, res) => {
