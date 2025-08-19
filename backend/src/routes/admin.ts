@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../index';
-import { authenticateToken, requireSuperadmin, requireAdmin } from '../middleware/auth';
+import { authenticateToken, requireSuperadmin, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
@@ -58,13 +58,13 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // Update user role (superadmin only)
-router.patch('/users/:userId/role', authenticateToken, requireSuperadmin, async (req, res) => {
+router.patch('/users/:userId/role', authenticateToken, requireSuperadmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { userId } = req.params;
     const { role } = updateUserRoleSchema.parse(req.body);
     
     // Get the current user making the request
-    const currentUser = (req as any).user;
+    const currentUser = req.user;
     
     // Prevent superadmin from demoting themselves
     if (currentUser && currentUser.userId === userId && role !== 'superadmin') {
@@ -266,7 +266,6 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       userRoles,
       generatedAssets,
       assetsByType,
-      assetsBySource,
       socialConnections,
       socialUploads,
       successfulUploads,
@@ -303,11 +302,6 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       prisma.generatedAsset.groupBy({
         by: ['assetType'],
         _count: { assetType: true },
-        where: { createdAt: { gte: startDate } }
-      }),
-      prisma.generatedAsset.groupBy({
-        by: ['sourceSystem'],
-        _count: { sourceSystem: true },
         where: { createdAt: { gte: startDate } }
       }),
       
