@@ -493,6 +493,24 @@ export function AnalyticsDashboard() {
                        <div className="text-sm text-muted-foreground">Views</div>
                      </div>
                    </div>
+                   
+                   {/* Folder Analytics */}
+                   {safeGet(analyticsData, 'assets.storage.folders') && (
+                     <div className="border-t pt-4">
+                       <div className="text-sm font-medium mb-2">Storage by Folder:</div>
+                       <div className="space-y-2">
+                         {Object.entries(safeGet(analyticsData, 'assets.storage.folders', {})).map(([folder, data]: [string, any]) => (
+                           <div key={folder} className="flex justify-between items-center text-sm">
+                             <span className="capitalize">{folder}</span>
+                             <div className="flex items-center space-x-2">
+                               <span>{data.count} files</span>
+                               <span className="text-muted-foreground">({data.gb.toFixed(2)} GB)</span>
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
                 </div>
               </CardContent>
             </Card>

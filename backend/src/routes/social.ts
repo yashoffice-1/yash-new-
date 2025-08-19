@@ -2172,7 +2172,7 @@ router.post('/instagram/upload', authenticateToken, async (req, res) => {
 // Helper function to wait for Instagram media processing
 async function waitForMediaProcessing(creationId: string, accessToken: string, contentType: string): Promise<string> {
   const maxAttempts = 30;
-  const pollInterval = 2000;
+  const pollInterval = 5000;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     console.log(`Polling attempt ${attempt}/${maxAttempts} for media status...`);

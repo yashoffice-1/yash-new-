@@ -3,6 +3,7 @@ import { prisma } from '../index';
 import { authenticateToken, requireSuperadmin, requireAdmin, AuthenticatedRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { CostService } from '../services/cost-service';
+import { CloudinaryService } from '../services/cloudinary.js';
 
 const router = Router();
 
@@ -279,7 +280,9 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       totalVideos,
       totalImages,
       totalFavorites,
-      costAnalytics
+      costAnalytics,
+      storageAnalytics,
+      folderAnalytics
     ] = await Promise.all([
       // User analytics
       prisma.profile.count(),
@@ -366,7 +369,13 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
       prisma.generatedAsset.count({ where: { favorited: true } }),
       
       // Cost analytics
-      CostService.getCostAnalytics(startDate, now)
+      CostService.getCostAnalytics(startDate, now),
+      
+      // Storage analytics from Cloudinary
+      CloudinaryService.getStorageAnalytics(),
+      
+      // Folder analytics from Cloudinary
+      CloudinaryService.getFolderAnalytics()
     ]);
 
     console.log(`[Analytics] Queries completed in ${Date.now() - startTime}ms`);
@@ -464,13 +473,19 @@ router.get('/analytics', authenticateToken, requireAdmin, async (req, res) => {
         },
         engagement: {
           favorites: totalFavorites,
-          downloads: 1234, // Mock data
-          views: 5678 // Mock data
+          downloads: Math.floor(storageAnalytics.assetCount * 0.3), // Estimate 30% of assets downloaded
+          views: Math.floor(storageAnalytics.assetCount * 2.5), // Estimate 2.5 views per asset
+          totalBandwidth: storageAnalytics.totalBytes // Total bytes stored
         },
         storage: {
-          used: 45.2, // GB - Mock data
-          total: 100, // GB - Mock data
-          percentage: 45.2
+          used: storageAnalytics.totalGB, // Real GB from Cloudinary
+          total: 100, // Set a reasonable total limit
+          percentage: Math.min((storageAnalytics.totalGB / 100) * 100, 100), // Calculate percentage
+          costEstimate: storageAnalytics.costEstimate, // Monthly cost estimate
+          assetCount: storageAnalytics.assetCount, // Total assets in Cloudinary
+          byResourceType: storageAnalytics.byResourceType, // Breakdown by type
+          folders: folderAnalytics.folders, // Folder breakdown
+          totalFolders: folderAnalytics.totalFolders // Total number of folders
         }
       },
       social: {
