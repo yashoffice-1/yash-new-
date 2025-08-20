@@ -329,6 +329,7 @@ router.post('/', authenticateToken, async (req, res, next) => {
         profileId: userId,
         channel: validatedData.channel || 'social_media',
         format: validatedData.format || 'mp4',
+        status: 'completed', // Set status to completed since this is a fully generated asset being saved
         // Store Cloudinary public ID for future reference
         ...(cloudinaryPublicId && { 
           description: `${validatedData.description || ''}\n\nCloudinary ID: ${cloudinaryPublicId}`.trim()
