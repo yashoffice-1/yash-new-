@@ -145,6 +145,8 @@ export interface RealTimeMetrics {
   };
 }
 
+
+
 class AnalyticsClient {
   /**
    * Get comprehensive analytics data
@@ -238,6 +240,8 @@ class AnalyticsClient {
       throw new Error(error.response?.data?.error || 'Failed to fetch real-time metrics');
     }
   }
+
+
 }
 
 export const analyticsAPI = new AnalyticsClient();

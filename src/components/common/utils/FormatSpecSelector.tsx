@@ -23,14 +23,11 @@ interface FormatSpecs {
 // Channel-specific aspect ratios based on post type
 const INSTAGRAM_RATIOS = {
   'Feed Post': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
-  'Story': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'Reel Thumbnail': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'IGTV Cover': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'Feed Ad': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
-  'Story Ad': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'Reel Ad': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'Reel': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
-  'Story Video': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'IGTV': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   // Handle landscape option for posts (not commonly used but available)
   'Landscape': { value: '1.91:1', label: 'Landscape (1.91:1)', width: 1080, height: 566 },
@@ -40,7 +37,6 @@ const INSTAGRAM_RATIOS = {
 
 const FACEBOOK_RATIOS = {
   'Feed Post': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
-  'Story': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'Carousel': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
   'Cover Photo': { value: '2.63:1', label: 'Landscape (2.63:1)', width: 1125, height: 432 }
 };
@@ -54,7 +50,6 @@ const GOOGLE_ADS_RATIOS = {
 
 const LINKEDIN_RATIOS = {
   'Feed Image Post': { value: '1.91:1', label: 'Landscape (1.91:1)', width: 1200, height: 627 },
-  'Story': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'Carousel': { value: '1:1', label: 'Square (1:1)', width: 1080, height: 1080 },
   'Company Banner': { value: '4:1', label: 'Landscape (4:1)', width: 1536, height: 396 }
 };
@@ -81,7 +76,6 @@ const YOUTUBE_RATIOS = {
 const PINTEREST_RATIOS = {
   'Standard Pin': { value: '2:3', label: 'Vertical (2:3)', width: 1000, height: 1500 },
   'Square Pin': { value: '1:1', label: 'Square (1:1)', width: 1000, height: 1000 },
-  'Story / Idea Pin': { value: '9:16', label: 'Vertical (9:16)', width: 1080, height: 1920 },
   'Long Pin': { value: '1:2.1', label: 'Vertical (1:2.1)', width: 1000, height: 2100 }
 };
 

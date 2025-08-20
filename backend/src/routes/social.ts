@@ -2205,4 +2205,368 @@ async function waitForMediaProcessing(creationId: string, accessToken: string, c
   throw new Error('Media processing timeout. Please try again.');
 }
 
+// Get Instagram statistics with caching
+router.get('/instagram/stats', authenticateToken, async (req, res) => {
+  console.log('=== INSTAGRAM STATS ROUTE HIT ===');
+  try {
+    const userId = (req as any).user.userId;
+    const forceRefresh = req.query.refresh === 'true';
+
+    // Get the user's Instagram connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: 'instagram',
+        isActive: true
+      },
+      include: {
+        cachedData: {
+          where: {
+            dataType: 'stats'
+          }
+        }
+      }
+    });
+
+    if (!connection) {
+      return res.status(404).json({ error: 'Instagram connection not found' });
+    }
+
+    // Check if we have valid cached data and user didn't force refresh
+    const cachedStats = connection.cachedData[0];
+
+    if (!forceRefresh && isCacheValid(cachedStats)) {
+      console.log('cachedStats is valid');
+      return res.json({
+        stats: cachedStats.data,
+        cached: true,
+        lastUpdated: cachedStats.lastFetchedAt,
+      });
+    }
+
+    // Check if token is expired
+    if (connection.tokenExpiresAt && new Date() >= connection.tokenExpiresAt) {
+      if (forceRefresh) {
+        return res.status(401).json({ error: 'Instagram token expired. Please reconnect your account.' });
+      }
+      if (cachedStats) {
+        return res.json({
+          stats: cachedStats.data,
+          cached: true,
+          lastUpdated: cachedStats.lastFetchedAt,
+          note: 'Using cached data due to expired token'
+        });
+      } else {
+        return res.status(401).json({ error: 'Instagram token expired and no cached data available' });
+      }
+    }
+
+    // Fetch fresh data from Instagram Graph API
+    try {
+      console.log('Fetching Instagram insights for account:', connection.channelId);
+
+      // Get Instagram account insights (followers, reach, etc.)
+      const insightsResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${connection.channelId}/insights?metric=reach,follower_count&period=day&access_token=${connection.accessToken}`
+      );
+
+      if (!insightsResponse.ok) {
+        const errorText = await insightsResponse.text();
+        console.error('Instagram insights API error:', errorText);
+        throw new Error(`Instagram insights API failed: ${insightsResponse.status} - ${errorText}`);
+      }
+
+      const insightsData = await insightsResponse.json() as any;
+      console.log('Instagram insights data received:', JSON.stringify(insightsData, null, 2));
+
+      // Get recent media posts
+      const mediaResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${connection.channelId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,insights.metric(reach,likes,comments,shares,saves)&limit=5&access_token=${connection.accessToken}`
+      );
+
+      let recentPosts: any[] = [];
+      let totalEngagement = 0;
+      let totalReach = 0;
+
+      if (mediaResponse.ok) {
+        const mediaData = await mediaResponse.json() as any;
+        console.log('Instagram media data received:', JSON.stringify(mediaData, null, 2));
+        recentPosts = mediaData.data || [];
+
+        // Calculate total engagement and reach from posts
+        for (const post of recentPosts) {
+          if (post.insights && post.insights.data) {
+            const reach = post.insights.data.find((insight: any) => insight.name === 'reach')?.values[0]?.value || 0;
+            const likes = post.insights.data.find((insight: any) => insight.name === 'likes')?.values[0]?.value || 0;
+            const comments = post.insights.data.find((insight: any) => insight.name === 'comments')?.values[0]?.value || 0;
+            const shares = post.insights.data.find((insight: any) => insight.name === 'shares')?.values[0]?.value || 0;
+            const saves = post.insights.data.find((insight: any) => insight.name === 'saves')?.values[0]?.value || 0;
+            
+            totalReach += parseInt(reach) || 0;
+            totalEngagement += parseInt(likes) + parseInt(comments) + parseInt(shares) + parseInt(saves) || 0;
+          }
+        }
+
+        console.log('Found', recentPosts.length, 'recent Instagram posts');
+        console.log('Total engagement:', totalEngagement, 'Total reach:', totalReach);
+      } else {
+        console.log('Instagram media API failed, trying without insights...');
+        // Fallback: get media without insights if the insights request fails
+        const fallbackMediaResponse = await fetch(
+          `https://graph.facebook.com/v18.0/${connection.channelId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=5&access_token=${connection.accessToken}`
+        );
+        
+        if (fallbackMediaResponse.ok) {
+          const fallbackMediaData = await fallbackMediaResponse.json() as any;
+          recentPosts = fallbackMediaData.data || [];
+          console.log('Fallback: Found', recentPosts.length, 'recent Instagram posts (no insights available)');
+        }
+      }
+
+      // Extract insights data
+      const followers = insightsData.data?.find((item: any) => item.name === 'follower_count')?.values[0]?.value || 0;
+      const reach = insightsData.data?.find((item: any) => item.name === 'reach')?.values[0]?.value || 0;
+
+      // If insights fail, try to get basic account info
+      let accountInfo = null;
+      if (!insightsData.data || insightsData.data.length === 0) {
+        console.log('No insights data available, fetching basic account info');
+        try {
+          const accountResponse = await fetch(
+            `https://graph.facebook.com/v18.0/${connection.channelId}?fields=id,username,name&access_token=${connection.accessToken}`
+          );
+          if (accountResponse.ok) {
+            accountInfo = await accountResponse.json() as any;
+            console.log('Instagram account info received:', JSON.stringify(accountInfo, null, 2));
+          }
+        } catch (error) {
+          console.error('Error fetching Instagram account info:', error);
+        }
+      }
+
+      // Calculate engagement rate
+      const engagementRate = totalReach > 0 ? Math.round((totalEngagement / totalReach) * 100) : 0;
+
+      const stats = {
+        followers: parseInt(followers) || 0,
+        reach: parseInt(reach) || totalReach,
+        engagement: totalEngagement,
+        engagementRate: engagementRate,
+        recentPosts: recentPosts.length,
+        totalEngagement: totalEngagement,
+        totalReach: totalReach,
+        lastPost: recentPosts.length > 0 ? formatTimeAgo(new Date(recentPosts[0].timestamp)) : 'N/A'
+      };
+
+      console.log('Calculated Instagram stats:', stats);
+
+      // Cache the data
+      await prisma.socialMediaCachedData.upsert({
+        where: {
+          connectionId_dataType: {
+            connectionId: connection.id,
+            dataType: 'stats'
+          }
+        },
+        update: {
+          data: stats,
+          lastFetchedAt: new Date(),
+          expiresAt: getCacheExpiry('stats')
+        },
+        create: {
+          connectionId: connection.id,
+          dataType: 'stats',
+          data: stats,
+          expiresAt: getCacheExpiry('stats')
+        }
+      });
+
+      return res.json({
+        stats,
+        cached: false,
+        lastUpdated: new Date()
+      });
+
+    } catch (error) {
+      console.error('Error fetching Instagram stats:', error);
+
+      if (forceRefresh) {
+        return res.status(500).json({
+          error: 'Failed to fetch fresh data from Instagram API',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+
+      // Return cached data if available
+      if (cachedStats) {
+        return res.json({
+          stats: cachedStats.data,
+          cached: true,
+          lastUpdated: cachedStats.lastFetchedAt,
+          note: 'Using cached data due to API error'
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to fetch Instagram stats and no cached data available',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error getting Instagram stats:', error);
+    return res.status(500).json({ error: 'Failed to get Instagram stats' });
+  }
+});
+
+// Get Instagram recent activity with caching
+router.get('/instagram/activity', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const forceRefresh = req.query.refresh === 'true';
+
+    // Get the user's Instagram connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: 'instagram',
+        isActive: true
+      },
+      include: {
+        cachedData: {
+          where: {
+            dataType: 'activity'
+          }
+        }
+      }
+    });
+
+    if (!connection) {
+      return res.status(404).json({ error: 'Instagram connection not found' });
+    }
+
+    // Check if we have valid cached data
+    const cachedActivity = connection.cachedData[0];
+    if (!forceRefresh && isCacheValid(cachedActivity)) {
+      return res.json({
+        activity: cachedActivity.data,
+        cached: true,
+        lastUpdated: cachedActivity.lastFetchedAt
+      });
+    }
+
+    // Check if token is expired
+    if (connection.tokenExpiresAt && new Date() >= connection.tokenExpiresAt) {
+      if (forceRefresh) {
+        return res.status(401).json({ error: 'Instagram token expired. Please reconnect your account.' });
+      }
+      if (cachedActivity) {
+        return res.json({
+          activity: cachedActivity.data,
+          cached: true,
+          lastUpdated: cachedActivity.lastFetchedAt,
+          note: 'Using cached data due to expired token'
+        });
+      } else {
+        return res.status(401).json({ error: 'Instagram token expired and no cached data available' });
+      }
+    }
+
+    try {
+      console.log('Fetching Instagram activity for account:', connection.channelId);
+
+      // Fetch recent media posts
+      const response = await fetch(
+        `https://graph.facebook.com/v18.0/${connection.channelId}/media?fields=id,caption,media_type,media_url,thumbnail_url,permalink,timestamp&limit=10&access_token=${connection.accessToken}`
+      );
+
+      console.log('Instagram activity response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json() as any;
+        console.log('Instagram activity data received:', JSON.stringify(data, null, 2));
+        const activity = data.data?.map((post: any) => {
+          return {
+            id: post.id,
+            timestamp: formatTimeAgo(new Date(post.timestamp)),
+            message: post.caption ? (post.caption.substring(0, 100) + (post.caption.length > 100 ? '...' : '')) : 'No caption',
+            type: post.media_type || 'post',
+            mediaUrl: post.media_url || post.thumbnail_url,
+            permalink: post.permalink,
+            metrics: {
+              reach: 'N/A', // Insights not available in basic request
+              engagement: 'N/A', // Insights not available in basic request
+              likes: 'N/A', // Would need additional API call for detailed reactions
+              comments: 'N/A' // Would need additional API call for detailed reactions
+            }
+          };
+        }) || [];
+
+        console.log('Processed Instagram activity data:', activity.length, 'posts found');
+
+        // Cache the activity data
+        await prisma.socialMediaCachedData.upsert({
+          where: {
+            connectionId_dataType: {
+              connectionId: connection.id,
+              dataType: 'activity'
+            }
+          },
+          update: {
+            data: activity,
+            lastFetchedAt: new Date(),
+            expiresAt: getCacheExpiry('activity')
+          },
+          create: {
+            connectionId: connection.id,
+            dataType: 'activity',
+            data: activity,
+            expiresAt: getCacheExpiry('activity')
+          }
+        });
+
+        return res.json({
+          activity,
+          cached: false,
+          lastUpdated: new Date()
+        });
+
+      } else {
+        const errorText = await response.text();
+        console.error('Instagram activity API error:', errorText);
+        throw new Error(`Instagram activity API failed: ${response.status} - ${errorText}`);
+      }
+
+    } catch (error) {
+      console.error('Error fetching Instagram activity:', error);
+
+      if (forceRefresh) {
+        return res.status(500).json({
+          error: 'Failed to fetch fresh data from Instagram API',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+
+      // Return cached data if available
+      if (cachedActivity) {
+        return res.json({
+          activity: cachedActivity.data,
+          cached: true,
+          lastUpdated: cachedActivity.lastFetchedAt,
+          note: 'Using cached data due to API error'
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to fetch Instagram activity and no cached data available',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error getting Instagram activity:', error);
+    return res.status(500).json({ error: 'Failed to get Instagram activity' });
+  }
+});
+
 export default router; 
