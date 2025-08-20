@@ -550,13 +550,40 @@ export function AssetLibrary() {
     }
   };
 
-  const handleUploadComplete = (result: any) => {
+  const handleUploadComplete = (results: any) => {
+    // Handle multiple platform uploads
+    const uploadedPlatforms = Object.keys(results);
+    const platformNames = uploadedPlatforms.map(platform => {
+      switch (platform) {
+        case 'youtube': return 'YouTube';
+        case 'instagram': return 'Instagram';
+        case 'facebook': return 'Facebook';
+        default: return platform;
+      }
+    });
+
+    if (uploadedPlatforms.length === 1) {
+      // Single platform upload
+      const platform = uploadedPlatforms[0];
+      const result = results[platform];
+      toast({
+        title: "Upload Successful!",
+        description: `Your ${selectedAssetForUpload?.asset_type || 'asset'} has been uploaded to ${platformNames[0]}.`,
+      });
+    } else {
+      // Multiple platform uploads
+      toast({
+        title: "Multiple Uploads Successful!",
+        description: `Your ${selectedAssetForUpload?.asset_type || 'asset'} has been uploaded to ${platformNames.join(', ')}.`,
+      });
+    }
+
+    // Close modal and reset state
     setShowUploadModal(false);
     setSelectedAssetForUpload(null);
-    toast({
-      title: "Upload Successful!",
-      description: `Your video has been uploaded to ${result.platform || 'social media'}.`,
-    });
+    
+    // Refresh the asset list to show updated upload status
+    loadAssets(currentPage);
   };
 
   const assetCounts = {
