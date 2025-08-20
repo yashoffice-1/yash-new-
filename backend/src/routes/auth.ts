@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/emailService';
 import { authenticateToken } from '../middleware/auth';
+import { CloudinaryService } from '../services/cloudinary.js';
 
 const router = Router();
 
@@ -519,6 +520,208 @@ router.put('/profile', authenticateToken, async (req, res, next) => {
 
   } catch (error) {
     return next(error);
+  }
+});
+
+// Get current user's analytics
+router.get('/me/analytics', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user?.userId || (req as any).user?.id;
+    const { range = '30d' } = req.query;
+    const days = range === '7d' ? 7 : range === '90d' ? 90 : 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    console.log(`[User Analytics] Fetching analytics for current user ${userId}, range: ${range}`);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not authenticated'
+      });
+    }
+
+    // Get user profile
+    const user = await prisma.profile.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        createdAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Execute queries in parallel
+    const [
+      userAssets,
+      userCosts,
+      userStorage,
+      userActivity,
+      assetCounts,
+      costBreakdown
+    ] = await Promise.all([
+      // User's assets
+      prisma.generatedAsset.findMany({
+        where: { 
+          profileId: userId,
+          createdAt: { gte: startDate }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      }),
+
+      // User's generation costs
+      prisma.generationCostRecord.findMany({
+        where: { 
+          profileId: userId,
+          createdAt: { gte: startDate }
+        },
+        include: {
+          asset: {
+            select: {
+              assetType: true,
+              sourceSystem: true,
+              status: true
+            }
+          }
+        }
+      }),
+
+      // User's storage usage from Cloudinary
+      CloudinaryService.getUserStorageUsage(userId),
+
+      // User's social media uploads
+      prisma.socialMediaUpload.findMany({
+        where: { 
+          profileId: userId,
+          createdAt: { gte: startDate }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+
+      // Asset counts by type
+      prisma.generatedAsset.groupBy({
+        by: ['assetType', 'status'],
+        _count: { assetType: true },
+        where: { profileId: userId }
+      }),
+
+      // Cost breakdown by platform
+      prisma.generationCostRecord.groupBy({
+        by: ['sourceSystem'],
+        _sum: { totalCost: true },
+        _count: { sourceSystem: true },
+        where: { profileId: userId }
+      })
+    ]);
+
+    // Calculate asset statistics
+    const totalAssets = userAssets.length;
+    const videos = assetCounts.filter(a => a.assetType === 'video').reduce((sum, a) => sum + a._count.assetType, 0);
+    const images = assetCounts.filter(a => a.assetType === 'image').reduce((sum, a) => sum + a._count.assetType, 0);
+    const completed = assetCounts.filter(a => a.status === 'completed').reduce((sum, a) => sum + a._count.assetType, 0);
+    const pending = assetCounts.filter(a => a.status === 'pending').reduce((sum, a) => sum + a._count.assetType, 0);
+
+    // Calculate cost statistics
+    const totalCost = userCosts.reduce((sum, cost) => sum + Number(cost.totalCost), 0);
+    const avgCostPerGeneration = totalCost / Math.max(userCosts.length, 1);
+    
+    const costsByPlatform = costBreakdown.reduce((acc, item) => {
+      acc[item.sourceSystem] = Number(item._sum?.totalCost || 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    const platformCounts = costBreakdown.reduce((acc, item) => {
+      acc[item.sourceSystem] = item._count?.sourceSystem || 0;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const costsByAssetType = userCosts.reduce((acc, cost) => {
+      const assetType = cost.asset?.assetType || 'unknown';
+      acc[assetType] = (acc[assetType] || 0) + Number(cost.totalCost || 0);
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Calculate activity statistics
+    const thisMonth = new Date();
+    thisMonth.setDate(1);
+    const lastMonth = new Date(thisMonth);
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+
+    const thisMonthUploads = userActivity.filter(upload => 
+      new Date(upload.createdAt) >= thisMonth
+    ).length;
+
+    const lastMonthUploads = userActivity.filter(upload => 
+      new Date(upload.createdAt) >= lastMonth && new Date(upload.createdAt) < thisMonth
+    ).length;
+
+    const lastUpload = userActivity.length > 0 ? userActivity[0].createdAt : null;
+
+    // Build response
+    const userAnalytics = {
+      storage: {
+        used: userStorage.totalGB,
+        total: 10, // Default limit - can be made configurable
+        percentage: Math.min((userStorage.totalGB / 10) * 100, 100),
+        costEstimate: userStorage.costEstimate,
+        assetCount: userStorage.assetCount,
+        byResourceType: userStorage.byAssetType,
+        folders: {} // User-specific folders can be added here
+      },
+      costs: {
+        total: totalCost,
+        perGeneration: avgCostPerGeneration,
+        byPlatform: costsByPlatform,
+        platformCounts: platformCounts,
+        byAssetType: costsByAssetType
+      },
+      assets: {
+        total: totalAssets,
+        videos: videos,
+        images: images,
+        byStatus: {
+          completed: completed,
+          pending: pending
+        },
+        recent: userAssets.map(asset => ({
+          id: asset.id,
+          assetType: asset.assetType,
+          sourceSystem: asset.sourceSystem,
+          status: asset.status,
+          createdAt: asset.createdAt.toISOString(),
+          url: asset.url
+        }))
+      },
+      activity: {
+        lastUpload: lastUpload,
+        totalUploads: userActivity.length,
+        thisMonth: thisMonthUploads,
+        lastMonth: lastMonthUploads
+      }
+    };
+
+    return res.json({
+      success: true,
+      data: userAnalytics
+    });
+
+  } catch (error) {
+    console.error('[User Analytics] Error fetching user analytics:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch user analytics'
+    });
   }
 });
 

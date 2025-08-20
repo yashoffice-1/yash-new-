@@ -62,6 +62,11 @@ export interface AnalyticsData {
       used: number;
       total: number;
       percentage: number;
+      costEstimate?: number;
+      assetCount?: number;
+      byResourceType?: Record<string, { bytes: number; count: number; gb: number }>;
+      folders?: Record<string, { bytes: number; count: number; gb: number }>;
+      totalFolders?: number;
     };
   };
   social: {

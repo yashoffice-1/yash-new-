@@ -2,13 +2,14 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/data_display/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
-import { User, CreditCard, Settings, Library } from "lucide-react";
+import { User, CreditCard, Settings, Library, BarChart3 } from "lucide-react";
 import { AvatarWithInitials } from "@/components/ui/UI_Elements/avatar-with-initials";
 import { useAuth } from "@/contexts/AuthContext";
 import { PersonalInfo } from "./PersonalInfo";
 import { BillingSection } from "./BillingSection";
 import { SettingsSection } from "./SettingsSection";
 import { LibrarySection } from "./LibrarySection";
+import { UserAnalyticsDashboard } from "./analytics/UserAnalyticsDashboard";
 
 export function UserModule() {
   const [activeTab, setActiveTab] = useState("personal");
@@ -48,7 +49,7 @@ export function UserModule() {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="personal" className="flex items-center space-x-2">
                 <User className="h-4 w-4" />
                 <span>Personal Info</span>
@@ -64,6 +65,10 @@ export function UserModule() {
               <TabsTrigger value="library" className="flex items-center space-x-2">
                 <Library className="h-4 w-4" />
                 <span>Library</span>
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center space-x-2">
+                <BarChart3 className="h-4 w-4" />
+                <span>Analytics</span>
               </TabsTrigger>
             </TabsList>
 
@@ -81,6 +86,10 @@ export function UserModule() {
 
             <TabsContent value="library" className="space-y-4">
               <LibrarySection />
+            </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-4">
+              <UserAnalyticsDashboard />
             </TabsContent>
           </Tabs>
         </CardContent>
