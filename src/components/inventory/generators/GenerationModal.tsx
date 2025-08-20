@@ -50,7 +50,6 @@ const SUGGESTION_PROMPTS = {
   image: [
     "4th of July Message",
     "Send to a Customer via SMS", 
-    "Instagram Story",
     "Facebook Post",
     "250X 250 Banner"
   ],
@@ -62,7 +61,6 @@ const SUGGESTION_PROMPTS = {
   ],
   content: [
     "Write compelling Facebook Ad copy with headline and CTA",
-    "Create engaging Instagram Story text with hashtags",
     "Generate SMS marketing message under 160 characters",
     "Write email marketing content with subject line",
     "Create LinkedIn promotional post copy",
@@ -491,8 +489,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       let channelInstruction = '';
       if (suggestion.includes('Facebook Ad')) {
         channelInstruction = `Create compelling Facebook Ad copy for ${product.name}. Write a strong attention-grabbing headline, benefits-focused body text highlighting key features, and a clear call-to-action. Format specifically for Facebook advertising standards with engaging opening and compelling offer that drives clicks.`;
-      } else if (suggestion.includes('Instagram Story')) {
-        channelInstruction = `Create engaging Instagram Story text for ${product.name}. Write short, punchy copy that works well with visual content. Include 3-5 relevant hashtags and a strong call-to-action suitable for Stories format. Keep text minimal but impactful.`;
+
       } else if (suggestion.includes('SMS')) {
         channelInstruction = `Generate SMS marketing message for ${product.name}. Keep it concise (under 160 characters), include clear value proposition, create urgency, and strong call-to-action. Make it personal and direct to drive immediate action.`;
       } else if (suggestion.includes('email')) {

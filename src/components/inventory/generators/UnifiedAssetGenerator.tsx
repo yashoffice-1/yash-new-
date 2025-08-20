@@ -43,14 +43,14 @@ const ASSET_TYPES = [
 ];
 
 const TYPE_OPTIONS = {
-  'facebook-image': ['Feed Post', 'Story', 'Carousel', 'Cover Photo'],
-  'facebook-video': ['Feed Video', 'Story Video', 'Reel'],
-  'facebook-content': ['Post Copy', 'Ad Copy', 'Story Text'],
-  'facebook-ad': ['Feed Ad', 'Story Ad', 'Carousel Ad'],
-  'instagram-image': ['Feed Post', 'Story', 'Reel Thumbnail', 'IGTV Cover'],
-  'instagram-video': ['Reel', 'Story Video', 'IGTV'],
-  'instagram-content': ['Caption', 'Story Text', 'Bio'],
-  'instagram-ad': ['Feed Ad', 'Story Ad', 'Reel Ad'],
+  'facebook-image': ['Feed Post', 'Carousel', 'Cover Photo'],
+  'facebook-video': ['Feed Video', 'Reel'],
+  'facebook-content': ['Post Copy', 'Ad Copy'],
+  'facebook-ad': ['Feed Ad', 'Carousel Ad'],
+  'instagram-image': ['Feed Post', 'Reel Thumbnail', 'IGTV Cover'],
+  'instagram-video': ['Reel', 'IGTV'],
+  'instagram-content': ['Caption', 'Bio'],
+  'instagram-ad': ['Feed Ad', 'Reel Ad'],
   'google-ads-image': ['Responsive Display Ad', 'Banner Ad', 'Square Ad'],
   'google-ads-video': ['YouTube Ad', 'Display Video'],
   'google-ads-content': ['Search Ad Copy', 'Display Ad Text'],
@@ -85,17 +85,13 @@ const TYPE_OPTIONS = {
 
 const SPECIFICATIONS = {
   'Feed Post': '1080x1080',
-  'Story': '1080x1920',
   'Carousel': '1080x1080',
   'Cover Photo': '820x312',
   'Feed Video': '1080x1080, 15-60s',
-  'Story Video': '1080x1920, 15s',
   'Reel': '1080x1920, 15-30s',
   'Post Copy': '2200 chars max',
   'Ad Copy': '125 chars headline, 27 chars description',
-  'Story Text': '2200 chars max',
   'Feed Ad': '1080x1080',
-  'Story Ad': '1080x1920',
   'Carousel Ad': '1080x1080',
   'Caption': '2200 chars max',
   'Bio': '150 chars max',
@@ -438,7 +434,6 @@ export function UnifiedAssetGenerator({
       const isAdvertising = config.type.toLowerCase().includes('ad') ||
         config.type.toLowerCase().includes('ad') ||
         config.channel === 'google-ads' ||
-        config.type.includes('Story') ||
         config.type.includes('Reel');
 
       const initialInstruction = isAdvertising
@@ -548,7 +543,6 @@ export function UnifiedAssetGenerator({
     const isAdvertising = config.type.toLowerCase().includes('ad') ||
       config.type.toLowerCase().includes('ad') ||
       config.channel === 'google-ads' ||
-      config.type.includes('Story') ||
       config.type.includes('Reel');
 
     const tags = [
@@ -792,8 +786,7 @@ Return only the improved instruction without any additional text.`;
     const getSaveAssetType = (assetType: string): 'image' | 'video' | 'content' => {
       if (assetType === 'ad') {
         const isVideo = config?.type?.toLowerCase().includes('video') || 
-                       config?.type?.toLowerCase().includes('reel') ||
-                       config?.type?.toLowerCase().includes('story video');
+                       config?.type?.toLowerCase().includes('reel');
         return isVideo ? 'video' : 'image';
       }
       return assetType as 'image' | 'video' | 'content';

@@ -227,11 +227,19 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
   const handleUseForGeneration = (product: InventoryItem) => {
     console.log('Using product for generation:', product);
+    
+    // Select the product first
+    setSelectedProducts([product.id]);
     onProductSelect?.(product);
+
+    // Open the generation modal
+    setGenerationType('content'); // Default to content generation
+    setShowGenerator(true);
 
     toast({
       title: "Product Selected",
       description: `${product.name} has been selected for content generation.`,
+      variant: "default",
     });
   };
 
@@ -719,31 +727,26 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
       facebook: {
         image: {
           feed_post: `Create an eye-catching Facebook feed post image showcasing ${productName}. Use vibrant colors, clear product photography, and include compelling text overlay. Optimize for engagement and sharing.`,
-          story: `Design a Facebook story image for ${productName} with vertical format. Include engaging visuals, clear call-to-action, and story-appropriate text styling.`,
           ad: `Create a professional Facebook ad image for ${productName} with strong visual hierarchy, clear value proposition, and conversion-focused design.`
         },
         video: {
           feed_post: `Produce a compelling Facebook video showcasing ${productName} in action. Include engaging visuals, clear messaging, and optimize for autoplay viewing.`,
-          story: `Create a vertical Facebook story video for ${productName} with dynamic visuals, clear narrative, and story-appropriate duration.`,
           ad: `Develop a high-converting Facebook video ad for ${productName} with strong opening hook, clear value proposition, and call-to-action.`
         }
       },
       instagram: {
         image: {
           feed_post: `Design an Instagram-worthy feed post image for ${productName}. Use aesthetic photography, trending visual styles, and hashtag-friendly composition.`,
-          story: `Create an Instagram story image for ${productName} with vertical format, engaging visuals, and story-appropriate text styling.`,
           reel: `Design a thumbnail image for Instagram reel featuring ${productName}. Use bold visuals, trending aesthetics, and reel-optimized composition.`
         },
         video: {
           feed_post: `Produce an Instagram feed video showcasing ${productName}. Use trending visual styles, engaging transitions, and Instagram-optimized format.`,
-          story: `Create a vertical Instagram story video for ${productName} with dynamic visuals, clear narrative, and story-appropriate duration.`,
           reel: `Develop an Instagram reel video for ${productName} with trending music, engaging transitions, and reel-optimized format and duration.`
         }
       },
       tiktok: {
         video: {
           feed_post: `Create a TikTok video showcasing ${productName} with trending music, engaging transitions, and TikTok-optimized vertical format. Include trending hashtags and viral potential.`,
-          story: `Produce a TikTok story video for ${productName} with vertical format, engaging visuals, and story-appropriate duration.`,
           ad: `Develop a TikTok ad video for ${productName} with strong opening hook, trending elements, and conversion-focused design.`
         }
       },
@@ -1175,7 +1178,6 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
                             <option value="image">🖼️ Image</option>
                             <option value="video">🎥 Video</option>
                             <option value="carousel">🔄 Carousel</option>
-                            <option value="story">📱 Story</option>
                           </select>
                         </div>
                       </div>
@@ -1189,7 +1191,6 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
                           onChange={(e) => setGenerationConfig(prev => ({ ...prev, format: e.target.value }))}
                         >
                           <option value="feed_post">📄 Feed Post</option>
-                          <option value="story">📱 Story</option>
                           <option value="reel">🎬 Reel</option>
                           <option value="ad">📢 Ad</option>
                           <option value="banner">🖼️ Banner</option>
@@ -1269,28 +1270,7 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
                             </label>
                           </div>
                           
-                          <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
-                            generationConfig.formatSpec === 'story' 
-                              ? 'border-blue-500 bg-blue-50 shadow-md scale-105' 
-                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
-                          }`}>
-                            <input 
-                              type="radio" 
-                              name="format" 
-                              id="story" 
-                              value="story"
-                              checked={generationConfig.formatSpec === 'story'}
-                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, formatSpec: e.target.value }))}
-                              className="sr-only"
-                            />
-                            <label htmlFor="story" className="cursor-pointer">
-                              <div className="text-center">
-                                <div className="w-4 h-6 sm:w-4 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
-                                <p className="text-xs sm:text-sm font-medium">Story</p>
-                                <p className="text-xs text-gray-500 hidden sm:block">1080×1920px</p>
-                              </div>
-                            </label>
-                          </div>
+
                         </div>
                         <p className="text-xs text-blue-600 mt-2 flex items-center">
                           <span className="mr-1">✨</span>
