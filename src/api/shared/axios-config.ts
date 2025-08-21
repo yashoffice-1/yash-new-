@@ -53,6 +53,9 @@ export const apiClient = createApiClient();
 // Auth-specific client with shorter timeout
 export const authClient = createApiClient(`${BACKEND_URL}/api/auth`, 10000);
 
+// Asset-specific client with longer timeout for Cloudinary uploads
+export const assetClient = createApiClient(`${BACKEND_URL}/api`, 120000); // 2 minutes timeout
+
 // Generation-specific client with longer timeout
 export const generationClient = createApiClient(`${BACKEND_URL}/api`, undefined);
 
