@@ -17,6 +17,7 @@ import socialRoutes from './routes/social';
 import adminRoutes from './routes/admin';
 import settingsRoutes from './routes/settings';
 import cloudinaryRoutes from './routes/cloudinary';
+import shopifyRoutes from './routes/shopify'; // Add this line
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -90,6 +91,7 @@ app.use('/api/social', socialRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/cloudinary', cloudinaryRoutes);
+app.use('/api/shopify', shopifyRoutes); // Add this line
 
 // Error handling middleware
 app.use(notFoundHandler);
@@ -115,4 +117,4 @@ app.listen(PORT, () => {
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
 });
 
-export default app; 
+export default app;

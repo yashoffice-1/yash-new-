@@ -1,12 +1,13 @@
 
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
 import { Button } from "@/components/ui/forms/button";
 import { Input } from "@/components/ui/forms/input";
 import { Badge } from "@/components/ui/data_display/badge";
 import { Checkbox } from "@/components/ui/forms/checkbox";
-import { Search, Plus, Upload, Package, Edit, Trash2, Image, Video, FileText, Wand2, RefreshCw, CheckCircle, Save, ExternalLink, Loader2 } from "lucide-react";
+import { Search, Plus, Upload, Package, Edit, Trash2, Image, Video, FileText, Wand2, RefreshCw, CheckCircle, Save, ExternalLink, Loader2, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
 import { AddProductDialog } from "../dialogs/AddProductDialog";
 import { ImportProductsDialog } from "../dialogs/ImportProductsDialog";
@@ -41,11 +42,23 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const { addGenerationResult } = useGeneration();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<InventoryItem | null>(null);
+  const [isShopifyAuthenticating, setIsShopifyAuthenticating] = useState(false);
+  const [shopifyConnections, setShopifyConnections] = useState<any[]>([]);
+  const [shopDomain, setShopDomain] = useState("new-build-123.myshopify.com");
+
+  // Shopify products state
+  const [shopifyProducts, setShopifyProducts] = useState<any[]>([]);
+  const [isLoadingShopifyProducts, setIsLoadingShopifyProducts] = useState(false);
+  const [shopifyError, setShopifyError] = useState<string | null>(null);
+  const [selectedShopifyProducts, setSelectedShopifyProducts] = useState<string[]>([]);
+  const [showShopifyProducts, setShowShopifyProducts] = useState(false);
 
   // Multi-select state
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -225,6 +238,185 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
     });
   };
 
+  const handleShopifyAuth = async () => {
+    setIsShopifyAuthenticating(true);
+    
+    try {
+      // Validate shop domain format
+      const domain = shopDomain.trim().toLowerCase();
+      if (!domain.includes('.myshopify.com') && !domain.includes('.')) {
+        throw new Error('Please enter a valid Shopify domain (e.g., yourstore.myshopify.com)');
+      }
+
+      // Get the auth token from localStorage
+      const authToken = localStorage.getItem('auth_token');
+      
+      if (!authToken) {
+        throw new Error('No authentication token found. Please sign in again.');
+      }
+
+      // Get the backend URL from environment variables
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+
+      // Call the backend API to initiate Shopify OAuth
+      const response = await fetch(`${backendUrl}/api/shopify/auth/initiate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ shopDomain }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Redirect to Shopify OAuth URL
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error(data.error || 'Failed to initiate Shopify authentication');
+      }
+    } catch (error: any) {
+      console.error('Shopify authentication error:', error);
+      toast({
+        title: "Authentication Error",
+        description: error.message || "Failed to authenticate with Shopify. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsShopifyAuthenticating(false);
+    }
+  };
+
+  // Function to fetch Shopify products
+  const fetchShopifyProducts = async (connectionId: string) => {
+    setIsLoadingShopifyProducts(true);
+    setShopifyError(null);
+    
+    try {
+      const authToken = localStorage.getItem('auth_token');
+      
+      if (!authToken) {
+        throw new Error('No authentication token found');
+      }
+
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      
+      const response = await fetch(`${backendUrl}/api/shopify/products/${connectionId}`, {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setShopifyProducts(data.data.products || []);
+        setShowShopifyProducts(true);
+        toast({
+          title: "✅ Shopify Products Loaded",
+          description: `Successfully fetched ${data.data.products?.length || 0} products from ${data.data.shop?.name || 'your store'}.`,
+        });
+      } else {
+        throw new Error(data.error || 'Failed to fetch Shopify products');
+      }
+    } catch (error: any) {
+      console.error('Error fetching Shopify products:', error);
+      setShopifyError(error.message);
+      toast({
+        title: "❌ Failed to Load Products",
+        description: error.message || "Failed to fetch products from Shopify. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingShopifyProducts(false);
+    }
+  };
+
+  // Fetch Shopify connections on component mount
+  useEffect(() => {
+    const fetchShopifyConnections = async () => {
+      try {
+        // Get the auth token from localStorage
+        const authToken = localStorage.getItem('auth_token');
+        
+        if (!authToken) {
+          console.warn('No auth token found for fetching Shopify connections');
+          return;
+        }
+
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        
+        const response = await fetch(`${backendUrl}/api/shopify/connections`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+        });
+        const data = await response.json();
+        if (data.success) {
+          setShopifyConnections(data.data);
+          
+          // Auto-fetch products from the first connected store
+          const connectedStores = data.data.filter((conn: any) => conn.status === 'connected');
+          if (connectedStores.length > 0) {
+            // Automatically fetch products from the first connected store
+            fetchShopifyProducts(connectedStores[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching Shopify connections:', error);
+      }
+    };
+
+    // Check if user is authenticated by checking both user object and token
+    const authToken = localStorage.getItem('auth_token');
+    if (user && authToken) {
+      fetchShopifyConnections();
+    }
+  }, [user]);
+
+  // Handle Shopify OAuth success/error messages
+  useEffect(() => {
+    const shopifyConnected = searchParams.get('shopify_connected');
+    const shopifyError = searchParams.get('shopify_error');
+    const shop = searchParams.get('shop');
+    const errorMessage = searchParams.get('message');
+
+    if (shopifyConnected === 'true' && shop) {
+      toast({
+        title: "✅ Shopify Connected Successfully!",
+        description: `Your store ${shop} has been successfully connected and is ready to use.`,
+      });
+      
+      // Clear the success parameters from URL
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('shopify_connected');
+      newSearchParams.delete('shop');
+      setSearchParams(newSearchParams);
+      
+      // Refresh Shopify connections
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
+
+    if (shopifyError === 'true') {
+      toast({
+        title: "❌ Shopify Connection Failed",
+        description: errorMessage || "Failed to connect to Shopify. Please try again.",
+        variant: "destructive",
+      });
+      
+      // Clear the error parameters from URL
+      const newSearchParams = new URLSearchParams(searchParams);
+      newSearchParams.delete('shopify_error');
+      newSearchParams.delete('message');
+      setSearchParams(newSearchParams);
+    }
+  }, [searchParams, setSearchParams, toast]);
+
   const handleUseForGeneration = (product: InventoryItem) => {
     console.log('Using product for generation:', product);
     
@@ -268,6 +460,79 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       setSelectedProducts(inventory.map(product => product.id));
     } else {
       setSelectedProducts([]);
+    }
+  };
+
+  // Shopify product selection handlers
+  const handleShopifyProductSelect = (productId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedShopifyProducts(prev => [...prev, productId]);
+    } else {
+      setSelectedShopifyProducts(prev => prev.filter(id => id !== productId));
+    }
+  };
+
+  const handleSelectAllShopify = (checked: boolean) => {
+    if (checked) {
+      setSelectedShopifyProducts(shopifyProducts.map(product => product.id));
+    } else {
+      setSelectedShopifyProducts([]);
+    }
+  };
+
+  // Import selected Shopify products to inventory
+  const handleImportFromShopify = async () => {
+    if (selectedShopifyProducts.length === 0) {
+      toast({
+        title: "No Products Selected",
+        description: "Please select at least one Shopify product to import.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Find selected products
+      const productsToImport = shopifyProducts.filter(product => 
+        selectedShopifyProducts.includes(product.id)
+      );
+
+      // Convert Shopify products to inventory format and create them
+      for (const shopifyProduct of productsToImport) {
+        const inventoryData = {
+          name: shopifyProduct.title,
+          description: shopifyProduct.description,
+          price: shopifyProduct.variants[0]?.price ? parseFloat(shopifyProduct.variants[0].price) : null,
+          sku: shopifyProduct.variants[0]?.sku || null,
+          category: shopifyProduct.productType || null,
+          brand: shopifyProduct.vendor || null,
+          images: shopifyProduct.images.map((img: any) => img.url),
+          metadata: {
+            shopifyId: shopifyProduct.id,
+            handle: shopifyProduct.handle,
+            tags: shopifyProduct.tags
+          }
+        };
+
+        await inventoryAPI.create(inventoryData);
+      }
+
+      refetch();
+      refetchCategories();
+      setSelectedShopifyProducts([]);
+      
+      toast({
+        title: "✅ Products Imported Successfully",
+        description: `${productsToImport.length} product${productsToImport.length > 1 ? 's' : ''} imported from Shopify to your inventory.`,
+      });
+
+    } catch (error: any) {
+      console.error('Error importing Shopify products:', error);
+      toast({
+        title: "❌ Import Failed",
+        description: "Failed to import products from Shopify. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -718,6 +983,59 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
 
   const selectedProductsData = inventory.filter(product => selectedProducts.includes(product.id));
 
+  // Simple Shopify Product Card component
+  const ShopifyProductCard = ({ product, isSelected, onSelect }: { 
+    product: any; 
+    isSelected: boolean; 
+    onSelect: (id: string, checked: boolean) => void;
+  }) => (
+    <div className={`border rounded-xl p-4 transition-all duration-200 hover:shadow-lg ${
+      isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+    }`}>
+      <div className="flex items-start space-x-3">
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={(checked) => onSelect(product.id, checked as boolean)}
+          className="mt-1"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start space-x-3">
+            {product.images[0] && (
+              <img
+                src={product.images[0].url}
+                alt={product.images[0].altText || product.title}
+                className="w-16 h-16 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-900 truncate mb-1">{product.title}</h3>
+              {product.description && (
+                <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.description}</p>
+              )}
+              <div className="flex flex-wrap gap-2 text-xs">
+                {product.vendor && (
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                    {product.vendor}
+                  </Badge>
+                )}
+                {product.productType && (
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    {product.productType}
+                  </Badge>
+                )}
+                {product.variants[0]?.price && (
+                  <Badge variant="secondary" className="bg-green-50 text-green-800 border-green-200">
+                    ${product.variants[0].price}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // Generate platform-specific instruction placeholder
   const getPlatformSpecificInstruction = () => {
     const { channel, type, format, formatSpec } = generationConfig;
@@ -821,6 +1139,30 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
                 </option>
               ))}
             </select>
+
+            {/* Shopify Domain Input */}
+            <div className="flex items-center space-x-2">
+              <Input
+                placeholder="Enter your Shopify domain (e.g., your-store.myshopify.com)"
+                value={shopDomain}
+                onChange={(e) => setShopDomain(e.target.value)}
+                className="w-80"
+              />
+              <Button 
+                onClick={handleShopifyAuth}
+                disabled={isShopifyAuthenticating || !shopDomain.trim()}
+                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isShopifyAuthenticating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ShoppingBag className="h-4 w-4" />
+                )}
+                <span>
+                  {isShopifyAuthenticating ? 'Connecting...' : 'Connect Shopify'}
+                </span>
+              </Button>
+            </div>
 
             <div className="flex space-x-2">
               <Button onClick={() => setShowAddDialog(true)} className="flex items-center space-x-2">
@@ -988,6 +1330,198 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
           )}
         </CardContent>
       </Card>
+
+      {/* Shopify Products Section */}
+      {shopifyConnections.length > 0 && shopifyConnections.some(conn => conn.status === 'connected') && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ShoppingBag className="h-5 w-5 text-green-600" />
+                <div>
+                  <CardTitle className="text-green-800">Shopify Products</CardTitle>
+                  <CardDescription>
+                    Products from your connected Shopify store{shopifyConnections.length > 1 ? 's' : ''}
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                {showShopifyProducts && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowShopifyProducts(false)}
+                    className="text-gray-600 hover:text-gray-800"
+                  >
+                    Hide Products
+                  </Button>
+                )}
+                <select
+                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      fetchShopifyProducts(e.target.value);
+                    }
+                  }}
+                >
+                  <option value="">Select Store</option>
+                  {shopifyConnections
+                    .filter(conn => conn.status === 'connected')
+                    .map((connection) => (
+                      <option key={connection.id} value={connection.id}>
+                        {connection.shopName || connection.shopDomain}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Shopify Products Loading State */}
+            {isLoadingShopifyProducts && (
+              <div className="text-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600" />
+                <p className="text-gray-600">Loading products from Shopify...</p>
+              </div>
+            )}
+
+            {/* Shopify Products Error State */}
+            {shopifyError && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ExternalLink className="h-8 w-8 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Products</h3>
+                <p className="text-red-600 mb-4">{shopifyError}</p>
+                <Button
+                  onClick={() => {
+                    const connectedStore = shopifyConnections.find(conn => conn.status === 'connected');
+                    if (connectedStore) {
+                      fetchShopifyProducts(connectedStore.id);
+                    }
+                  }}
+                  variant="outline"
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {/* Shopify Products Content */}
+            {showShopifyProducts && !isLoadingShopifyProducts && !shopifyError && (
+              <>
+                {/* Selection Controls */}
+                {shopifyProducts.length > 0 && (
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 mb-6">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center space-x-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSelectAllShopify(!(selectedShopifyProducts.length === shopifyProducts.length))}
+                          className={`flex items-center space-x-2 transition-all duration-200 ${
+                            selectedShopifyProducts.length === shopifyProducts.length && shopifyProducts.length > 0
+                              ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200'
+                              : 'hover:bg-green-100'
+                          }`}
+                        >
+                          <Checkbox
+                            checked={selectedShopifyProducts.length === shopifyProducts.length && shopifyProducts.length > 0}
+                            className="w-4 h-4"
+                          />
+                          <span>Select All</span>
+                        </Button>
+                        
+                        {selectedShopifyProducts.length > 0 && (
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
+                              {selectedShopifyProducts.length} selected
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedShopifyProducts([])}
+                              className="text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                            >
+                              Clear Selection
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {selectedShopifyProducts.length > 0 && (
+                        <Button
+                          onClick={handleImportFromShopify}
+                          className="flex items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+                        >
+                          <Upload className="h-4 w-4" />
+                          <span>Import to Inventory</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Products Grid */}
+                {shopifyProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {shopifyProducts.map((product, index) => (
+                      <div
+                        key={product.id}
+                        className="transform transition-all duration-300 hover:scale-105"
+                        style={{ animationDelay: `${index * 50}ms` }}
+                      >
+                        <ShopifyProductCard
+                          product={product}
+                          isSelected={selectedShopifyProducts.includes(product.id)}
+                          onSelect={handleShopifyProductSelect}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ShoppingBag className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Products Found</h3>
+                    <p className="text-gray-500 mb-4">
+                      No products were found in the selected Shopify store.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Initial State - No products loaded yet */}
+            {!showShopifyProducts && !isLoadingShopifyProducts && !shopifyError && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShoppingBag className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Connected to Shopify!</h3>
+                <p className="text-gray-500 mb-4">
+                  Your Shopify store is connected. Select a store above to view and import products.
+                </p>
+                <Button
+                  onClick={() => {
+                    const connectedStore = shopifyConnections.find(conn => conn.status === 'connected');
+                    if (connectedStore) {
+                      fetchShopifyProducts(connectedStore.id);
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <ShoppingBag className="h-4 w-4 mr-2" />
+                  Load Products
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Dialogs */}
       <AddProductDialog
