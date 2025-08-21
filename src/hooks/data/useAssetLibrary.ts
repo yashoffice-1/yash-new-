@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { assetsAPI } from '@/api/clients/backend-client';
+import { assetClient } from '@/api/shared/axios-config';
 import { handleSaveError, showSaveSuccess } from '@/utils/assetSaving';
 
 export interface AssetLibraryItem {
@@ -45,8 +45,9 @@ export function useAssetLibrary() {
     inventoryId?: string;
   }) => {
     setIsLoading(true);
+    
     try {
-      const response = await assetsAPI.createAsset({
+      const response = await assetClient.post('/assets', {
         title: asset.title,
         description: asset.description,
         tags: asset.tags,
@@ -92,7 +93,7 @@ export function useAssetLibrary() {
       if (filters?.page) params.page = filters.page;
       if (filters?.limit) params.limit = filters.limit;
 
-      const response = await assetsAPI.getAssets(params);
+      const response = await assetClient.get('/assets', { params });
       return {
         assets: response.data.data,
         pagination: response.data.pagination
@@ -115,7 +116,7 @@ export function useAssetLibrary() {
       if (filters?.search) params.search = filters.search;
       if (filters?.tags) params.tags = filters.tags.join(',');
 
-      const response = await assetsAPI.getAssetCounts(params);
+      const response = await assetClient.get('/assets/counts', { params });
       return response.data.data;
     } catch (error) {
       console.error('Error fetching asset type counts:', error);
@@ -125,7 +126,7 @@ export function useAssetLibrary() {
 
   const toggleFavorite = async (id: string, favorited: boolean) => {
     try {
-      const response = await assetsAPI.toggleFavorite(id);
+      const response = await assetClient.patch(`/assets/${id}/favorite`);
       return response.data.data;
     } catch (error) {
       console.error('Error toggling favorite:', error);
@@ -135,7 +136,7 @@ export function useAssetLibrary() {
 
   const deleteFromLibrary = async (id: string) => {
     try {
-      await assetsAPI.deleteAsset(id);
+      await assetClient.delete(`/assets/${id}`);
     } catch (error) {
       console.error('Error deleting asset:', error);
       throw error;

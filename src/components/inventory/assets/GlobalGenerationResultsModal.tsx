@@ -287,7 +287,7 @@ export function GlobalGenerationResultsModal() {
                     variant="outline"
                     onClick={() => handleSaveToLibrary(asset)}
                     size="sm"
-                    className="flex items-center space-x-1"
+                    className="flex items-center space-x-1 relative"
                     disabled={savingAssets.has(asset.id)}
                   >
                     <Save className="h-4 w-4" />

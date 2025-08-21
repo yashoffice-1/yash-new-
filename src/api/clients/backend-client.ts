@@ -1,4 +1,4 @@
-import { apiClient } from '../shared/axios-config';
+import { apiClient, assetClient } from '../shared/axios-config';
 import type { Asset, InventoryItem, Template, GenerationRequest } from '../types';
 
 // Inventory API
@@ -52,7 +52,7 @@ export const assetsAPI = {
     url: string;
     tags?: string[];
     inventoryId?: string; // ✅ Include inventoryId
-  }) => apiClient.post('/assets', data),
+  }) => assetClient.post('/assets', data),
 
   // Update asset
   updateAsset: (assetId: string, data: { url?: string; status?: string }) =>

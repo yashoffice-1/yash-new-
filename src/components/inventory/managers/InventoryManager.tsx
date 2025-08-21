@@ -1176,13 +1176,12 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
               </Button>
 
               {inventory && inventory.length > 0 && (
-                <Button 
-                  variant="outline" 
+                <div 
                   onClick={() => handleSelectAll(!(selectedProducts.length === inventory.length))}
-                  className={`flex items-center space-x-2 transition-all duration-200 ${
+                  className={`flex items-center space-x-2 p-2 border rounded-md cursor-pointer transition-all duration-200 ${
                     selectedProducts.length === inventory.length && inventory.length > 0
                       ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
-                      : 'hover:bg-gray-100'
+                      : 'hover:bg-gray-100 border-gray-200'
                   }`}
                 >
                   <Checkbox
@@ -1190,7 +1189,7 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
                     className="w-4 h-4"
                   />
                   <span>Select All</span>
-                </Button>
+                </div>
               )}
             </div>
           </div>
