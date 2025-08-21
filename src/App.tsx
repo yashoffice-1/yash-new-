@@ -16,6 +16,7 @@ import SignUp from "@/pages/auth/SignUp";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import { EmailVerification } from "@/components/auth/EmailVerification";
+import { ShopifyCallback } from "@/pages/auth/ShopifyCallback";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,16 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <OAuthCallback />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Shopify Callback Route */}
+              <Route 
+                path="/auth/shopify/callback" 
+                element={
+                  <ProtectedRoute>
+                    <ShopifyCallback />
                   </ProtectedRoute>
                 } 
               />
