@@ -21,6 +21,10 @@ export default [
         global: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
         
         // ✅ CommonJS globals
         require: 'readonly',

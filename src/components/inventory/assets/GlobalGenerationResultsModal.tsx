@@ -31,11 +31,20 @@ export function GlobalGenerationResultsModal() {
       if (lowerInstruction.includes('twitter') || lowerInstruction.includes('x')) return 'twitter';
       if (lowerInstruction.includes('tiktok')) return 'tiktok';
       if (lowerInstruction.includes('youtube')) return 'youtube';
-      if (lowerInstruction.includes('google ads')) return 'google_ads';
+      if (lowerInstruction.includes('google ads')) return 'google-ads';
       return 'social_media';
     }
     
-    // For visual assets, default to social_media
+    // For visual assets, try to extract from instruction or default to social_media
+    const lowerInstruction = instruction.toLowerCase();
+    if (lowerInstruction.includes('facebook') || lowerInstruction.includes('fb')) return 'facebook';
+    if (lowerInstruction.includes('instagram') || lowerInstruction.includes('ig')) return 'instagram';
+    if (lowerInstruction.includes('linkedin') || lowerInstruction.includes('li')) return 'linkedin';
+    if (lowerInstruction.includes('twitter') || lowerInstruction.includes('x')) return 'twitter';
+    if (lowerInstruction.includes('tiktok')) return 'tiktok';
+    if (lowerInstruction.includes('youtube')) return 'youtube';
+    if (lowerInstruction.includes('google ads')) return 'google-ads';
+    if (lowerInstruction.includes('pinterest')) return 'pinterest';
     return 'social_media';
   };
 
