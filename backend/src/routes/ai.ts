@@ -14,7 +14,13 @@ const router = Router();
 const generateContentSchema = z.object({
   prompt: z.string().min(1, 'Prompt is required'),
   type: z.enum(['text', 'image', 'video']),
-  options: z.record(z.any()).optional()
+  options: z.record(z.any()).optional(),
+  referenceImage: z.string().min(1, 'Reference image must be a non-empty string').optional(),
+  // Allow additional fields that might be sent by frontend but not used by backend
+  productInfo: z.any().optional(),
+  instruction: z.string().optional(), // Allow instruction as alternative to prompt
+  formatSpecs: z.any().optional(), // Allow formatSpecs as alternative to options
+  channel: z.string().optional() // Channel information for asset organization
 });
 
 const heygenGenerateSchema = z.object({
@@ -42,7 +48,34 @@ const youtubeMetadataSchema = z.object({
 // OpenAI Integration
 router.post('/openai/generate', authenticateToken, async (req, res, next) => {
   try {
-    const { prompt, type, options } = generateContentSchema.parse(req.body);
+    const validatedData = generateContentSchema.parse(req.body);
+    
+    // Handle both prompt/instruction and options/formatSpecs naming conventions
+    const prompt = validatedData.prompt || validatedData.instruction;
+    const type = validatedData.type;
+    const options = validatedData.options || validatedData.formatSpecs;
+    
+    // Log the received data for debugging
+    console.log('OpenAI generate request:', {
+      received: req.body,
+      validated: validatedData,
+      processed: { prompt, type, options }
+    });
+    
+    // Validate that we have the required fields
+    if (!prompt) {
+      return res.status(400).json({
+        success: false,
+        error: 'Prompt or instruction is required'
+      });
+    }
+    
+    if (!type) {
+      return res.status(400).json({
+        success: false,
+        error: 'Type is required'
+      });
+    }
 
     const openaiApiKey = process.env.OPENAI_API_KEY;
  
@@ -60,10 +93,13 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
     if (type === 'text') {
       processingStartTime = Date.now();
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4',
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: options?.maxTokens || 1000,
-        temperature: options?.temperature || 0.7
+        max_tokens: options?.maxTokens || 400,
+        temperature: options?.temperature || 0.5,
+        top_p: 0.9, // Optional but helps filter out low-probability responses
+        frequency_penalty: 0.2, // Reduce repeated phrasing
+        presence_penalty: 0.1 // Slight encouragement for creativity
       }, {
         headers: {
           'Authorization': `Bearer ${openaiApiKey}`,
@@ -79,12 +115,6 @@ router.post('/openai/generate', authenticateToken, async (req, res, next) => {
       let cleanPrompt = prompt.trim();
       
       // Remove any text that might cause issues with image generation
-      cleanPrompt = cleanPrompt
-        .replace(/text overlay|text overlay|overlay text|typography|font|call-to-action|CTA|button|logo|brand|website|URL|link/gi, '')
-        .replace(/Facebook|Instagram|social media|platform/gi, '')
-        .replace(/pixels|px|size|dimensions/gi, '')
-        .replace(/professional|business|marketing|advertising/gi, '')
-        .replace(/engagement|sharing|viral|trending/gi, '');
       
       // Truncate to OpenAI's recommended length for image prompts
       if (cleanPrompt.length > 1000) {
@@ -379,7 +409,7 @@ router.post('/heygen/generate', authenticateToken, validateAndUpdateTemplateUsag
 // RunwayML Integration
 router.post('/runwayml/generate', authenticateToken, async (req, res, next) => {
   try {
-    const { prompt: _prompt } = generateContentSchema.parse(req.body);
+    const { prompt, type, options, referenceImage } = generateContentSchema.parse(req.body);
     
     const runwaymlApiKey = process.env.RUNWAYML_API_KEY;
     if (!runwaymlApiKey) {
@@ -390,25 +420,274 @@ router.post('/runwayml/generate', authenticateToken, async (req, res, next) => {
     }
 
     const processingStartTime = Date.now();
+    const _userId = (req as any).user.userId;
 
-    // This is a placeholder - RunwayML API integration would go here
-    // The actual implementation depends on RunwayML's API structure
-    
-    // Return result for assets route to handle
+    // Only support image generation for now
+    if (type !== 'image') {
+      return res.status(400).json({
+        success: false,
+        error: 'Only image generation is supported for RunwayML'
+      });
+    }
+
+    try {
+      let response;
+      
+      // Validate prompt length
+      const cleanPrompt = prompt.trim();
+      if (cleanPrompt.length > 1000) {
+        return res.status(400).json({
+          success: false,
+          error: `Prompt too long (${cleanPrompt.length} chars). Maximum 1000 characters allowed.`
+        });
+      }
+      
+      // Convert width/height to ratio format
+      const width = options?.width || 1024;
+      const height = options?.height || 1024;
+      const ratio = `${width}:${height}`;
+
+      // Strict validations per RunwayML spec
+      const ACCEPTED_RATIOS = new Set([
+        '1920:1080','1080:1920','1024:1024','1360:768','1080:1080','1168:880','1440:1080','1080:1440',
+        '1808:768','2112:912','1280:720','720:1280','720:720','960:720','720:960','1680:720'
+      ]);
+      if (!ACCEPTED_RATIOS.has(ratio)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid ratio '${ratio}'. Accepted values: ${Array.from(ACCEPTED_RATIOS).join(', ')}`
+        });
+      }
+
+
+
+      const SEED_MIN = 0;
+      const SEED_MAX = 4294967295;
+      const providedSeed = (options as any)?.seed;
+      if (providedSeed !== undefined) {
+        const seedNum = Number(providedSeed);
+        if (!Number.isFinite(seedNum) || seedNum < SEED_MIN || seedNum > SEED_MAX) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid seed '${providedSeed}'. Seed must be an integer between ${SEED_MIN} and ${SEED_MAX}.`
+          });
+        }
+      }
+
+             const selectedModel = 'gen4_image_turbo';
+       if (selectedModel === 'gen4_image_turbo') {
+         if (!referenceImage) {
+           return res.status(400).json({
+             success: false,
+             error: 'gen4_image_turbo requires at least one reference image.'
+           });
+         }
+         const isHttpsOrData = typeof referenceImage === 'string' && (/^https:\/\//.test(referenceImage) || /^data:/.test(referenceImage));
+         if (!isHttpsOrData) {
+           return res.status(400).json({
+             success: false,
+             error: 'referenceImage must be a HTTPS URL or a valid data URI.'
+           });
+         }
+         
+         // Validate that the reference image is accessible
+         try {
+           console.log('Validating reference image accessibility:', referenceImage);
+           const imageResponse = await axios.head(referenceImage, { timeout: 10000 });
+           console.log('Reference image validation successful:', imageResponse.status);
+         } catch (imageError: any) {
+           console.error('Reference image validation failed:', imageError.message);
+           return res.status(400).json({
+             success: false,
+             error: `Reference image is not accessible: ${imageError.message}. Please ensure the image URL is valid and publicly accessible.`
+           });
+         }
+       }
+
+             // Prepare base request body
+       const requestBody: any = {
+         promptText: cleanPrompt, // Use cleaned prompt
+         ratio: ratio,
+         seed: providedSeed !== undefined ? Number(providedSeed) : Math.floor(Math.random() * 1000000),
+         model: selectedModel,
+         contentModeration: {
+           publicFigureThreshold: "auto"
+         }
+       };
+
+      // Add reference images if provided
+      if (referenceImage) {
+        console.log('Using RunwayML Text-to-Image with reference image:', referenceImage);
+        requestBody.referenceImages = [
+          {
+            uri: referenceImage,
+            tag: "reference"
+          }
+        ];
+      } else {
+        console.log('Using RunwayML Text-to-Image without reference');
+      }
+
+      // Log the prompt for debugging
+      console.log('RunwayML prompt:', cleanPrompt);
+      console.log('RunwayML ratio:', ratio);
+
+             console.log('Sending request to RunwayML with body:', JSON.stringify(requestBody, null, 2));
+       console.log('RunwayML API Key configured:', !!runwaymlApiKey);
+       console.log('Reference image provided:', !!referenceImage);
+
+       try {
+         response = await axios.post('https://api.dev.runwayml.com/v1/text_to_image', requestBody, {
+          headers: {
+            'Authorization': `Bearer ${runwaymlApiKey}`,
+            'X-Runway-Version': '2024-11-06',
+            'Content-Type': 'application/json'
+          },
+          timeout: 120000 // 2 minute timeout
+        });
+       } catch (initialError: any) {
+         console.error('Initial RunwayML API call failed:', initialError.response?.data || initialError.message);
+         console.error('Request body that failed:', JSON.stringify(requestBody, null, 2));
+         throw new Error(`Initial RunwayML API call failed: ${initialError.response?.data?.message || initialError.message}`);
+       }
+
+      console.log('RunwayML API response status:', response.status);
+      console.log('RunwayML API response headers:', response.headers);
+      console.log('RunwayML API response data:', response.data);
+
+      // Extract the job ID from the response
+      const jobId = response.data.id;
+      
+      if (!jobId) {
+        console.error('No job ID received from RunwayML API. Response:', response.data);
+        throw new Error('No job ID received from RunwayML API');
+      }
+      
+             console.log('RunwayML task ID received:', jobId);
+       
+       // Poll for the result
+       let imageUrl = null;
+       let attempts = 0;
+       const maxAttempts = 30; // 30 attempts * 4 seconds = 2 minutes max
+       const pollInterval = 7000; // 7 seconds
+       
+       while (attempts < maxAttempts) {
+         attempts++;
+         console.log(`Polling attempt ${attempts}/${maxAttempts} for task ${jobId}`);
+        
+                 try {
+           // Check task status using the correct endpoint
+           const statusResponse = await axios.get(`https://api.dev.runwayml.com/v1/tasks/${jobId}`, {
+             headers: {
+               'Authorization': `Bearer ${runwaymlApiKey}`,
+               'X-Runway-Version': '2024-11-06'
+             },
+             timeout: 10000
+           });
+           
+           console.log('Task status response:', statusResponse.data);
+           
+           const taskStatus = statusResponse.data.status;
+           
+           if (taskStatus === 'SUCCEEDED') {
+             // Extract image URL from completed task
+             if (statusResponse.data.output && Array.isArray(statusResponse.data.output) && statusResponse.data.output.length > 0) {
+               imageUrl = statusResponse.data.output[0];
+               console.log('Found image URL in completed task:', imageUrl);
+               break;
+             } else {
+               console.error('Task succeeded but no image URL found in output:', statusResponse.data.output);
+               throw new Error('Task succeeded but no image URL found');
+             }
+                       } else if (taskStatus === 'FAILED') {
+              const errorMessage = statusResponse.data.failure || statusResponse.data.error || 'Task failed';
+              const failureCode = statusResponse.data.failureCode || 'UNKNOWN';
+              console.error('Task failed:', errorMessage, 'Code:', failureCode);
+              console.error('Full failure response:', JSON.stringify(statusResponse.data, null, 2));
+              
+              // Provide more specific error messages for common failure codes
+              let detailedError = `RunwayML task failed: ${errorMessage} (Code: ${failureCode})`;
+              if (failureCode === 'INTERNAL.BAD_OUTPUT.CODE01') {
+                detailedError = `Content policy violation: The prompt or reference image may contain inappropriate content. Please try a different prompt or reference image. (Code: ${failureCode})`;
+              } else if (failureCode.includes('REFERENCE')) {
+                detailedError = `Reference image error: The reference image may be inaccessible or invalid. Please try a different image. (Code: ${failureCode})`;
+              }
+              
+              throw new Error(detailedError);
+           } else if (taskStatus === 'PENDING' || taskStatus === 'RUNNING') {
+             console.log(`Task still ${taskStatus}, waiting ${pollInterval/1000} seconds...`);
+             await new Promise(resolve => setTimeout(resolve, pollInterval));
+           } else {
+             console.log(`Unknown task status: ${taskStatus}, waiting ${pollInterval/1000} seconds...`);
+             await new Promise(resolve => setTimeout(resolve, pollInterval));
+           }
+                                   } catch (pollError: any) {
+            console.error(`Error polling task ${jobId} (attempt ${attempts}):`, pollError.response?.data || pollError.message);
+            
+            // If it's a task failure error, don't retry
+            if (pollError.message && pollError.message.includes('RunwayML task failed:')) {
+              throw pollError; // Re-throw the failure error immediately
+            }
+            
+            if (attempts >= maxAttempts) {
+              throw new Error(`Failed to get task result after ${maxAttempts} attempts`);
+            }
+            
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+          }
+       }
+       
+              if (!imageUrl) {
+         throw new Error(`Task did not complete within ${maxAttempts * pollInterval / 1000} seconds`);
+       }
+
+       // Return result for assets route to handle (same as OpenAI pattern)
     return res.json({
       success: true,
       data: {
-        result: 'pending_runwayml', // Placeholder URL
+           result: imageUrl, // Return the original RunwayML URL
         assetId: null, // Let assets route create the asset
         metadata: {
-          processingTime: Math.max(1, Math.round((Date.now() - processingStartTime) / 1000)),
+             processingTime: Math.round((Date.now() - processingStartTime) / 1000),
           sourceSystem: 'runwayml',
-          assetType: 'video',
-          status: 'processing'
-        }
-      },
-      message: 'RunwayML generation started successfully'
-    });
+             assetType: 'image',
+             model: 'gen4_image_turbo',
+             runwaymlResponse: response.data,
+             runwaymlRequest: {
+               promptText: prompt,
+               ratio: ratio,
+               referenceImages: referenceImage ? [{ uri: referenceImage, tag: "reference" }] : null,
+               model: 'gen4_image_turbo',
+               endpoint: '/v1/text_to_image',
+               apiVersion: '2024-11-06',
+               taskId: jobId,
+               pollingAttempts: attempts,
+               timestamp: new Date().toISOString()
+             }
+           }
+         },
+         message: 'Image generated successfully using RunwayML Gen4 Turbo'
+       });
+
+    } catch (apiError: any) {
+      console.error('RunwayML API error:', apiError.response?.data || apiError.message);
+      console.error('RunwayML API error status:', apiError.response?.status);
+      console.error('RunwayML API error headers:', apiError.response?.headers);
+
+      // Provide more detailed error information
+      let errorDetails = apiError.response?.data || apiError.message;
+      if (apiError.response?.status) {
+        errorDetails = `Status: ${apiError.response.status}, Details: ${JSON.stringify(errorDetails)}`;
+      }
+
+      return res.status(500).json({
+        success: false,
+        error: 'RunwayML image generation failed',
+        details: errorDetails
+      });
+    }
+
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({

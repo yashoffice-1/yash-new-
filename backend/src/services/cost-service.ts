@@ -290,7 +290,10 @@ export class CostService {
       // RunwayML pricing
       { platform: 'runwayml', assetType: 'video', quality: 'basic', basePrice: 0.20, perSecondPrice: 0.025 },
       { platform: 'runwayml', assetType: 'video', quality: 'standard', basePrice: 0.30, perSecondPrice: 0.035 },
-      { platform: 'runwayml', assetType: 'video', quality: 'premium', basePrice: 0.40, perSecondPrice: 0.045 }
+      { platform: 'runwayml', assetType: 'video', quality: 'premium', basePrice: 0.40, perSecondPrice: 0.045 },
+      { platform: 'runwayml', assetType: 'image', quality: 'basic', basePrice: 0.05, perTokenPrice: 0.0001 },
+      { platform: 'runwayml', assetType: 'image', quality: 'standard', basePrice: 0.10, perTokenPrice: 0.0002 },
+      { platform: 'runwayml', assetType: 'image', quality: 'premium', basePrice: 0.15, perTokenPrice: 0.0003 }
     ];
 
     for (const pricing of defaultPricing) {

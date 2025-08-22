@@ -33,10 +33,12 @@ export const generationAPI = {
       height?: number;
       duration?: string;
     };
+    referenceImage?: string;
   }) => generationClient.post('/ai/runwayml/generate', {
     prompt: data.instruction,
     type: data.type,
-    options: data.formatSpecs
+    options: data.formatSpecs,
+    referenceImage: data.referenceImage
   }),
 
   // OpenAI generation (Text/Image)
@@ -52,10 +54,12 @@ export const generationAPI = {
       temperature?: number;
       size?: string;
     };
+    channel?: string;
   }) => generationClient.post('/ai/openai/generate', {
     prompt: data.instruction,
     type: data.type,
-    options: data.formatSpecs
+    options: data.formatSpecs,
+    channel: data.channel
   }),
 
   // Get HeyGen templates

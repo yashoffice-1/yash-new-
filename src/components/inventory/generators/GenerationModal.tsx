@@ -949,7 +949,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
       if (lowerInstruction.includes('twitter') || lowerInstruction.includes('x')) return 'twitter';
       if (lowerInstruction.includes('tiktok')) return 'tiktok';
       if (lowerInstruction.includes('youtube')) return 'youtube';
-      if (lowerInstruction.includes('google ads')) return 'google_ads';
+      if (lowerInstruction.includes('google ads')) return 'google-ads';
       return 'social_media';
     }
     

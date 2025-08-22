@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
@@ -566,8 +565,8 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
             return 'runway'; // Runway for other video platforms
           }
         } else if (type === 'image') {
-          // Use OpenAI for images (fallback to free services)
-          return 'openai';
+          // Use RunwayML for image generation with reference image support
+          return 'runway';
         } else {
           // Use OpenAI for text content
           return 'openai';
@@ -593,19 +592,29 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
           const instruction = generationConfig.instructions || getPlatformSpecificInstruction();
           
-          // Prepare format specifications
+          // Prepare format specifications - only include what's actually used by each service
           const formatSpecs = {
-            channel: generationConfig.channel,
-            assetType: generationConfig.type,
-            format: generationConfig.format,
-            specification: generationConfig.formatSpec,
-            width: generationConfig.formatSpec === 'square' ? 1080 : 
-                   generationConfig.formatSpec === 'landscape' ? 1920 : 1080,
-            height: generationConfig.formatSpec === 'square' ? 1080 : 
-                    generationConfig.formatSpec === 'landscape' ? 1080 : 1920,
-            aspectRatio: generationConfig.formatSpec === 'square' ? '1:1' : 
-                        generationConfig.formatSpec === 'landscape' ? '16:9' : '9:16',
-            duration: generationConfig.type === 'video' ? '5' : undefined
+            // For OpenAI: only size for images, maxTokens/temperature for text
+            ...(generationConfig.type === 'image' && {
+              size: generationConfig.formatSpec === 'square' ? '1024x1024' : 
+                    generationConfig.formatSpec === 'landscape' ? '1792x1024' : '1024x1792'
+            }),
+            ...(generationConfig.type === 'content' && {
+              maxTokens: 200,
+              temperature: 0.7
+            }),
+            // For HeyGen: aspect ratio and other video-specific specs
+            ...(service === 'heygen' && {
+              aspectRatio: generationConfig.formatSpec === 'square' ? '1:1' : 
+                          generationConfig.formatSpec === 'landscape' ? '16:9' : '9:16'
+            }),
+            // For RunwayML: width/height for image generation
+            ...(service === 'runway' && generationConfig.type === 'image' && {
+              width: generationConfig.formatSpec === 'square' ? 1024 : 
+                     generationConfig.formatSpec === 'landscape' ? 1920 : 1024,
+              height: generationConfig.formatSpec === 'square' ? 1024 : 
+                      generationConfig.formatSpec === 'landscape' ? 1080 : 1920
+            })
           };
 
           let result;
@@ -622,6 +631,13 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
               result = await generateWithHeyGen(product, instruction, formatSpecs);
             } else if (service === 'runway') {
               // Call Runway API
+              const hasReferenceImage = product.images && product.images.length > 0;
+              if (hasReferenceImage) {
+                toast({
+                  title: `Generating with RunwayML`,
+                  description: `Creating image using reference image for ${product.name}...`,
+                });
+              }
               result = await generateWithRunway(product, instruction, formatSpecs);
             } else {
               // Call OpenAI API
@@ -669,14 +685,16 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
               assetUrl = `pending_${result?.data?.videoId || ''}`;
               status = result?.data?.status || 'processing';
             } else if (service === 'runway') {
-              // RunwayML returns: { success: true, data: { assetId, status } }
-              assetUrl = `pending_runwayml_${result?.data?.assetId || ''}`;
-              status = result?.data?.status || 'processing';
+              // RunwayML gen4_image_turbo returns completed image directly (same as OpenAI)
+              console.log('Processing RunwayML result structure:', JSON.stringify(result, null, 2));
+              assetUrl = result?.data?.result || '';
+              console.log('Extracted assetUrl for RunwayML:', assetUrl);
+              status = 'completed';
             }
 
             // Add error handling for empty URLs
-            if (!assetUrl && service === 'openai') {
-              console.error('No URL found in OpenAI response. Full result:', result);
+            if (!assetUrl && (service === 'openai' || service === 'runway')) {
+              console.error(`No URL found in ${service} response. Full result:`, result);
               // For content generation, use a placeholder
               if (generationConfig.type === 'content') {
                 assetUrl = 'content-generated';
@@ -701,6 +719,8 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
             };
           } catch (error) {
             console.error(`Generation failed for ${product.name}:`, error);
+            console.error(`Service was: ${service}, Generation config:`, generationConfig);
+            console.error(`Full result that caused error:`, result);
             
             // Return a placeholder result for failed generations
             return {
@@ -793,6 +813,17 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
 
   // Runway API integration
   const generateWithRunway = async (product: InventoryItem, instruction: string, formatSpecs: any) => {
+    // Use the first product image as reference image for image generation
+    const referenceImage = generationConfig.type === 'image' && product.images && product.images.length > 0 
+      ? product.images[0] 
+      : undefined;
+
+    if (referenceImage) {
+      console.log(`Using reference image for ${product.name}:`, referenceImage);
+    } else {
+      console.log(`No reference image available for ${product.name}, using text-to-image generation`);
+    }
+
     const response = await generationAPI.generateWithRunway({
       type: generationConfig.type as 'image' | 'video',
       instruction: instruction,
@@ -800,7 +831,8 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
         name: product.name,
         description: product.description || ''
       },
-      formatSpecs: formatSpecs
+      formatSpecs: formatSpecs,
+      referenceImage: referenceImage
     });
 
     return response.data;
@@ -818,18 +850,35 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       formatSpecs: formatSpecs
     });
 
-    const response = await generationAPI.generateWithOpenAI({
-      type: generationConfig.type === 'content' ? 'text' : 'image',
-      instruction: instruction,
-      productInfo: {
-        name: product.name,
-        description: product.description || ''
-      },
-      formatSpecs: formatSpecs
-    });
+    try {
+      const response = await generationAPI.generateWithOpenAI({
+        type: generationConfig.type === 'content' ? 'text' : 'image',
+        instruction: instruction,
+        productInfo: {
+          name: product.name,
+          description: product.description || ''
+        },
+        formatSpecs: formatSpecs,
+        channel: generationConfig.channel
+      });
 
-    console.log('OpenAI API response:', response);
-    return response.data;
+      console.log('OpenAI API response:', response);
+      console.log('OpenAI API response.data:', response.data);
+      console.log('OpenAI API response.data.data:', response.data?.data);
+      
+      // Return the data structure that matches the backend response
+      // The backend returns: { success: true, data: { result, assetId, metadata }, message }
+      // So we return response.data which contains the backend response
+      return response.data;
+    } catch (error) {
+      console.error('OpenAI API call failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      throw error;
+    }
   };
 
 
@@ -918,26 +967,36 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
       }
 
       // Create enhanced prompt for instruction improvement
-      const enhancementPrompt = `Improve this instruction for ${generationConfig.type} generation on ${generationConfig.channel} platform. Keep it concise and focused on visual elements:
+      const enhancementPrompt = `You are a prompt engineer for AI image generation tools. Your task is to enhance the following instruction to produce a clean, high-quality product image for use on the ${generationConfig.channel} platform.
 
-Original instruction: "${currentInstruction.trim()}"
+User's original instruction:
+"${currentInstruction.trim()}"
 
-Product: ${product.name}
-${product.description ? `Description: ${product.description}` : ''}
-${product.brand ? `Brand: ${product.brand}` : ''}
-${product.category ? `Category: ${product.category}` : ''}
+Product Details:
+- Name: ${product.name}
+${product.description ? `- Description: ${product.description}` : ''}
+${product.brand ? `- Brand: ${product.brand}` : ''}
+${product.category ? `- Category: ${product.category}` : ''}
 
-Please enhance this instruction to be more specific and effective for AI ${generationConfig.type} generation. Focus on:
-- Visual style and composition
-- Color scheme and lighting
-- Product positioning and angles
-- Text overlay and typography
-- Platform-specific optimizations
-- Call-to-action elements
+Enhance the instruction with the following rules:
+1. Focus on **clean, realistic product photography**.
+2. **Do NOT include** text overlays, buttons, mock UI, or logos.
+3. Emphasize **professional composition, lighting, shadows**, and **background** suited for ${generationConfig.channel}.
+4. Ensure the **product is centered, fully visible**, and shown from an ideal angle.
+5. Include platform-specific framing or format if relevant (e.g., square for Instagram, vertical for Reels, etc.).
+6. Use natural or studio lighting, with a soft shadow or clean backdrop.
+7. Avoid abstract, surreal, or cartoon styles unless the original intent requires it.
 
-Keep the response concise (max 200 words) and focused on visual elements. Return only the improved instruction without any additional text.`;
+Your output should be:
+- A single enhanced prompt (max 200 words)
+- Directly usable by an AI image generation model
+- Focused only on visual instructions
+- Do not explain your changes — return only the improved prompt.
+`;
+
 
       // Call OpenAI API to improve the instruction
+      console.log('Enhancement prompt:', enhancementPrompt);
       const response = await generationAPI.generateWithOpenAI({
         type: 'text',
         instruction: enhancementPrompt,
@@ -946,11 +1005,15 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
           description: product.description || ''
         },
         formatSpecs: {
-          maxTokens: 500,
-          temperature: 0.7
-        }
+          maxTokens: 250, // Lowered from 500 to reduce cost & latency
+          temperature: 0.5 // Reduced randomness for more reliable outputs
+        },
+        channel: generationConfig.channel
       });
-      console.log(response?.data);
+      
+      console.log('Enhancement response:', response);
+      console.log('Enhancement response.data:', response?.data);
+      console.log('Enhancement response.data.data:', response?.data?.data);
       if (response?.data?.data?.result) {
         const improvedInstruction = response.data.data.result.trim();
         
@@ -1044,57 +1107,30 @@ Keep the response concise (max 200 words) and focused on visual elements. Return
     const platformInstructions = {
       facebook: {
         image: {
-          feed_post: `Create an eye-catching Facebook feed post image showcasing ${productName}. Use vibrant colors, clear product photography, and include compelling text overlay. Optimize for engagement and sharing.`,
-          ad: `Create a professional Facebook ad image for ${productName} with strong visual hierarchy, clear value proposition, and conversion-focused design.`
-        },
-        video: {
-          feed_post: `Produce a compelling Facebook video showcasing ${productName} in action. Include engaging visuals, clear messaging, and optimize for autoplay viewing.`,
-          ad: `Develop a high-converting Facebook video ad for ${productName} with strong opening hook, clear value proposition, and call-to-action.`
+          feed_post: `Generate a high-quality product image of ${productName} on a clean, minimal background. Ensure the product is centered, well-lit, and shown in its best angle. No text, logos, or overlays. Use natural shadows and realistic lighting to enhance appeal.`,
+          ad: `Create a professional image of ${productName} for advertising. Showcase the product clearly on a clean, neutral or softly colored background. Focus on visual quality and presentation. No text or graphic elements.`
         }
       },
       instagram: {
         image: {
-          feed_post: `Design an Instagram-worthy feed post image for ${productName}. Use aesthetic photography, trending visual styles, and hashtag-friendly composition.`,
-          reel: `Design a thumbnail image for Instagram reel featuring ${productName}. Use bold visuals, trending aesthetics, and reel-optimized composition.`
-        },
-        video: {
-          feed_post: `Produce an Instagram feed video showcasing ${productName}. Use trending visual styles, engaging transitions, and Instagram-optimized format.`,
-          reel: `Develop an Instagram reel video for ${productName} with trending music, engaging transitions, and reel-optimized format and duration.`
-        }
-      },
-      tiktok: {
-        video: {
-          feed_post: `Create a TikTok video showcasing ${productName} with trending music, engaging transitions, and TikTok-optimized vertical format. Include trending hashtags and viral potential.`,
-          ad: `Develop a TikTok ad video for ${productName} with strong opening hook, trending elements, and conversion-focused design.`
-        }
-      },
-      youtube: {
-        video: {
-          feed_post: `Create a YouTube video showcasing ${productName} with professional production quality, engaging narrative, and YouTube-optimized format. Include clear call-to-action and description.`,
-          ad: `Develop a YouTube ad video for ${productName} with strong opening hook, clear value proposition, and conversion-focused design.`
+          feed_post: `Generate a visually appealing, aesthetic image of ${productName} on a clean or trendy background. Highlight the product with natural lighting and minimal styling. Avoid any text overlays or extra design elements.`,
+          reel: `Create a clean thumbnail image featuring ${productName} with no text. Focus on bold colors or aesthetic backgrounds to catch attention naturally.`
         }
       },
       linkedin: {
         image: {
-          feed_post: `Design a professional LinkedIn post image for ${productName}. Use business-appropriate styling, clear messaging, and professional color scheme.`,
-          ad: `Create a LinkedIn ad image for ${productName} with professional design, clear value proposition, and B2B-focused messaging.`
-        },
-        video: {
-          feed_post: `Produce a professional LinkedIn video showcasing ${productName}. Use business-appropriate styling, clear narrative, and professional production quality.`,
-          ad: `Develop a LinkedIn ad video for ${productName} with professional design, clear value proposition, and B2B-focused messaging.`
+          feed_post: `Generate a clean and professional product image of ${productName}. Use neutral or business-appropriate background. No text or graphic overlays. Focus on presenting the product with high clarity and polish.`,
+          ad: `Create a minimal, high-resolution image of ${productName} suitable for a professional LinkedIn ad. Keep background clean and product presentation sharp. No text or icons.`
         }
       },
       twitter: {
         image: {
-          feed_post: `Create a Twitter post image for ${productName} with concise messaging, clear visuals, and Twitter-optimized format. Include engaging elements for retweets.`,
-          ad: `Design a Twitter ad image for ${productName} with clear value proposition, engaging visuals, and conversion-focused design.`
-        },
-        video: {
-          feed_post: `Produce a Twitter video showcasing ${productName} with concise messaging, engaging visuals, and Twitter-optimized format and duration.`,
-          ad: `Develop a Twitter ad video for ${productName} with strong opening hook, clear value proposition, and conversion-focused design.`
+          feed_post: `Create a clean product image of ${productName} on a solid or gradient background. Keep the product as the main focus. Avoid using any text, logos, or other graphical elements.`,
+          ad: `Generate a sharp, focused image of ${productName} for Twitter ads. Use a clean backdrop and ensure excellent lighting and product visibility. Do not include text or overlays.`
         }
       }
     };
+    
 
     const instruction = platformInstructions[channel]?.[type]?.[format];
     return instruction || `Create a compelling ${type} showcasing ${productName} for ${channel}. Highlight key features and benefits with professional styling and engaging visuals.`;
