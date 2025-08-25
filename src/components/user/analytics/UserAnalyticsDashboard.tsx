@@ -21,6 +21,7 @@ import { LineChart, Line, BarChart, Bar, PieChart as RechartsPieChart, Pie, Cell
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { userAnalyticsAPI, UserAnalyticsData } from '@/api/clients/user-analytics-client';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -28,6 +29,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export function UserAnalyticsDashboard() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
 
   const { data, isLoading, error } = useQuery({
@@ -62,14 +64,22 @@ export function UserAnalyticsDashboard() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Your Analytics</h1>
-          <p className="text-muted-foreground">Personal insights into your usage and storage</p>
+          <h1 className={`text-3xl font-bold ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Your Analytics</h1>
+          <p className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>Personal insights into your usage and storage</p>
         </div>
         <div className="flex items-center space-x-2">
           <select 
             value={timeRange} 
             onChange={(e) => setTimeRange(e.target.value as any)}
-            className="border rounded-md px-3 py-1"
+            className={`border rounded-md px-3 py-1 ${
+              theme === 'dark' 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
           >
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
@@ -80,53 +90,93 @@ export function UserAnalyticsDashboard() {
 
       {/* Key Metrics Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
+        <Card className={`${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        }`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className={`text-sm font-medium ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Storage Used</CardTitle>
+            <HardDrive className={`h-4 w-4 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+            }`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{safeGet(analyticsData, 'storage.used', 0).toFixed(2)} GB</div>
-            <p className="text-xs text-muted-foreground">
+            <div className={`text-2xl font-bold ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>{safeGet(analyticsData, 'storage.used', 0).toFixed(2)} GB</div>
+            <p className={`text-xs ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               {safeGet(analyticsData, 'storage.percentage', 0).toFixed(1)}% of {safeGet(analyticsData, 'storage.total', 0)} GB limit
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={`${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        }`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className={`text-sm font-medium ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Total Assets</CardTitle>
+            <Activity className={`h-4 w-4 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+            }`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{safeGet(analyticsData, 'assets.total', 0)}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className={`text-2xl font-bold ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>{safeGet(analyticsData, 'assets.total', 0)}</div>
+            <p className={`text-xs ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               {safeGet(analyticsData, 'assets.videos', 0)} videos, {safeGet(analyticsData, 'assets.images', 0)} images
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={`${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        }`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Generation Costs</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className={`text-sm font-medium ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Generation Costs</CardTitle>
+            <DollarSign className={`h-4 w-4 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+            }`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${safeGet(analyticsData, 'costs.total', 0).toFixed(4)}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className={`text-2xl font-bold ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>${safeGet(analyticsData, 'costs.total', 0).toFixed(4)}</div>
+            <p className={`text-xs ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               ${safeGet(analyticsData, 'costs.perGeneration', 0).toFixed(4)} per generation
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={`${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        }`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className={`text-sm font-medium ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>This Month</CardTitle>
+            <Calendar className={`h-4 w-4 ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+            }`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{safeGet(analyticsData, 'activity.thisMonth', 0)}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className={`text-2xl font-bold ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>{safeGet(analyticsData, 'activity.thisMonth', 0)}</div>
+            <p className={`text-xs ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               {safeGet(analyticsData, 'activity.lastMonth', 0)} last month
             </p>
           </CardContent>
@@ -135,11 +185,21 @@ export function UserAnalyticsDashboard() {
 
       {/* Detailed Analytics Tabs */}
       <Tabs defaultValue="storage" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="storage">Storage</TabsTrigger>
-          <TabsTrigger value="costs">Costs</TabsTrigger>
-          <TabsTrigger value="assets">Assets</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+        <TabsList className={`${
+          theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-200'
+        }`}>
+          <TabsTrigger value="storage" className={`${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-600 data-[state=active]:text-white' : 'data-[state=active]:bg-white data-[state=active]:text-gray-900'
+          }`}>Storage</TabsTrigger>
+          <TabsTrigger value="costs" className={`${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-600 data-[state=active]:text-white' : 'data-[state=active]:bg-white data-[state=active]:text-gray-900'
+          }`}>Costs</TabsTrigger>
+          <TabsTrigger value="assets" className={`${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-600 data-[state=active]:text-white' : 'data-[state=active]:bg-white data-[state=active]:text-gray-900'
+          }`}>Assets</TabsTrigger>
+          <TabsTrigger value="activity" className={`${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-600 data-[state=active]:text-white' : 'data-[state=active]:bg-white data-[state=active]:text-gray-900'
+          }`}>Activity</TabsTrigger>
         </TabsList>
 
         {/* Storage Analytics */}

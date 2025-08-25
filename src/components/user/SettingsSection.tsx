@@ -6,9 +6,11 @@ import { TemplatesSettings } from "./settings/TemplatesSettings";
 import { BrandSettings } from "./settings/BrandSettings";
 import { SocialMediaSettings } from "./settings/SocialMediaSettings";
 import { Plug, FileText, Palette, Share2 } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export function SettingsSection() {
   const [activeSettingsTab, setActiveSettingsTab] = useState("integrations");
+  const { theme } = useTheme();
 
   return (
     <Tabs value={activeSettingsTab} onValueChange={setActiveSettingsTab} className="w-full">

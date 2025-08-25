@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Search, Mail, Calendar, Shield, User, Crown, Users, AlertTriangle, BarChart3, Upload, Clock, Activity } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/ui/use-toast';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface User {
   id: string;
@@ -34,6 +35,7 @@ interface UserWithAnalytics extends User {
 }
 
 export function UserManagement() {
+  const { theme } = useTheme();
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [users, setUsers] = useState<UserWithAnalytics[]>([]);
@@ -246,8 +248,12 @@ export function UserManagement() {
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading users...</p>
+          <div className={`animate-spin rounded-full h-8 w-8 border-b-2 mx-auto ${
+            theme === 'dark' ? 'border-white' : 'border-gray-900'
+          }`}></div>
+          <p className={`mt-2 ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>Loading users...</p>
         </div>
       </div>
     );
@@ -255,62 +261,102 @@ export function UserManagement() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className={`${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle className={`flex items-center space-x-2 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>
             <Users className="h-5 w-5" />
             <span>User Management</span>
           </CardTitle>
-                     <CardDescription>
-             View and manage user accounts, roles, and permissions
-             {users.length > 0 && (
-               <div className="mt-2 text-xs text-gray-500">
-                 {users.filter(u => u.analytics).length} of {users.length} users have analytics loaded
-                 {users.filter(u => analyticsFailed[u.id]).length > 0 && (
-                   <span className="text-red-500 ml-2">
-                     ({users.filter(u => analyticsFailed[u.id]).length} failed)
-                   </span>
-                 )}
-               </div>
-             )}
-           </CardDescription>
+          <CardDescription className={`${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            View and manage user accounts, roles, and permissions
+            {users.length > 0 && (
+              <div className={`mt-2 text-xs ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                {users.filter(u => u.analytics).length} of {users.length} users have analytics loaded
+                {users.filter(u => analyticsFailed[u.id]).length > 0 && (
+                  <span className="text-red-500 ml-2">
+                    ({users.filter(u => analyticsFailed[u.id]).length} failed)
+                  </span>
+                )}
+              </div>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${
+                theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+              }`} />
               <Input
                 placeholder="Search users by email or name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className={`pl-10 ${
+                  theme === 'dark' ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'
+                }`}
               />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-full sm:w-48">
+              <SelectTrigger className={`w-full sm:w-48 ${
+                theme === 'dark' ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'
+              }`}>
                 <SelectValue placeholder="Filter by role" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="user">Users</SelectItem>
-                <SelectItem value="admin">Admins</SelectItem>
-                <SelectItem value="superadmin">Superadmins</SelectItem>
+              <SelectContent className={`${
+                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              }`}>
+                <SelectItem value="all" className={`${
+                  theme === 'dark' ? 'text-white hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
+                }`}>All Roles</SelectItem>
+                <SelectItem value="user" className={`${
+                  theme === 'dark' ? 'text-white hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
+                }`}>Users</SelectItem>
+                <SelectItem value="admin" className={`${
+                  theme === 'dark' ? 'text-white hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
+                }`}>Admins</SelectItem>
+                <SelectItem value="superadmin" className={`${
+                  theme === 'dark' ? 'text-white hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
+                }`}>Superadmins</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Users Table */}
-          <div className="rounded-md border">
+          <div className={`rounded-md border ${
+            theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
+          }`}>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Analytics</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Actions</TableHead>
+                <TableRow className={`${
+                  theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <TableHead className={`${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>User</TableHead>
+                  <TableHead className={`${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Role</TableHead>
+                  <TableHead className={`${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Status</TableHead>
+                  <TableHead className={`${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Analytics</TableHead>
+                  <TableHead className={`${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Joined</TableHead>
+                  <TableHead className={`${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

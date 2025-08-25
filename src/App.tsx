@@ -7,6 +7,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { ViewProvider } from "@/contexts/ViewContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { GenerationProvider } from "@/contexts/GenerationContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { Layout } from "@/components/layout/Layout";
 import { MainContent } from "@/components/user/MainContent";
@@ -22,11 +23,12 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <Router>
-        <TooltipProvider>
-          <ViewProvider>
-            <GenerationProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <TooltipProvider>
+            <ViewProvider>
+              <GenerationProvider>
               <Routes>
               {/* Public Auth Routes */}
               <Route 
@@ -118,6 +120,7 @@ const App = () => (
         </TooltipProvider>
       </Router>
     </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

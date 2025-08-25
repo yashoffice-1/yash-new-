@@ -148,16 +148,16 @@ async function seedDefaultSettings() {
 }
 
 // Run the seed function if this file is executed directly
-if (require.main === module) {
-  seedDefaultSettings()
-    .then(() => {
-      console.log('✅ Seeding completed successfully');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Seeding failed:', error);
-      process.exit(1);
-    });
-}
-
+// if (require.main === module) {
+//   seedDefaultSettings()
+//     .then(() => {
+//       console.log('✅ Seeding completed successfully');
+//       process.exit(0);
+//     })
+//     .catch((error) => {
+//       console.error('❌ Seeding failed:', error);
+//       process.exit(1);
+//     });
+// }
+seedDefaultSettings();
 export { seedDefaultSettings }; 

@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/forms/button';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -13,9 +14,14 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children, title, description, showBackButton = false }: AuthLayoutProps) {
   const navigate = useNavigate();
+  const { theme } = useTheme();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-200 ${
+      theme === 'dark' 
+        ? 'bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900' 
+        : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+    }`}>
       <div className="w-full max-w-md">
         {showBackButton && (
           <Button

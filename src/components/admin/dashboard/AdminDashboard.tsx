@@ -11,6 +11,7 @@ import { AdminSettings } from '../settings/AdminSettings';
 import { TemplateManager } from '../management/TemplateManager';
 import { AnalyticsDashboard } from '../analytics/AnalyticsDashboard';
 import { adminAPI } from '@/api/clients/backend-client';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface SystemStatsData {
   totalUsers: number;
@@ -22,6 +23,7 @@ interface SystemStatsData {
 }
 
 export function AdminDashboard() {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'settings' | 'templates' | 'analytics'>('overview');
   const [stats, setStats] = useState<SystemStatsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,8 +50,12 @@ export function AdminDashboard() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading admin dashboard...</p>
+          <div className={`animate-spin rounded-full h-8 w-8 border-b-2 mx-auto ${
+            theme === 'dark' ? 'border-white' : 'border-gray-900'
+          }`}></div>
+          <p className={`mt-2 ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>Loading admin dashboard...</p>
         </div>
       </div>
     );
@@ -60,8 +66,12 @@ export function AdminDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage users and monitor system performance</p>
+          <h1 className={`text-3xl font-bold ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Admin Dashboard</h1>
+          <p className={`${
+            theme === 'dark' ? 'text-gray-400' : 'text-muted-foreground'
+          }`}>Manage users and monitor system performance</p>
         </div>
         <div className="flex items-center space-x-2">
           <Shield className="h-5 w-5 text-blue-600" />
@@ -72,10 +82,16 @@ export function AdminDashboard() {
       {/* Quick Stats */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className={`border-l-4 border-l-blue-500 ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <div className="p-2 bg-blue-100 rounded-full">
+              <CardTitle className={`text-sm font-medium ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>Total Users</CardTitle>
+              <div className={`p-2 rounded-full ${
+                theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-100'
+              }`}>
                 <Users className="h-4 w-4 text-blue-600" />
               </div>
             </CardHeader>
@@ -94,10 +110,16 @@ export function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-green-500">
+          <Card className={`border-l-4 border-l-green-500 ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Assets</CardTitle>
-              <div className="p-2 bg-green-100 rounded-full">
+              <CardTitle className={`text-sm font-medium ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>Total Assets</CardTitle>
+              <div className={`p-2 rounded-full ${
+                theme === 'dark' ? 'bg-green-900/50' : 'bg-green-100'
+              }`}>
                 <BarChart3 className="h-4 w-4 text-green-600" />
               </div>
             </CardHeader>
@@ -116,10 +138,16 @@ export function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-purple-500">
+          <Card className={`border-l-4 border-l-purple-500 ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Videos</CardTitle>
-              <div className="p-2 bg-purple-100 rounded-full">
+              <CardTitle className={`text-sm font-medium ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>Videos</CardTitle>
+              <div className={`p-2 rounded-full ${
+                theme === 'dark' ? 'bg-purple-900/50' : 'bg-purple-100'
+              }`}>
                 <Video className="h-4 w-4 text-purple-600" />
               </div>
             </CardHeader>
@@ -131,10 +159,16 @@ export function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-l-4 border-l-orange-500">
+          <Card className={`border-l-4 border-l-orange-500 ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Images</CardTitle>
-              <div className="p-2 bg-orange-100 rounded-full">
+              <CardTitle className={`text-sm font-medium ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>Images</CardTitle>
+              <div className={`p-2 rounded-full ${
+                theme === 'dark' ? 'bg-orange-900/50' : 'bg-orange-100'
+              }`}>
                 <Image className="h-4 w-4 text-orange-600" />
               </div>
             </CardHeader>
@@ -150,24 +184,36 @@ export function AdminDashboard() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'users' | 'settings' | 'templates' | 'analytics')}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
+        <TabsList className={`grid w-full grid-cols-5 ${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        }`}>
+          <TabsTrigger value="overview" className={`flex items-center gap-2 ${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-700 data-[state=active]:text-white' : 'data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900'
+          }`}>
             <BarChart3 className="h-4 w-4" />
             Overview
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2">
+          <TabsTrigger value="users" className={`flex items-center gap-2 ${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-700 data-[state=active]:text-white' : 'data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900'
+          }`}>
             <Users className="h-4 w-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2">
+          <TabsTrigger value="templates" className={`flex items-center gap-2 ${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-700 data-[state=active]:text-white' : 'data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900'
+          }`}>
             <FileVideo className="h-4 w-4" />
             Templates
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
+          <TabsTrigger value="analytics" className={`flex items-center gap-2 ${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-700 data-[state=active]:text-white' : 'data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900'
+          }`}>
             <TrendingUp className="h-4 w-4" />
             Analytics
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
+          <TabsTrigger value="settings" className={`flex items-center gap-2 ${
+            theme === 'dark' ? 'data-[state=active]:bg-gray-700 data-[state=active]:text-white' : 'data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900'
+          }`}>
             <Settings className="h-4 w-4" />
             Settings
           </TabsTrigger>

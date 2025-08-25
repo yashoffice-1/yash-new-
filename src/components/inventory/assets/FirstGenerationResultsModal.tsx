@@ -5,12 +5,14 @@ import { CheckCircle, RefreshCw, FileText, Download, Save, X, ExternalLink } fro
 import { useGeneration } from "@/contexts/GenerationContext";
 import { useToast } from "@/hooks/ui/use-toast";
 import { useAssetLibrary } from "@/hooks/data/useAssetLibrary";
+import { useTheme } from "@/contexts/ThemeContext";
 import { GeneratedAsset } from "@/types/inventory";
 
 export function FirstGenerationResultsModal() {
   const { globalGenerationResults, showFirstModal, setShowFirstModal, clearGenerationResults } = useGeneration();
   const { toast } = useToast();
   const { saveToLibrary } = useAssetLibrary();
+  const { theme } = useTheme();
   const [savingAssets, setSavingAssets] = useState<Set<string>>(new Set());
   const [isSavingAll, setIsSavingAll] = useState(false);
 
@@ -174,7 +176,9 @@ export function FirstGenerationResultsModal() {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 animate-in fade-in duration-300">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] sm:h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+      <div className={`rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] sm:h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300 ${
+        theme === 'dark' ? 'bg-gray-900' : 'bg-white'
+      }`}>
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white p-4 sm:p-6 flex-shrink-0 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
@@ -207,7 +211,11 @@ export function FirstGenerationResultsModal() {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className={`flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin ${
+          theme === 'dark'
+            ? 'scrollbar-thumb-gray-600 scrollbar-track-gray-800'
+            : 'scrollbar-thumb-gray-300 scrollbar-track-gray-100'
+        }`}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {globalGenerationResults.map((result, index) => {
               const assetUrl = result.url || result.asset_url;
@@ -216,9 +224,15 @@ export function FirstGenerationResultsModal() {
               const isSaving = result.id ? savingAssets.has(result.id) : false;
               
               return (
-                <div key={result.id || index} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                <div key={result.id || index} className={`border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700'
+                    : 'bg-white border-gray-200'
+                }`}>
                   {/* Asset Preview */}
-                  <div className="relative aspect-video bg-gray-100">
+                  <div className={`relative aspect-video ${
+                    theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                  }`}>
                     {isPending ? (
                       // Show loading state for pending assets
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-50 to-orange-50">
@@ -249,66 +263,94 @@ export function FirstGenerationResultsModal() {
                       </div>
                     )}
                     
-                    {/* Source System Badge */}
-                    <div className="absolute top-2 left-2">
-                      <Badge variant="secondary" className="bg-white/90 text-gray-700">
-                        {result.source_system || 'unknown'}
-                      </Badge>
-                    </div>
+                                         {/* Source System Badge */}
+                     <div className="absolute top-2 left-2">
+                       <Badge variant="secondary" className={`${
+                         theme === 'dark'
+                           ? 'bg-gray-800/90 text-gray-200 border-gray-600'
+                           : 'bg-white/90 text-gray-700'
+                       }`}>
+                         {result.source_system || 'unknown'}
+                       </Badge>
+                     </div>
                     
-                    {/* Platform Badge */}
-                    {result.platform && (
-                      <div className="absolute top-2 left-2 mt-8">
-                        <Badge variant="outline" className="bg-white/90 text-xs">
-                          {result.platform}
-                        </Badge>
-                      </div>
-                    )}
+                                         {/* Platform Badge */}
+                     {result.platform && (
+                       <div className="absolute top-2 left-2 mt-8">
+                         <Badge variant="outline" className={`text-xs ${
+                           theme === 'dark'
+                             ? 'bg-gray-800/90 text-gray-200 border-gray-600'
+                             : 'bg-white/90 text-gray-700'
+                         }`}>
+                           {result.platform}
+                         </Badge>
+                       </div>
+                     )}
                     
-                    {/* Status Badge */}
-                    {result.status && (
-                      <div className="absolute top-2 right-2">
-                        <Badge 
-                          variant={result.status === 'failed' ? 'destructive' : 'secondary'} 
-                          className="bg-white/90"
-                        >
-                          {result.status}
-                        </Badge>
-                      </div>
-                    )}
+                                         {/* Status Badge */}
+                     {result.status && (
+                       <div className="absolute top-2 right-2">
+                         <Badge 
+                           variant={result.status === 'failed' ? 'destructive' : 'secondary'} 
+                           className={`${
+                             theme === 'dark'
+                               ? 'bg-gray-800/90 text-gray-200 border-gray-600'
+                               : 'bg-white/90 text-gray-700'
+                           }`}
+                         >
+                           {result.status}
+                         </Badge>
+                       </div>
+                     )}
                   </div>
 
                   {/* Content Details */}
                   <div className="p-4">
-                    <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                    <h4 className={`font-semibold mb-2 line-clamp-2 ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>
                       {result.title || `${result.type.charAt(0).toUpperCase() + result.type.slice(1)} - ${result.instruction.substring(0, 50)}...`}
                     </h4>
                     
                     {result.description && (
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{result.description}</p>
+                      <p className={`text-sm mb-3 line-clamp-2 ${
+                        theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                      }`}>{result.description}</p>
                     )}
                     
                     {result.type === 'content' && result.content && (
-                      <div className="text-sm text-gray-600 mb-3 line-clamp-3">
+                      <div className={`text-sm mb-3 line-clamp-3 ${
+                        theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                      }`}>
                         {result.content}
                       </div>
                     )}
                     
-                    {/* Product Info */}
-                    {result.product && (
-                      <div className="flex items-center space-x-2 mb-3">
-                        <Badge variant="outline" className="text-xs">
-                          {result.product.category || 'Uncategorized'}
-                        </Badge>
-                        {result.format && (
-                          <Badge variant="outline" className="text-xs">
-                            {result.format}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
+                                         {/* Product Info */}
+                     {result.product && (
+                       <div className="flex items-center space-x-2 mb-3">
+                         <Badge variant="outline" className={`text-xs ${
+                           theme === 'dark'
+                             ? 'border-gray-600 text-gray-300'
+                             : 'border-gray-300 text-gray-700'
+                         }`}>
+                           {result.product.category || 'Uncategorized'}
+                         </Badge>
+                         {result.format && (
+                           <Badge variant="outline" className={`text-xs ${
+                             theme === 'dark'
+                               ? 'border-gray-600 text-gray-300'
+                               : 'border-gray-300 text-gray-700'
+                           }`}>
+                             {result.format}
+                           </Badge>
+                         )}
+                       </div>
+                     )}
                     
-                    <div className="text-xs text-gray-500 mb-3">
+                    <div className={`text-xs mb-3 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
                       Generated: {result.timestamp?.toLocaleString() || 'Unknown'}
                     </div>
 
@@ -353,8 +395,12 @@ export function FirstGenerationResultsModal() {
         </div>
 
         {/* Footer with Save All and Clear All buttons */}
-        <div className="border-t bg-gray-50 p-4 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
+        <div className={`border-t p-4 flex justify-between items-center ${
+          theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
+        }`}>
+          <div className={`text-sm ${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>
             {isSavingAll ? (
               <div className="flex items-center space-x-2">
                 <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
@@ -368,7 +414,11 @@ export function FirstGenerationResultsModal() {
             <Button
               variant="outline"
               onClick={handleClearAll}
-              className="border-red-300 text-red-600 hover:bg-red-50"
+              className={`${
+                theme === 'dark'
+                  ? 'border-red-500 text-red-400 hover:bg-red-900/20'
+                  : 'border-red-300 text-red-600 hover:bg-red-50'
+              }`}
               disabled={isSavingAll}
             >
               Clear All

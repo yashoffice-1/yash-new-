@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/data_d
 import { Heart, Download, Copy, Trash2, Search, AlertCircle, RefreshCw, Share2, Upload, X, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAssetLibrary, AssetLibraryItem } from '@/hooks/data/useAssetLibrary';
 import { useToast } from '@/hooks/ui/use-toast';
+import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/integrations/supabase/client';
 import { SocialMediaUpload } from '../../user/social/SocialMediaUpload';
 import { templatesAPI, assetsAPI } from '@/api/clients/backend-client';
@@ -59,6 +60,7 @@ export function AssetLibrary() {
 
   const { getLibraryAssets, getAssetTypeCounts, toggleFavorite, deleteFromLibrary, isLoading } = useAssetLibrary();
   const { toast } = useToast();
+  const { theme } = useTheme();
 
   // Handle keyboard events for image modal
   useEffect(() => {
@@ -602,8 +604,12 @@ export function AssetLibrary() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div className="space-y-2">
-          <h2 className="text-3xl font-bold">Asset Library</h2>
-          <p className="text-muted-foreground">Manage and organize your saved AI-generated assets</p>
+          <h2 className={`text-3xl font-bold ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Asset Library</h2>
+          <p className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>Manage and organize your saved AI-generated assets</p>
         </div>
         <div className="flex space-x-2">
           {hasPendingHeyGenVideos && (
@@ -637,7 +643,11 @@ export function AssetLibrary() {
             placeholder="Search assets by title, description, or tags..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className={`pl-10 ${
+              theme === 'dark' 
+                ? 'border-gray-600 bg-gray-800 text-white placeholder-gray-400' 
+                : 'border-gray-300 bg-white text-gray-900 placeholder-gray-500'
+            }`}
           />
         </div>
         <Button
@@ -663,16 +673,22 @@ export function AssetLibrary() {
           {isInitialLoading ? (
             <div className="text-center py-8">
               <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading your assets...</p>
+              <p className={`${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+              }`}>Loading your assets...</p>
             </div>
           ) : isLoading ? (
             <div className="text-center py-8">
               <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Refreshing assets...</p>
+              <p className={`${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+              }`}>Refreshing assets...</p>
             </div>
           ) : filteredAssets.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-muted-foreground">
+              <div className={`${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+              }`}>
                 {searchTerm || showFavoritesOnly || selectedType !== 'all' ?
                   'No assets match your current filters.' :
                   'No assets in your library yet. Generate some content and save them to get started!'
@@ -683,13 +699,19 @@ export function AssetLibrary() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredAssets.map((asset) => (
-                  <Card key={asset.id} className="overflow-hidden">
+                  <Card key={asset.id} className={`overflow-hidden transition-colors duration-200 ${
+                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                  }`}>
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
                         <div className="space-y-1 flex-1 mr-2">
-                          <CardTitle className="text-lg line-clamp-1">{asset.title}</CardTitle>
+                          <CardTitle className={`text-lg line-clamp-1 ${
+                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                          }`}>{asset.title}</CardTitle>
                           {asset.description && (
-                            <CardDescription className="line-clamp-2">{asset.description}</CardDescription>
+                            <CardDescription className={`line-clamp-2 ${
+                              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                            }`}>{asset.description}</CardDescription>
                           )}
                         </div>
                         <Button
@@ -719,7 +741,9 @@ export function AssetLibrary() {
                     <CardContent className="space-y-4">
                       {/* Asset Preview */}
                       {asset.asset_type === 'image' && asset.asset_url && (
-                        <div className="aspect-video bg-gray-100 rounded overflow-hidden relative group cursor-pointer">
+                        <div className={`aspect-video rounded overflow-hidden relative group cursor-pointer ${
+                          theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                        }`}>
                           <img
                             src={asset.asset_url}
                             alt={asset.title}
@@ -847,22 +871,32 @@ export function AssetLibrary() {
                       )}
 
                       {asset.asset_type === 'content' && asset.content && (
-                        <div className="bg-gray-50 p-3 rounded text-sm max-h-32 overflow-y-auto">
-                          <p className="whitespace-pre-wrap line-clamp-4">{asset.content}</p>
+                        <div className={`p-3 rounded text-sm max-h-32 overflow-y-auto ${
+                          theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
+                        }`}>
+                          <p className={`whitespace-pre-wrap line-clamp-4 ${
+                            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+                          }`}>{asset.content}</p>
                         </div>
                       )}
 
                       {/* Instruction */}
                       <div className="text-sm">
-                        <p className="font-medium text-gray-700 mb-1">Original Instruction:</p>
-                        <p className="text-gray-600 text-xs bg-gray-50 p-2 rounded line-clamp-2">
+                        <p className={`font-medium mb-1 ${
+                          theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+                        }`}>Original Instruction:</p>
+                        <p className={`text-xs p-2 rounded line-clamp-2 ${
+                          theme === 'dark' ? 'text-gray-300 bg-gray-700' : 'text-gray-600 bg-gray-50'
+                        }`}>
                           {asset.instruction}
                         </p>
                       </div>
 
                       {/* Action Buttons */}
                       <div className="flex justify-between items-center pt-2">
-                        <span className="text-xs text-muted-foreground">
+                        <span className={`text-xs ${
+                          theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
                           {new Date(asset.created_at).toLocaleDateString()}
                         </span>
 
@@ -931,11 +965,17 @@ export function AssetLibrary() {
                 <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
                   {/* Items per page selector */}
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">Show:</span>
+                    <span className={`text-sm ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                    }`}>Show:</span>
                     <select
                       value={itemsPerPage}
                       onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      className={`px-2 py-1 border rounded text-sm ${
+                        theme === 'dark' 
+                          ? 'border-gray-600 bg-gray-800 text-white' 
+                          : 'border-gray-300 bg-white text-gray-900'
+                      }`}
                     >
                       <option value={6}>6 per page</option>
                       <option value={12}>12 per page</option>
@@ -945,7 +985,9 @@ export function AssetLibrary() {
                   </div>
 
                   {/* Pagination info */}
-                  <div className="text-sm text-gray-600">
+                  <div className={`text-sm ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
                     Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, pagination.total)} of {pagination.total} assets
                   </div>
 

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/forms/button";
 import { CheckCircle, Check } from "lucide-react";
 import { ProductVariableState, InventoryItem } from './utils/types';
 import { formatVariableName } from './utils/utils';
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface ProductVariableTableProps {
   selectedProduct: InventoryItem;
@@ -19,6 +20,8 @@ export function ProductVariableTable({
   productVariables,
   onUpdateProductVariable
 }: ProductVariableTableProps) {
+  const { theme } = useTheme();
+  
   const getCheckedCount = () => {
     return templateVariables.filter(variable => productVariables[variable]?.checked === true).length;
   };
@@ -30,10 +33,14 @@ export function ProductVariableTable({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Product: {selectedProduct.name}</h3>
+        <h3 className={`text-lg font-semibold ${
+          theme === 'dark' ? 'text-white' : 'text-gray-900'
+        }`}>Product: {selectedProduct.name}</h3>
         <div className="flex items-center space-x-2">
           <CheckCircle className="h-4 w-4 text-green-600" />
-          <span className="text-sm">{getCheckedCount()} / {templateVariables.length} completed</span>
+          <span className={`text-sm ${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>{getCheckedCount()} / {templateVariables.length} completed</span>
         </div>
       </div>
 
@@ -51,7 +58,10 @@ export function ProductVariableTable({
             {templateVariables.map((variable) => {
               const varData = productVariables[variable];
               return (
-                <TableRow key={variable} className={varData?.checked ? "bg-green-50" : ""}>
+                <TableRow key={variable} className={varData?.checked ? 
+                  theme === 'dark' ? 'bg-green-900/20' : 'bg-green-50' 
+                  : ''
+                }>
                   <TableCell className="w-24">
                     <Button
                       variant={varData?.checked ? "default" : "outline"}
@@ -78,8 +88,12 @@ export function ProductVariableTable({
                       {formatVariableName(variable)}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm text-gray-600 w-1/4">
-                    <div className="break-words whitespace-normal text-xs leading-relaxed p-2 bg-gray-50 rounded min-h-[2rem] max-h-20 overflow-y-auto">
+                  <TableCell className={`text-sm w-1/4 ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    <div className={`break-words whitespace-normal text-xs leading-relaxed p-2 rounded min-h-[2rem] max-h-20 overflow-y-auto ${
+                      theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
+                    }`}>
                       {varData?.extracted || "-"}
                     </div>
                   </TableCell>
@@ -88,7 +102,11 @@ export function ProductVariableTable({
                       value={varData?.aiSuggested || ""}
                       onChange={(e) => onUpdateProductVariable(variable, 'aiSuggested', e.target.value)}
                       placeholder="Enter value..."
-                      className="w-full min-h-[3rem] max-h-24 p-2 text-xs border border-gray-300 rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full min-h-[3rem] max-h-24 p-2 text-xs border rounded resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        theme === 'dark' 
+                          ? 'border-gray-600 bg-gray-800 text-white' 
+                          : 'border-gray-300 bg-white text-gray-900'
+                      }`}
                       style={{ 
                         wordWrap: 'break-word',
                         overflowWrap: 'break-word',

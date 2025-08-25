@@ -15,6 +15,7 @@ import { generateMockAsset } from '@/utils/mockGeneration';
 import { InventoryItem, AssetGenerationConfig, GeneratedAsset } from '@/types/inventory';
 import { generationAPI } from '@/api/clients/generation-client';
 import { useGeneration } from '@/contexts/GenerationContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface UnifiedAssetGeneratorProps {
   isOpen: boolean;
@@ -230,16 +231,23 @@ function ProductConfig({
   handleGenerate: (productId: string) => void;
   renderGeneratedAsset: (productId: string) => JSX.Element | null;
 }) {
+  const { theme } = useTheme();
   const getFormatSpecType = (assetType: string): 'image' | 'video' => {
     if (assetType === 'video') return 'video';
     return 'image';
   };
 
   return (
-    <div key={configKey} className="space-y-4 p-4 border rounded-lg">
+    <div key={configKey} className={`space-y-4 p-4 border rounded-lg ${
+      theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+    }`}>
       {/* Product Header */}
-      <div className="flex items-center space-x-3 pb-3 border-b">
-        <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+      <div className={`flex items-center space-x-3 pb-3 border-b ${
+        theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
+      }`}>
+        <div className={`w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 ${
+          theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+        }`}>
           {product.images?.[0] ? (
             <img
               src={product.images[0]}
@@ -248,19 +256,31 @@ function ProductConfig({
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
                 e.currentTarget.parentElement!.innerHTML =
-                  '<div class="w-full h-full flex items-center justify-center bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v4a1 1 0 001 1h3m10-5v4a1 1 0 01-1 1h-3m-6 4h6m-6 0v4a1 1 0 001 1h3m6-5v4a1 1 0 01-1 1h-3" /></svg></div>';
+                  `<div class="w-full h-full flex items-center justify-center ${
+                    theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'
+                  }"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ${
+                    theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                  }" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v4a1 1 0 001 1h3m10-5v4a1 1 0 01-1 1h-3m-6 4h6m-6 0v4a1 1 0 001 1h3m6-5v4a1 1 0 01-1 1h-3" /></svg></div>`;
               }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-200">
-              <Package className="h-4 w-4 text-gray-400" />
+            <div className={`w-full h-full flex items-center justify-center ${
+              theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+            }`}>
+              <Package className={`h-4 w-4 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+              }`} />
             </div>
           )}
         </div>
         <div>
-          <h4 className="font-medium">{product.name}</h4>
+          <h4 className={`font-medium ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>{product.name}</h4>
           {product.brand && (
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className={`text-xs ${
+              theme === 'dark' ? 'border-gray-600 text-white' : 'border-gray-300 text-gray-900'
+            }`}>
               {product.brand}
             </Badge>
           )}
@@ -270,17 +290,27 @@ function ProductConfig({
       {/* Configuration Fields */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>📡 Channel</Label>
+          <Label className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>📡 Channel</Label>
           <Select
             value={config.channel}
             onValueChange={(value) => updateConfig(configKey, 'channel', value)}
           >
-            <SelectTrigger>
+            <SelectTrigger className={`w-full ${
+              theme === 'dark' 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}>
               <SelectValue placeholder="Select channel" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={`${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
               {CHANNELS.map(channel => (
-                <SelectItem key={channel.value} value={channel.value}>
+                <SelectItem key={channel.value} value={channel.value} className={`${
+                  theme === 'dark' ? 'text-white hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
+                }`}>
                   {channel.label}
                 </SelectItem>
               ))}
@@ -289,17 +319,27 @@ function ProductConfig({
         </div>
 
         <div className="space-y-2">
-          <Label>🧩 Type</Label>
+          <Label className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>🧩 Type</Label>
           <Select
             value={config.asset_type}
             onValueChange={(value) => updateConfig(configKey, 'asset_type', value)}
           >
-            <SelectTrigger>
+            <SelectTrigger className={`w-full ${
+              theme === 'dark' 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}>
               <SelectValue placeholder="Select type" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={`${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
               {ASSET_TYPES.map(type => (
-                <SelectItem key={type.value} value={type.value}>
+                <SelectItem key={type.value} value={type.value} className={`${
+                  theme === 'dark' ? 'text-white hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
+                }`}>
                   {type.label}
                 </SelectItem>
               ))}
@@ -308,17 +348,27 @@ function ProductConfig({
         </div>
 
         <div className="space-y-2">
-          <Label>🎛️ Format</Label>
+          <Label className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>🎛️ Format</Label>
           <Select
             value={config.type}
             onValueChange={(value) => updateConfig(configKey, 'type', value)}
           >
-            <SelectTrigger>
+            <SelectTrigger className={`w-full ${
+              theme === 'dark' 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}>
               <SelectValue placeholder="Select format" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={`${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
               {typeOptions.map(option => (
-                <SelectItem key={option} value={option}>
+                <SelectItem key={option} value={option} className={`${
+                  theme === 'dark' ? 'text-white hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
+                }`}>
                   {option}
                 </SelectItem>
               ))}
@@ -327,8 +377,14 @@ function ProductConfig({
         </div>
 
         <div className="space-y-2">
-          <Label>⚙️ Specification</Label>
-          <div className="px-3 py-2 border rounded-md bg-gray-50 text-sm text-gray-600">
+          <Label className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>⚙️ Specification</Label>
+          <div className={`px-3 py-2 border rounded-md text-sm ${
+            theme === 'dark' 
+              ? 'bg-gray-700 border-gray-600 text-gray-300' 
+              : 'bg-gray-50 border-gray-300 text-gray-600'
+          }`}>
             {config.specification || 'Auto-generated'}
           </div>
         </div>
@@ -337,7 +393,9 @@ function ProductConfig({
       {/* Format Specification Selector - Only show for image/video/ad assets */}
       {(config.asset_type === 'image' || config.asset_type === 'video') && (
         <div className="space-y-2">
-          <Label>🎯 Format Specifications</Label>
+          <Label className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>🎯 Format Specifications</Label>
           <FormatSpecSelector
             assetType={getFormatSpecType(config.asset_type)}
             onSpecChange={(specs) => handleFormatSpecChange(configKey, specs)}
@@ -350,9 +408,15 @@ function ProductConfig({
 
       {/* Instruction Box */}
       <div className="space-y-2">
-        <Label>📝 Instruction</Label>
+        <Label className={`${
+          theme === 'dark' ? 'text-white' : 'text-gray-900'
+        }`}>📝 Instruction</Label>
         {loadingInstructions ? (
-          <div className="flex items-center space-x-2 text-sm text-gray-500 p-3 border rounded-md">
+          <div className={`flex items-center space-x-2 text-sm p-3 border rounded-md ${
+            theme === 'dark' 
+              ? 'text-gray-400 border-gray-600' 
+              : 'text-gray-500 border-gray-300'
+          }`}>
             <Loader2 className="h-3 w-3 animate-spin" />
             <span>Generating smart instruction...</span>
           </div>
@@ -361,7 +425,9 @@ function ProductConfig({
             value={config.description}
             onChange={(e) => updateConfig(configKey, 'description', e.target.value)}
             placeholder="Enter your generation instructions..."
-            className="min-h-[100px]"
+            className={`min-h-[100px] ${
+              theme === 'dark' ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'
+            }`}
           />
         )}
         <Button
@@ -369,7 +435,9 @@ function ProductConfig({
           size="sm"
           onClick={() => handleImproveInstruction(configKey)}
           disabled={isImproving[configKey] || !config.description?.trim() || loadingInstructions}
-          className="flex items-center space-x-1"
+          className={`flex items-center space-x-1 ${
+            theme === 'dark' ? 'border-gray-600 text-white hover:bg-gray-700' : 'border-gray-300 text-gray-900 hover:bg-gray-100'
+          }`}
         >
           {isImproving[configKey] ? (
             <>
@@ -389,7 +457,9 @@ function ProductConfig({
       <Button
         onClick={() => handleGenerate(configKey)}
         disabled={isGenerating || !config.description?.trim() || loadingInstructions}
-        className="w-full"
+        className={`w-full ${
+          theme === 'dark' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+        }`}
       >
         {isGenerating ? (
           <>
@@ -415,6 +485,7 @@ export function UnifiedAssetGenerator({
 }: UnifiedAssetGeneratorProps) {
   const { toast } = useToast();
   const { addGenerationResult } = useGeneration();
+  const { theme } = useTheme();
   const [applyToAll, setApplyToAll] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isImproving, setIsImproving] = useState<Record<string, boolean>>({});
@@ -795,7 +866,9 @@ Return only the improved instruction without any additional text.`;
     const hasValidUrl = asset.url && asset.url.trim() !== '' && asset.url !== 'undefined';
 
     return (
-      <div className="flex flex-wrap gap-2 mt-4 p-3 bg-gray-50 rounded-lg border-t">
+      <div className={`flex flex-wrap gap-2 mt-4 p-3 rounded-lg border-t ${
+        theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+      }`}>
         {asset.type !== 'combo' && hasValidUrl && (
           <SaveAssetDialog
             asset={{
@@ -817,7 +890,9 @@ Return only the improved instruction without any additional text.`;
             size="sm"
             variant="outline"
             onClick={() => handleDownloadAsset(asset)}
-            className="flex items-center space-x-1"
+            className={`flex items-center space-x-1 ${
+              theme === 'dark' ? 'border-gray-600 text-white hover:bg-gray-700' : 'border-gray-300 text-gray-900 hover:bg-gray-100'
+            }`}
           >
             <Download className="h-3 w-3" />
             <span>Download</span>
@@ -833,7 +908,9 @@ Return only the improved instruction without any additional text.`;
               navigator.clipboard.writeText(textToCopy);
               toast({ title: "Content copied to clipboard" });
             }}
-            className="flex items-center space-x-1"
+            className={`flex items-center space-x-1 ${
+              theme === 'dark' ? 'border-gray-600 text-white hover:bg-gray-700' : 'border-gray-300 text-gray-900 hover:bg-gray-100'
+            }`}
           >
             <Save className="h-3 w-3" />
             <span>Copy {asset.adCopy ? 'Ad Copy' : 'Content'}</span>
@@ -845,7 +922,9 @@ Return only the improved instruction without any additional text.`;
           variant="outline"
           onClick={() => handleRedoGeneration(productId)}
           disabled={isGenerating}
-          className="flex items-center space-x-1"
+          className={`flex items-center space-x-1 ${
+            theme === 'dark' ? 'border-gray-600 text-white hover:bg-gray-700' : 'border-gray-300 text-gray-900 hover:bg-gray-100'
+          }`}
         >
           <Redo className="h-3 w-3" />
           <span>Redo</span>
@@ -855,7 +934,9 @@ Return only the improved instruction without any additional text.`;
           size="sm"
           variant="outline"
           onClick={onClose}
-          className="flex items-center space-x-1 ml-auto"
+          className={`flex items-center space-x-1 ml-auto ${
+            theme === 'dark' ? 'border-gray-600 text-white hover:bg-gray-700' : 'border-gray-300 text-gray-900 hover:bg-gray-100'
+          }`}
         >
           <X className="h-3 w-3" />
           <span>Exit</span>
@@ -869,7 +950,9 @@ Return only the improved instruction without any additional text.`;
     if (productId === 'all' && isMultiProduct && applyToAll) {
       return (
         <div className="space-y-4">
-          <h4 className="font-medium text-gray-900 mb-3">
+          <h4 className={`font-medium mb-3 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>
             Generated Assets for All Products ({selectedProducts.length} items)
           </h4>
           {selectedProducts.map(product => {
@@ -877,9 +960,13 @@ Return only the improved instruction without any additional text.`;
             if (!asset) return null;
             
             return (
-              <div key={product.id} className="bg-white p-4 rounded-lg border shadow-sm">
+              <div key={product.id} className={`p-4 rounded-lg border shadow-sm ${
+                theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+              }`}>
                 <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-8 h-8 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                  <div className={`w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 ${
+                    theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                  }`}>
                     {product.images?.[0] ? (
                       <img
                         src={product.images[0]}
@@ -888,22 +975,34 @@ Return only the improved instruction without any additional text.`;
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                           e.currentTarget.parentElement!.innerHTML =
-                            '<div class="w-full h-full flex items-center justify-center bg-gray-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v4a1 1 0 001 1h3m10-5v4a1 1 0 01-1 1h-3m-6 4h6m-6 0v4a1 1 0 001 1h3m6-5v4a1 1 0 01-1 1h-3" /></svg></div>';
+                            `<div class="w-full h-full flex items-center justify-center ${
+                              theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'
+                            }"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 ${
+                              theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                            }" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v4a1 1 0 001 1h3m10-5v4a1 1 0 01-1 1h-3m-6 4h6m-6 0v4a1 1 0 001 1h3m6-5v4a1 1 0 01-1 1h-3" /></svg></div>`;
                         }}
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                        <Package className="h-3 w-3 text-gray-400" />
+                      <div className={`w-full h-full flex items-center justify-center ${
+                        theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                      }`}>
+                        <Package className={`h-3 w-3 ${
+                          theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                        }`} />
                       </div>
                     )}
                   </div>
                   <div>
-                    <h5 className="font-medium text-sm">{product.name}</h5>
-                    {product.brand && (
-                      <Badge variant="outline" className="text-xs">
-                        {product.brand}
-                      </Badge>
-                    )}
+                    <h5 className={`font-medium text-sm ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>{product.name}</h5>
+                                         {product.brand && (
+                       <Badge variant="outline" className={`text-xs ${
+                         theme === 'dark' ? 'border-gray-600 text-white' : 'border-gray-300 text-gray-900'
+                       }`}>
+                         {product.brand}
+                       </Badge>
+                     )}
                   </div>
                 </div>
                 
@@ -927,15 +1026,21 @@ Return only the improved instruction without any additional text.`;
 
     return (
       <div>
-        <h4 className="font-medium text-gray-900 mb-3 flex items-center justify-between">
+        <h4 className={`font-medium mb-3 flex items-center justify-between ${
+          theme === 'dark' ? 'text-white' : 'text-gray-900'
+        }`}>
           Generated {asset.type}
           {!hasValidUrl && (
-            <Badge className="bg-orange-100 text-orange-800">No URL</Badge>
+            <Badge className={`${
+              theme === 'dark' ? 'bg-orange-900/50 text-orange-300' : 'bg-orange-100 text-orange-800'
+            }`}>No URL</Badge>
           )}
         </h4>
 
         {asset.type === 'content' && asset.content ? (
-          <div className="whitespace-pre-wrap text-sm bg-white p-3 rounded border mb-3">
+          <div className={`whitespace-pre-wrap text-sm p-3 rounded border mb-3 ${
+            theme === 'dark' ? 'bg-gray-700 border-gray-600 text-gray-300' : 'bg-white border-gray-200 text-gray-900'
+          }`}>
             {asset.content}
           </div>
         ) : hasValidUrl ? (
@@ -958,7 +1063,9 @@ Return only the improved instruction without any additional text.`;
             ) : null}
           </div>
         ) : (
-          <div className="text-sm text-gray-500 mb-3">
+          <div className={`text-sm mb-3 ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+          }`}>
             Asset generated but URL not available yet. Please wait or try again.
           </div>
         )}
@@ -970,24 +1077,41 @@ Return only the improved instruction without any additional text.`;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className={`max-w-6xl max-h-[90vh] overflow-y-auto ${
+        theme === 'dark' 
+          ? 'bg-gray-900 border-gray-700 text-white [&>button]:text-gray-400 [&>button]:hover:text-white scrollbar-dark' 
+          : 'bg-white border-gray-200 text-gray-900 [&>button]:text-gray-600 [&>button]:hover:text-gray-900'
+      }`}>
         <DialogHeader>
-          <DialogTitle>Unified Asset Generator</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Unified Asset Generator</DialogTitle>
+          <DialogDescription className={`${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Generate {`${initialAssetType}s`} for {selectedProducts.length} selected product{selectedProducts.length > 1 ? 's' : ''}
           </DialogDescription>
         </DialogHeader>
 
         {/* Multi-Product Toggle */}
         {isMultiProduct && (
-          <div className="flex items-center justify-center space-x-4 p-4 bg-blue-50 rounded-lg">
-            <Label htmlFor="apply-to-all">Apply to All Products</Label>
+          <div className={`flex items-center justify-center space-x-4 p-4 rounded-lg ${
+            theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
+          }`}>
+            <Label htmlFor="apply-to-all" className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>
+              Apply to All Products
+            </Label>
             <Switch
               id="apply-to-all"
               checked={applyToAll}
               onCheckedChange={setApplyToAll}
+              className={`${
+                theme === 'dark' ? 'data-[state=checked]:bg-blue-600' : 'data-[state=checked]:bg-blue-600'
+              }`}
             />
-            <Label htmlFor="apply-to-all">Customize Per Product</Label>
+            <Label htmlFor="apply-to-all" className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>
+              Customize Per Product
+            </Label>
           </div>
         )}
 
@@ -995,7 +1119,9 @@ Return only the improved instruction without any additional text.`;
         <div className="space-y-6">
           {isMultiProduct && applyToAll ? (
             <div>
-              <h3 className="text-lg font-medium mb-4">
+              <h3 className={`text-lg font-medium mb-4 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>
                 Configuration for All Products ({selectedProducts.length} items)
               </h3>
               {(() => {
@@ -1023,7 +1149,9 @@ Return only the improved instruction without any additional text.`;
             </div>
           ) : (
             <div>
-              <h3 className="text-lg font-medium mb-4">
+              <h3 className={`text-lg font-medium mb-4 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>
                 {isMultiProduct ? 'Individual Product Configurations' : 'Product Configuration'}
               </h3>
               {selectedProducts.map(product => {

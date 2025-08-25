@@ -7,11 +7,14 @@ import { Badge } from "@/components/ui/data_display/badge";
 import { LogOut, Package } from "lucide-react";
 import { useGeneration } from "@/contexts/GenerationContext";
 import { RealtimeStatusIndicator } from "@/components/common/RealtimeStatusIndicator";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export function Header() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { globalGenerationResults, setShowFirstModal } = useGeneration();
+  const { theme } = useTheme();
 
   const handleSignOut = () => {
     signOut();
@@ -19,15 +22,16 @@ export function Header() {
   };
 
   return (
-    <header className="border-b bg-background sticky top-0 z-50">
+    <header className={`border-b sticky top-0 z-50 transition-colors duration-200 ${
+      theme === 'dark' ? 'bg-slate-900 border-slate-700' : 'bg-white border-gray-200'
+    }`}>
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <img 
-            src="/lovable-uploads/89de7e4b-f2ba-4d6e-b0dd-47971ec53def.png" 
-            alt="FeedGenesis Logo" 
-            className="h-8 w-auto"
+            src="/lovable-uploads/8dc1a962-435d-405e-aefb-b40351570fa1.png" 
+            alt="Feed Genesis Logo" 
+            className="h-14 w-auto"
           />
-          <h1 className="text-xl font-bold">FeedGenesis</h1>
         </div>
         
         {/* User Info and Logout */}
@@ -51,7 +55,9 @@ export function Header() {
                 </Badge>
               </Button>
             ) : (
-              <div className="text-xs text-gray-500">No results</div>
+              <div className={`text-xs ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>No results</div>
             )}
             
             <div className="flex items-center space-x-3">
@@ -60,10 +66,15 @@ export function Header() {
                 size="sm"
               />
               <div className="hidden md:block">
-                <p className="text-sm font-medium">{user.displayName}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <p className={`text-sm font-medium ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>{user.displayName}</p>
+                <p className={`text-xs ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                }`}>{user.email}</p>
               </div>
             </div>
+            <ThemeToggle />
             <Button
               variant="outline"
               size="sm"

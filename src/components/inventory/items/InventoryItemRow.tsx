@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/forms/button";
 import { Badge } from "@/components/ui/data_display/badge";
 import { Package, Image, Video, FileText, Layers } from "lucide-react";
 import { GenerationModal } from "@/components/inventory/generators/GenerationModal";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface InventoryItem {
   id: string;
@@ -29,6 +30,7 @@ interface InventoryItemRowProps {
 export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps) {
   const [showModal, setShowModal] = useState(false);
   const [generationType, setGenerationType] = useState<'image' | 'video' | 'content' | 'formats'>('image');
+  const { theme } = useTheme();
   
   const primaryImage = product.images?.[0];
 
@@ -67,7 +69,9 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
         <CardContent className="p-6">
           <div className="flex items-center space-x-6">
             {/* Product Image - Left */}
-            <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+            <div className={`w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 ${
+              theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+            }`}>
               {primaryImage ? (
                 <img
                   src={primaryImage}
@@ -76,11 +80,15 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.parentElement!.innerHTML = 
-                      '<div class="w-full h-full flex items-center justify-center bg-gray-200"><Package class="h-6 w-6 text-gray-400" /></div>';
+                      `<div class="w-full h-full flex items-center justify-center ${
+                        theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'
+                      }"><Package class="h-6 w-6 text-gray-400" /></div>`;
                   }}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                <div className={`w-full h-full flex items-center justify-center ${
+                  theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'
+                }`}>
                   <Package className="h-6 w-6 text-gray-400" />
                 </div>
               )}
@@ -88,7 +96,9 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
 
             {/* Product Information - Center */}
             <div className="flex-1 space-y-2">
-              <h3 className="font-semibold text-lg leading-tight">{product.name}</h3>
+              <h3 className={`font-semibold text-lg leading-tight ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>{product.name}</h3>
               
               <div className="flex items-center space-x-3">
                 {product.brand && (
@@ -104,7 +114,9 @@ export function InventoryItemRow({ product, onGenerate }: InventoryItemRowProps)
               </div>
 
               {product.description && (
-                <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
+                <p className={`text-sm line-clamp-2 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                }`}>{product.description}</p>
               )}
             </div>
 

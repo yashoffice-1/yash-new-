@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/ui/use-toast";
 import { generationAPI } from "@/api/clients/generation-client";
 import { useAssetLibrary } from "@/hooks/data/useAssetLibrary";
 import { useGeneration } from "@/contexts/GenerationContext";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface InventoryItem {
   id: string;
@@ -89,6 +90,8 @@ function ChannelSelector({
   setSelectedChannel: (channel: string) => void;
   currentGenerationType: 'image' | 'video' | 'content' | 'formats' | 'ad';
 }) {
+  const { theme } = useTheme();
+  
   const getChannelOptions = () => {
     if (currentGenerationType === 'content') {
       return [
@@ -116,7 +119,9 @@ function ChannelSelector({
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium text-gray-700">
+      <label className={`text-sm font-medium ${
+        theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+      }`}>
         Target Channel:
       </label>
       <Select value={selectedChannel} onValueChange={setSelectedChannel}>
@@ -152,6 +157,8 @@ function InstructionForm({
   selectedChannel: string;
   setSelectedChannel: (channel: string) => void;
 }) {
+  const { theme } = useTheme();
+  
   return (
     <div className="space-y-3">
       {/* Channel Selector */}
@@ -161,12 +168,24 @@ function InstructionForm({
         currentGenerationType={currentGenerationType}
       />
       
-      <div className="border-2 border-black rounded-lg p-4 bg-gray-50">
+      <div className={`border-2 rounded-lg p-4 ${
+        theme === 'dark' 
+          ? 'border-gray-600 bg-gray-800' 
+          : 'border-black bg-gray-50'
+      }`}>
         <div className="space-y-2">
-          <div className="bg-yellow-300 text-black px-2 py-1 rounded text-sm font-semibold">
+          <div className={`px-2 py-1 rounded text-sm font-semibold ${
+            theme === 'dark' 
+              ? 'bg-yellow-600 text-white' 
+              : 'bg-yellow-300 text-black'
+          }`}>
             Type Your Instructions Here.
           </div>
-          <div className="bg-yellow-300 text-black px-2 py-1 rounded text-xs">
+          <div className={`px-2 py-1 rounded text-xs ${
+            theme === 'dark' 
+              ? 'bg-yellow-600 text-white' 
+              : 'bg-yellow-300 text-black'
+          }`}>
             {currentGenerationType === 'content' 
               ? "Specify the type of marketing content you want to create. Focus on text, headlines, and copy only."
               : "If you want a Message with the Product Like \"SALE\" be sure you use quotes to send the instructions"
@@ -180,7 +199,9 @@ function InstructionForm({
               ? "Example: Create compelling Facebook Ad copy for this product with attention-grabbing headline, benefits-focused body text highlighting key features, and strong call-to-action that drives clicks"
               : "Example: I want this product to showcase 4th of July SALE with Fireworks in the background and the message '4th of July SUPER SALE' and the number '30% OFF'"
             }
-            className="min-h-[120px] bg-white"
+            className={`min-h-[120px] ${
+              theme === 'dark' ? 'bg-gray-700 text-white' : 'bg-white'
+            }`}
           />
           
           <Button
@@ -248,6 +269,8 @@ function ResultsDisplay({
   handleSaveToLibrary: () => Promise<void>;
   handleGenerateAdditionalContent: () => void;
 }) {
+  const { theme } = useTheme();
+  
   return (
     <div className="space-y-6">
       {/* Show both assets when we have a campaign */}
@@ -260,10 +283,16 @@ function ResultsDisplay({
           </div>
           
           {/* Visual Asset */}
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <h4 className="font-medium mb-3 text-center">Your Visual Asset:</h4>
+          <div className={`border rounded-lg p-4 ${
+            theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+          }`}>
+            <h4 className={`font-medium mb-3 text-center ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Your Visual Asset:</h4>
             <div className="flex justify-center">
-              <div className="relative rounded-lg overflow-hidden bg-white shadow max-w-md">
+              <div className={`relative rounded-lg overflow-hidden shadow max-w-md ${
+                theme === 'dark' ? 'bg-gray-700' : 'bg-white'
+              }`}>
                 {previousAsset.type === 'image' && previousAsset.url ? (
                   <img
                     src={previousAsset.url}
@@ -277,8 +306,12 @@ function ResultsDisplay({
                     className="w-full h-auto max-h-60"
                   />
                 ) : (
-                  <div className="w-full h-32 flex items-center justify-center bg-gray-100">
-                    <Package className="h-6 w-6 text-gray-400" />
+                  <div className={`w-full h-32 flex items-center justify-center ${
+                    theme === 'dark' ? 'bg-gray-600' : 'bg-gray-100'
+                  }`}>
+                    <Package className={`h-6 w-6 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                    }`} />
                   </div>
                 )}
               </div>
@@ -286,10 +319,18 @@ function ResultsDisplay({
           </div>
 
           {/* Marketing Content */}
-          <div className="border rounded-lg p-4 bg-blue-50">
-            <h4 className="font-medium mb-3 text-center">Your Marketing Content:</h4>
-            <div className="bg-white rounded-lg p-4 border">
-              <div className="whitespace-pre-wrap text-sm">{generatedAsset.content}</div>
+          <div className={`border rounded-lg p-4 ${
+            theme === 'dark' ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'
+          }`}>
+            <h4 className={`font-medium mb-3 text-center ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Your Marketing Content:</h4>
+            <div className={`rounded-lg p-4 border ${
+              theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
+            }`}>
+              <div className={`whitespace-pre-wrap text-sm ${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-900'
+              }`}>{generatedAsset.content}</div>
             </div>
           </div>
         </div>
@@ -300,19 +341,29 @@ function ResultsDisplay({
         <div className="flex justify-center">
           {generatedAsset.type === 'content' && generatedAsset.content ? (
             <div className="w-full max-w-3xl">
-              <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+              <div className={`p-6 rounded-lg border-2 ${
+                theme === 'dark' 
+                  ? 'bg-gradient-to-br from-blue-900/20 to-indigo-900/20 border-blue-700' 
+                  : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
+              }`}>
                 <div className="text-center mb-4">
                   <Badge className="bg-blue-600 text-white px-3 py-1">
                     Marketing Content Generated
                   </Badge>
                 </div>
-                <div className="bg-white rounded-lg p-6 border shadow-sm">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{generatedAsset.content}</div>
+                <div className={`rounded-lg p-6 border shadow-sm ${
+                  theme === 'dark' ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
+                }`}>
+                  <div className={`whitespace-pre-wrap text-sm leading-relaxed ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-900'
+                  }`}>{generatedAsset.content}</div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="relative rounded-lg overflow-hidden bg-gray-100 max-w-md">
+            <div className={`relative rounded-lg overflow-hidden max-w-md ${
+              theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+            }`}>
               {generatedAsset.type === 'image' && generatedAsset.url ? (
                 <img
                   src={generatedAsset.url}
@@ -321,7 +372,13 @@ function ResultsDisplay({
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.parentElement!.innerHTML = 
-                      '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Image failed to load</span></div>';
+                      `<div class="w-full h-48 flex items-center justify-center ${
+                        theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'
+                      } rounded-lg"><Package class="h-8 w-8 ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                      }" /><span class="ml-2 ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                      }">Image failed to load</span></div>`;
                   }}
                 />
               ) : generatedAsset.type === 'video' && generatedAsset.url ? (
@@ -332,7 +389,13 @@ function ResultsDisplay({
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.parentElement!.innerHTML = 
-                      '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Video failed to load</span></div>';
+                      `<div class="w-full h-48 flex items-center justify-center ${
+                        theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'
+                      } rounded-lg"><Package class="h-8 w-8 ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                      }" /><span class="ml-2 ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                      }">Video failed to load</span></div>`;
                   }}
                 />
               ) : generatedAsset.type === 'ad' && generatedAsset.url ? (
@@ -343,11 +406,19 @@ function ResultsDisplay({
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.parentElement!.innerHTML = 
-                      '<div class="w-full h-48 flex items-center justify-center bg-gray-200 rounded-lg"><Package class="h-8 w-8 text-gray-400" /><span class="ml-2 text-gray-500">Ad image failed to load</span></div>';
+                      `<div class="w-full h-48 flex items-center justify-center ${
+                        theme === 'dark' ? 'bg-gray-600' : 'bg-gray-200'
+                      } rounded-lg"><Package class="h-8 w-8 ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                      }" /><span class="ml-2 ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                      }">Ad image failed to load</span></div>`;
                   }}
                 />
               ) : (
-                <div className="w-full h-48 flex items-center justify-center bg-gray-100">
+                <div className={`w-full h-48 flex items-center justify-center ${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                }`}>
                   <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
               )}
@@ -357,8 +428,12 @@ function ResultsDisplay({
       )}
 
       {generatedAsset.message && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
-          <p className="text-sm text-blue-800">{generatedAsset.message}</p>
+        <div className={`p-3 border rounded-lg text-center ${
+          theme === 'dark' ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'
+        }`}>
+          <p className={`text-sm ${
+            theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
+          }`}>{generatedAsset.message}</p>
         </div>
       )}
 
@@ -430,6 +505,7 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
   const { toast } = useToast();
   const { saveToLibrary } = useAssetLibrary();
   const { addGenerationResult } = useGeneration();
+  const { theme } = useTheme();
   const [instruction, setInstruction] = useState('');
   const [isImprovingInstruction, setIsImprovingInstruction] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1128,12 +1204,20 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
 
         {/* Show previous asset prominently when generating content */}
         {previousAsset && currentGenerationType === 'content' && (
-          <div className="mb-6 border-2 border-green-500 rounded-lg p-4 bg-green-50">
-            <h4 className="font-semibold text-green-800 mb-3 text-center">
+          <div className={`mb-6 border-2 rounded-lg p-4 ${
+            theme === 'dark' 
+              ? 'border-green-600 bg-green-900/20' 
+              : 'border-green-500 bg-green-50'
+          }`}>
+            <h4 className={`font-semibold mb-3 text-center ${
+              theme === 'dark' ? 'text-green-300' : 'text-green-800'
+            }`}>
               Your Generated {previousAsset.type.charAt(0).toUpperCase() + previousAsset.type.slice(1)} - Now Creating Marketing Text:
             </h4>
             <div className="flex justify-center">
-              <div className="relative rounded-lg overflow-hidden bg-white shadow-lg max-w-md">
+              <div className={`relative rounded-lg overflow-hidden shadow-lg max-w-md ${
+                theme === 'dark' ? 'bg-gray-700' : 'bg-white'
+              }`}>
                 {previousAsset.type === 'image' && previousAsset.url ? (
                   <img
                     src={previousAsset.url}
@@ -1153,13 +1237,19 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
                     className="w-full h-auto object-contain max-h-80"
                   />
                 ) : (
-                  <div className="w-full h-48 flex items-center justify-center bg-gray-100">
-                    <Package className="h-8 w-8 text-gray-400" />
+                  <div className={`w-full h-48 flex items-center justify-center ${
+                    theme === 'dark' ? 'bg-gray-600' : 'bg-gray-100'
+                  }`}>
+                    <Package className={`h-8 w-8 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                    }`} />
                   </div>
                 )}
               </div>
             </div>
-            <p className="text-center text-sm text-green-700 mt-2">
+            <p className={`text-center text-sm mt-2 ${
+              theme === 'dark' ? 'text-green-300' : 'text-green-700'
+            }`}>
               Generate marketing copy to accompany this visual asset
             </p>
           </div>
@@ -1185,13 +1275,17 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <h3 className="text-lg font-medium">
+              <h3 className={`text-lg font-medium ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>
                 {currentGenerationType === 'content' 
                   ? 'Generating Marketing Content...' 
                   : 'Generating Content...'
                 }
               </h3>
-              <p className="text-gray-500">
+              <p className={`${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 {currentGenerationType === 'content' 
                   ? 'Creating compelling marketing copy for your product'
                   : 'This may take a few moments'
@@ -1201,7 +1295,9 @@ export function GenerationModal({ isOpen, onClose, onConfirm, product, generatio
           </div>
         )}
 
-        <div className="flex justify-center pt-4 border-t">
+        <div className={`flex justify-center pt-4 border-t ${
+          theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
+        }`}>
           <Button 
             onClick={handleConfirm} 
             disabled={!instruction.trim() || isGenerating}

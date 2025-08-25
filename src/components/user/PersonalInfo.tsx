@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/forms/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/forms/select";
 import { useToast } from "@/hooks/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Save, HardDrive, DollarSign } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { userAnalyticsAPI } from "@/api/clients/user-analytics-client";
@@ -14,6 +15,7 @@ import { userAnalyticsAPI } from "@/api/clients/user-analytics-client";
 export function PersonalInfo() {
   const { toast } = useToast();
   const { user, updateProfile } = useAuth();
+  const { theme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
 
   // Fetch user analytics for storage info
@@ -74,10 +76,16 @@ export function PersonalInfo() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className={`${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>
+          <CardTitle className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Personal Information</CardTitle>
+          <CardDescription className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>
             Update your personal details and preferences
           </CardDescription>
         </CardHeader>
@@ -108,9 +116,13 @@ export function PersonalInfo() {
                 type="email"
                 value={formData.email}
                 disabled
-                className="bg-gray-50"
+                className={`${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'
+                }`}
               />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+              <p className={`text-xs ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Email cannot be changed</p>
             </div>
 
             <div className="space-y-2">
@@ -156,44 +168,68 @@ export function PersonalInfo() {
       </Card>
 
       {/* Storage Usage Section */}
-      <Card>
+      <Card className={`${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle className={`flex items-center space-x-2 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>
             <HardDrive className="h-5 w-5" />
             <span>Storage Usage</span>
           </CardTitle>
-          <CardDescription>
+          <CardDescription className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>
             Your current storage usage and generation costs
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 border rounded-lg">
+            <div className={`text-center p-4 border rounded-lg ${
+              theme === 'dark' ? 'border-gray-600' : 'border-gray-200'
+            }`}>
               <div className="text-2xl font-bold text-blue-600">
                 {analyticsData?.data?.storage?.used?.toFixed(2) || '0.00'} GB
               </div>
-              <div className="text-sm text-muted-foreground">Storage Used</div>
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Storage Used</div>
+              <div className={`text-xs mt-1 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 of {analyticsData?.data?.storage?.total || 10} GB limit
               </div>
             </div>
             
-            <div className="text-center p-4 border rounded-lg">
+            <div className={`text-center p-4 border rounded-lg ${
+              theme === 'dark' ? 'border-gray-600' : 'border-gray-200'
+            }`}>
               <div className="text-2xl font-bold text-green-600">
                 {analyticsData?.data?.storage?.assetCount || 0}
               </div>
-              <div className="text-sm text-muted-foreground">Total Assets</div>
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Total Assets</div>
+              <div className={`text-xs mt-1 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 {analyticsData?.data?.assets?.videos || 0} videos, {analyticsData?.data?.assets?.images || 0} images
               </div>
             </div>
             
-            <div className="text-center p-4 border rounded-lg">
+            <div className={`text-center p-4 border rounded-lg ${
+              theme === 'dark' ? 'border-gray-600' : 'border-gray-200'
+            }`}>
               <div className="text-2xl font-bold text-purple-600">
                 ${analyticsData?.data?.costs?.total?.toFixed(4) || '0.0000'}
               </div>
-              <div className="text-sm text-muted-foreground">Generation Costs</div>
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Generation Costs</div>
+              <div className={`text-xs mt-1 ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 ${analyticsData?.data?.costs?.perGeneration?.toFixed(4) || '0.0000'} per generation
               </div>
             </div>
