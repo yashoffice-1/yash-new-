@@ -624,169 +624,127 @@ router.post('/:platform/settings', authenticateToken, async (req, res) => {
   }
 });
 
-// // Get platform recent activity with caching
-// router.get('/:platform/activity', authenticateToken, async (req, res) => {
-//   try {
-//     const userId = (req as any).user.userId;
-//     const { platform } = req.params;
-//     const forceRefresh = req.query.refresh === 'true';
+// Get platform recent activity with caching
+router.get('/youtube/activity', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const platform = 'youtube';
+    const forceRefresh = req.query.refresh === 'true';
 
-//     // Get the user's platform connection
-//     const connection = await prisma.socialMediaConnection.findFirst({
-//       where: {
-//         profileId: userId,
-//         platform: platform,
-//         isActive: true
-//       },
-//       include: {
-//         cachedData: {
-//           where: {
-//             dataType: 'activity'
-//           }
-//         }
-//       }
-//     });
+    // Get the user's platform connection
+    const connection = await prisma.socialMediaConnection.findFirst({
+      where: {
+        profileId: userId,
+        platform: platform,
+        isActive: true
+      },
+      include: {
+        cachedData: {
+          where: {
+            dataType: 'activity'
+          }
+        }
+      }
+    });
 
-//     if (!connection) {
-//       return res.status(404).json({ error: 'Platform connection not found' });
-//     }
+    if (!connection) {
+      return res.status(404).json({ error: 'Platform connection not found' });
+    }
 
-//     // Check if we have valid cached data
-//       const cachedActivity = connection.cachedData[0];
-//       if (!forceRefresh && isCacheValid(cachedActivity)) {
-//         return res.json({ 
-//           activity: cachedActivity.data,
-//           cached: true,
-//           lastUpdated: cachedActivity.lastFetchedAt
-//         });
-//       }
+    // Check if we have valid cached data
+      const cachedActivity = connection.cachedData[0];
+      if (!forceRefresh && isCacheValid(cachedActivity)) {
+        return res.json({ 
+          activity: cachedActivity.data,
+          cached: true,
+          lastUpdated: cachedActivity.lastFetchedAt
+        });
+      }
 
-//       // For YouTube, fetch recent videos
-//       if (platform === 'youtube') {
-//       try {
-//         const response = await fetch(
-//           `https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=5`,
-//           {
-//             headers: {
-//               'Authorization': `Bearer ${connection.accessToken}`
-//             }
-//           }
-//         );
+      // For YouTube, fetch recent videos
+      if (platform === 'youtube') {
+      try {
+        const response = await fetch(
+          `https://www.googleapis.com/youtube/v3/search?part=snippet&forMine=true&type=video&order=date&maxResults=5`,
+          {
+            headers: {
+              'Authorization': `Bearer ${connection.accessToken}`
+            }
+          }
+        );
 
-//         if (response.ok) {
-//           const data = await response.json() as YouTubeVideosResponse;
-//           const activity = data.items?.map((item: YouTubeVideoItem) => ({
-//             timestamp: new Date(item.snippet.publishedAt).toLocaleDateString(),
-//             message: item.snippet.title,
-//             metrics: {
-//               views: 'N/A',
-//               likes: 'N/A',
-//               comments: 'N/A'
-//             }
-//           })) || [];
+        if (response.ok) {
+          const data = await response.json() as YouTubeVideosResponse;
+          const activity = data.items?.map((item: YouTubeVideoItem) => ({
+            timestamp: new Date(item.snippet.publishedAt).toLocaleDateString(),
+            message: item.snippet.title,
+            metrics: {
+              views: 'N/A',
+              likes: 'N/A',
+              comments: 'N/A'
+            }
+          })) || [];
 
-//           // Cache the activity data
-//           await prisma.socialMediaCachedData.upsert({
-//             where: {
-//               connectionId_dataType: {
-//                 connectionId: connection.id,
-//                 dataType: 'activity'
-//               }
-//             },
-//             update: {
-//               data: activity,
-//               lastFetchedAt: new Date(),
-//               expiresAt: getCacheExpiry('activity')
-//             },
-//             create: {
-//               connectionId: connection.id,
-//               dataType: 'activity',
-//               data: activity,
-//               expiresAt: getCacheExpiry('activity')
-//             }
-//           });
+          // Cache the activity data
+          await prisma.socialMediaCachedData.upsert({
+            where: {
+              connectionId_dataType: {
+                connectionId: connection.id,
+                dataType: 'activity'
+              }
+            },
+            update: {
+              data: activity,
+              lastFetchedAt: new Date(),
+              expiresAt: getCacheExpiry('activity')
+            },
+            create: {
+              connectionId: connection.id,
+              dataType: 'activity',
+              data: activity,
+              expiresAt: getCacheExpiry('activity')
+            }
+          });
 
-//          return  res.json({ 
-//             activity,
-//             cached: false,
-//             lastUpdated: new Date()
-//           });
-//         } else {
-//           // Return cached data if available
-//           if (cachedActivity) {
-//            return  res.json({ 
-//               activity: cachedActivity.data,
-//               cached: true,
-//               lastUpdated: cachedActivity.lastFetchedAt,
-//             });
-//           } else {
-//             return res.json({ activity: [] });
-//           }
-//         }
-//       } catch (error) {
-//         console.error('Error fetching YouTube activity:', error);
-//         if (cachedActivity) {
-//          return  res.json({ 
-//             activity: cachedActivity.data,
-//             cached: true,
-//             lastUpdated: cachedActivity.lastFetchedAt,
-//             note: 'Using cached data due to API error'
-//           });
-//         } else {
-//           return res.json({ activity: [] });
-//         }
-//       }
-//     } else {
-//       // For other platforms, return empty activity for now
-//       return res.json({ activity: [] });
-//     }
-//   } catch (error) {
-//     console.error('Error getting platform activity:', error);
-//     return res.status(500).json({ error: 'Failed to get platform activity' });
-//   }
-// });
-
-// // Get platform statistics (generic endpoint)
-// router.get('/:platform/stats', authenticateToken, async (req, res) => {
-//   try {
-//     const userId = (req as any).user.userId;
-//     const { platform } = req.params;
-
-//     // Get the user's platform connection
-//     const connection = await prisma.socialMediaConnection.findFirst({
-//       where: {
-//         profileId: userId,
-//         platform: platform,
-//         isActive: true
-//       }
-//     });
-
-//     if (!connection) {
-//       return res.status(404).json({ error: 'Platform connection not found' });
-//     }
-
-//     // For now, return empty stats for non-YouTube platforms
-//     // In the future, this would integrate with each platform's API
-//     if (platform !== 'youtube') {
-//       return res.json({ 
-//         stats: { 
-//           followers: 0, 
-//           posts: 0, 
-//           engagement: 0, 
-//           lastPost: 'N/A' 
-//         } 
-//       });
-
-//     }
-
-//     // For YouTube, use the existing YouTube stats logic
-//     // This will be handled by the specific /youtube/stats route
-//     return res.status(404).json({ error: 'Use /youtube/stats for YouTube statistics' });
-//   } catch (error) {
-//     console.error('Error getting platform stats:', error);
-//     return res.status(500).json({ error: 'Failed to get platform stats' });
-//   }
-// });
+         return  res.json({ 
+            activity,
+            cached: false,
+            lastUpdated: new Date()
+          });
+        } else {
+          // Return cached data if available
+          if (cachedActivity) {
+           return  res.json({ 
+              activity: cachedActivity.data,
+              cached: true,
+              lastUpdated: cachedActivity.lastFetchedAt,
+            });
+          } else {
+            return res.json({ activity: [] });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching YouTube activity:', error);
+        if (cachedActivity) {
+         return  res.json({ 
+            activity: cachedActivity.data,
+            cached: true,
+            lastUpdated: cachedActivity.lastFetchedAt,
+            note: 'Using cached data due to API error'
+          });
+        } else {
+          return res.json({ activity: [] });
+        }
+      }
+    } else {
+      // For other platforms, return empty activity for now
+      return res.json({ activity: [] });
+    }
+  } catch (error) {
+    console.error('Error getting platform activity:', error);
+    return res.status(500).json({ error: 'Failed to get platform activity' });
+  }
+});
 
 // YouTube video upload endpoint
 router.post('/youtube/upload', authenticateToken, async (req, res) => {

@@ -38,6 +38,48 @@ interface InventoryManagerProps {
   onProductSelect?: (product: InventoryItem) => void;
 }
 
+// Channel configuration with support information
+const CHANNELS = [
+  { value: 'facebook', label: '📘 Facebook', supports: ['image', 'video'] },
+  { value: 'instagram', label: '📷 Instagram', supports: ['image', 'video'] },
+  { value: 'tiktok', label: '🎵 TikTok', supports: ['video'] },
+  { value: 'youtube', label: '📺 YouTube', supports: ['video'] },
+  { value: 'linkedin', label: '💼 LinkedIn', supports: ['image', 'video'] },
+  { value: 'twitter', label: '🐦 Twitter', supports: ['image', 'video'] }
+];
+
+const ASSET_TYPES = [
+  { value: 'image', label: '🖼️ Image' },
+  { value: 'video', label: '🎥 Video' },
+  { value: 'content', label: '📝 Content' }
+];
+
+// Helper function to get supported asset types for a channel
+const getSupportedAssetTypes = (channel: string): string[] => {
+  const channelInfo = CHANNELS.find(c => c.value === channel);
+  return channelInfo?.supports || [];
+};
+
+// Helper function to check if a combination is valid
+const isValidCombination = (channel: string, assetType: string): boolean => {
+  const channelInfo = CHANNELS.find(c => c.value === channel);
+  return channelInfo?.supports.includes(assetType) || false;
+};
+
+// Helper function to get warning message for invalid combinations
+const getWarningMessage = (channel: string, assetType: string): string | null => {
+  if (isValidCombination(channel, assetType)) return null;
+  
+  const channelInfo = CHANNELS.find(c => c.value === channel);
+  const supportedTypes = channelInfo?.supports || [];
+  
+  if (supportedTypes.length === 0) {
+    return `${channelInfo?.label || channel} doesn't support any asset types`;
+  }
+  
+  return `${channelInfo?.label || channel} doesn't support ${assetType}. Available: ${supportedTypes.join(', ')}`;
+};
+
 export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -133,53 +175,6 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   });
 
   const { saveToLibrary } = useAssetLibrary();
-
-  // DEPRECATED: Polling-based status checking - Replaced by webhook + SSE system
-  // const checkPendingAssetStatus = async (result: typeof generationResults[0]) => {
-  //   if (!result.asset_url.startsWith('pending_')) return;
-
-  //   try {
-  //     if (result.source_system === 'heygen') {
-  //       // Extract video ID from pending URL
-  //       const videoId = result.asset_url.replace('pending_', '');
-  //       const response = await generationAPI.getStatus(videoId);
-  //       const statusData = response.data.data;
-        
-  //       if (statusData.status === 'completed' && statusData.videoUrl) {
-  //         // Update the result with the final URL
-  //         setGenerationResults(prev => prev.map(r => 
-  //           r.id === result.id 
-  //             ? { ...r, asset_url: statusData.videoUrl, status: 'completed' }
-  //             : r
-  //         ));
-  //       } else if (statusData.status === 'failed') {
-  //         // Update the result to failed
-  //         setGenerationResults(prev => prev.map(r => 
-  //           r.id === result.id 
-  //             ? { ...r, status: 'failed', error: statusData.errorMessage }
-  //             : r
-  //         ));
-  //       }
-  //     }
-  //     // Add similar logic for RunwayML if needed
-  //   } catch (error) {
-  //     console.error('Error checking asset status:', error);
-  //   }
-  // };
-
-  // DEPRECATED: Polling-based status checking - Replaced by webhook + SSE system
-  // useEffect(() => {
-  //   if (generationResults.length === 0) return;
-
-  //   const pendingAssets = generationResults.filter(r => r.asset_url.startsWith('pending_'));
-  //   if (pendingAssets.length === 0) return;
-
-  //   const interval = setInterval(() => {
-  //     pendingAssets.forEach(checkPendingAssetStatus);
-  //   }, 10000); // Check every 10 seconds
-
-  //   return () => clearInterval(interval);
-  // }, [generationResults]);
 
   const handleDeleteProduct = async (productId: string) => {
     try {
@@ -1303,6 +1298,14 @@ Your output should be:
                     <Button
                       onClick={() => {
                         setGenerationType('video');
+                        // Find a channel that supports video
+                        const videoChannels = CHANNELS.filter(ch => ch.supports.includes('video'));
+                        const initialChannel = videoChannels.length > 0 ? videoChannels[0].value : 'facebook';
+                        setGenerationConfig(prev => ({
+                          ...prev,
+                          channel: initialChannel,
+                          type: 'video'
+                        }));
                         setShowGenerator(true);
                       }}
                       className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
@@ -1314,6 +1317,14 @@ Your output should be:
                     <Button
                       onClick={() => {
                         setGenerationType('image');
+                        // Find a channel that supports image
+                        const imageChannels = CHANNELS.filter(ch => ch.supports.includes('image'));
+                        const initialChannel = imageChannels.length > 0 ? imageChannels[0].value : 'facebook';
+                        setGenerationConfig(prev => ({
+                          ...prev,
+                          channel: initialChannel,
+                          type: 'image'
+                        }));
                         setShowGenerator(true);
                       }}
                       className="flex items-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
@@ -1325,6 +1336,14 @@ Your output should be:
                     <Button
                       onClick={() => {
                         setGenerationType('content');
+                        // Find a channel that supports content
+                        const contentChannels = CHANNELS.filter(ch => ch.supports.includes('content'));
+                        const initialChannel = contentChannels.length > 0 ? contentChannels[0].value : 'facebook';
+                        setGenerationConfig(prev => ({
+                          ...prev,
+                          channel: initialChannel,
+                          type: 'content'
+                        }));
                         setShowGenerator(true);
                       }}
                       className="flex items-center space-x-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
@@ -1336,6 +1355,14 @@ Your output should be:
                     <Button
                       onClick={() => {
                         setGenerationType('content');
+                        // Find a channel that supports content
+                        const contentChannels = CHANNELS.filter(ch => ch.supports.includes('content'));
+                        const initialChannel = contentChannels.length > 0 ? contentChannels[0].value : 'facebook';
+                        setGenerationConfig(prev => ({
+                          ...prev,
+                          channel: initialChannel,
+                          type: 'content'
+                        }));
                         setShowGenerator(true);
                       }}
                       className="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
@@ -1855,14 +1882,28 @@ Your output should be:
                                 : 'bg-white border-gray-300 text-gray-900 hover:border-blue-400'
                             }`}
                             value={generationConfig.channel}
-                            onChange={(e) => setGenerationConfig(prev => ({ ...prev, channel: e.target.value }))}
+                            onChange={(e) => {
+                              const newChannel = e.target.value;
+                              const supportedTypes = getSupportedAssetTypes(newChannel);
+                              
+                              // If current type is not supported by new channel, switch to first supported type
+                              if (!supportedTypes.includes(generationConfig.type)) {
+                                const newType = supportedTypes[0] || 'content';
+                                setGenerationConfig(prev => ({ 
+                                  ...prev, 
+                                  channel: newChannel,
+                                  type: newType
+                                }));
+                              } else {
+                                setGenerationConfig(prev => ({ ...prev, channel: newChannel }));
+                              }
+                            }}
                           >
-                            <option value="facebook">📘 Facebook</option>
-                            <option value="instagram">📷 Instagram</option>
-                            <option value="tiktok">🎵 TikTok</option>
-                            <option value="youtube">📺 YouTube</option>
-                            <option value="linkedin">💼 LinkedIn</option>
-                            <option value="twitter">🐦 Twitter</option>
+                            {CHANNELS.map(channel => (
+                              <option key={channel.value} value={channel.value}>
+                                {channel.label}
+                              </option>
+                            ))}
                           </select>
                         </div>
 
@@ -1880,12 +1921,37 @@ Your output should be:
                             value={generationConfig.type}
                             onChange={(e) => setGenerationConfig(prev => ({ ...prev, type: e.target.value }))}
                           >
-                            <option value="image">🖼️ Image</option>
-                            <option value="video">🎥 Video</option>
-                            <option value="carousel">🔄 Carousel</option>
+                            {ASSET_TYPES.filter(type => {
+                              // Only show asset types supported by the selected channel
+                              const supportedTypes = getSupportedAssetTypes(generationConfig.channel);
+                              return supportedTypes.includes(type.value);
+                            }).map(type => (
+                              <option key={type.value} value={type.value}>
+                                {type.label}
+                              </option>
+                            ))}
                           </select>
                         </div>
                       </div>
+
+                      {/* Warning for invalid combinations */}
+                      {(() => {
+                        const warning = getWarningMessage(generationConfig.channel, generationConfig.type);
+                        if (!warning) return null;
+                        
+                        return (
+                          <div className={`p-3 rounded-lg border ${
+                            theme === 'dark' 
+                              ? 'bg-orange-900/20 border-orange-600 text-orange-300' 
+                              : 'bg-orange-50 border-orange-200 text-orange-800'
+                          }`}>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-sm font-medium">⚠️</span>
+                              <span className="text-sm">{warning}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {/* Format Selection */}
                       <div className="space-y-2">
@@ -1901,10 +1967,87 @@ Your output should be:
                           value={generationConfig.format}
                           onChange={(e) => setGenerationConfig(prev => ({ ...prev, format: e.target.value }))}
                         >
-                          <option value="feed_post">📄 Feed Post</option>
-                          <option value="reel">🎬 Reel</option>
-                          <option value="ad">📢 Ad</option>
-                          <option value="banner">🖼️ Banner</option>
+                          {(() => {
+                            const { channel, type } = generationConfig;
+                            
+                            // Define only uploadable, practical format options
+                            if (channel === 'facebook') {
+                              if (type === 'image') return [
+                                <option key="feed_post" value="feed_post">📄 Feed Post</option>,
+                                <option key="cover_photo" value="cover_photo">🖼️ Cover Photo</option>
+                              ];
+                              if (type === 'video') return [
+                                <option key="feed_video" value="feed_video">🎬 Feed Video</option>,
+                                <option key="reel" value="reel">🎵 Reel</option>
+                              ];
+                              if (type === 'content') return [
+                                <option key="post_copy" value="post_copy">📝 Post Copy</option>
+                              ];
+                            }
+                            
+                            if (channel === 'instagram') {
+                              if (type === 'image') return [
+                                <option key="feed_post" value="feed_post">📄 Feed Post</option>,
+                                
+                              ];
+                              if (type === 'video') return [
+                                <option key="reel" value="reel">🎵 Reel</option>
+                              ];
+                              if (type === 'content') return [
+                                <option key="caption" value="caption">📝 Caption</option>
+                              ];
+                            }
+                            
+                            if (channel === 'tiktok') {
+                              if (type === 'video') return [
+                                <option key="short_video" value="short_video">🎬 Short Video</option>
+                              ];
+                              if (type === 'content') return [
+                                <option key="video_caption" value="video_caption">📝 Video Caption</option>
+                              ];
+                            }
+                            
+                            if (channel === 'youtube') {
+                              if (type === 'video') return [
+                                <option key="short" value="short">🎬 Short</option>,
+                                <option key="long_form" value="long_form">📺 Long Form</option>
+                              ];
+                              if (type === 'content') return [
+                                <option key="video_title" value="video_title">📝 Video Title</option>,
+                                <option key="description" value="description">📄 Description</option>
+                              ];
+                            }
+                            
+                            if (channel === 'linkedin') {
+                              if (type === 'image') return [
+                                <option key="feed_post" value="feed_post">📄 Feed Post</option>
+                              ];
+                              if (type === 'video') return [
+                                <option key="feed_video" value="feed_video">🎬 Feed Video</option>
+                              ];
+                              if (type === 'content') return [
+                                <option key="post_copy" value="post_copy">📝 Post Copy</option>
+                              ];
+                            }
+                            
+                            if (channel === 'twitter') {
+                              if (type === 'image') return [
+                                <option key="feed_post" value="feed_post">📄 Feed Post</option>
+                              ];
+                              if (type === 'video') return [
+                                <option key="feed_video" value="feed_video">🎬 Feed Video</option>
+                              ];
+                              if (type === 'content') return [
+                                <option key="tweet" value="tweet">🐦 Tweet</option>
+                              ];
+                            }
+                            
+                            // Default options
+                            return [
+                              <option key="feed_post" value="feed_post">📄 Feed Post</option>,
+                              <option key="content" value="content">📝 Content</option>
+                            ];
+                          })()}
                         </select>
                       </div>
 
@@ -2195,7 +2338,7 @@ Your output should be:
                             }`}>Optional</Badge>
                           </div>
                           
-                          <div className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 hover:shadow-sm ${
+                          {/* <div className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 hover:shadow-sm ${
                             theme === 'dark'
                               ? 'bg-gradient-to-r from-gray-800 to-orange-900/20 border-gray-600 hover:border-orange-400'
                               : 'bg-gradient-to-r from-gray-50 to-orange-50 border-gray-200 hover:border-orange-300'
@@ -2217,7 +2360,7 @@ Your output should be:
                                 ? 'bg-orange-900/50 text-orange-300 hover:bg-orange-800/50'
                                 : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                             }`}>Recommended</Badge>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     </>
