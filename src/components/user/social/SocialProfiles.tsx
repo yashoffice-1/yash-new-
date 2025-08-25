@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/forms/button";
 import { Badge } from "@/components/ui/data_display/badge";
 import { Loading } from "@/components/ui/UI_Elements/loading";
 import { useToast } from "@/hooks/ui/use-toast";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useOAuth } from "@/hooks/auth/useOAuth";
 import { 
   Instagram, 
@@ -40,6 +41,7 @@ interface SocialChannel {
 export function SocialProfiles() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { theme } = useTheme();
   const { initiateYouTubeOAuth, initiateInstagramOAuth, initiateFacebookOAuth } = useOAuth();
   const [connections, setConnections] = useState<SocialConnection[]>([]);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
@@ -257,10 +259,16 @@ export function SocialProfiles() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Card>
+        <Card className={`${
+          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        }`}>
           <CardHeader>
-            <CardTitle>Social Media Integrations</CardTitle>
-            <CardDescription>
+            <CardTitle className={`${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Social Media Integrations</CardTitle>
+            <CardDescription className={`${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               Connect your social media and advertising accounts to streamline content publishing and campaign management
             </CardDescription>
           </CardHeader>
@@ -268,7 +276,9 @@ export function SocialProfiles() {
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center space-x-2">
                 {/* <Loading className="h-6 w-6" /> */}
-                <span>Loading social media connections...</span>
+                <span className={`${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                }`}>Loading social media connections...</span>
               </div>
             </div>
           </CardContent>
@@ -279,10 +289,16 @@ export function SocialProfiles() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className={`${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <CardHeader>
-          <CardTitle>Social Media Integrations</CardTitle>
-          <CardDescription>
+          <CardTitle className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Social Media Integrations</CardTitle>
+          <CardDescription className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>
             Connect your social media and advertising accounts to streamline content publishing and campaign management
           </CardDescription>
         </CardHeader>
@@ -293,12 +309,16 @@ export function SocialProfiles() {
               const isConnecting = connectingPlatform === channel.platform;
               
               return (
-                <Card key={channel.id} className="relative">
+                <Card key={channel.id} className={`relative ${
+                  theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                }`}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
                         <IconComponent className="h-6 w-6" />
-                        <span className="font-medium">{channel.name}</span>
+                        <span className={`font-medium ${
+                          theme === 'dark' ? 'text-white' : 'text-gray-900'
+                        }`}>{channel.name}</span>
                       </div>
                       {channel.connected && (
                         <Badge variant="secondary" className="flex items-center space-x-1">
@@ -309,7 +329,9 @@ export function SocialProfiles() {
                     </div>
                     
                     {channel.connected && channel.accountName && (
-                      <p className="text-sm text-muted-foreground mb-3">
+                      <p className={`text-sm mb-3 ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
                         {channel.accountName}
                       </p>
                     )}
@@ -363,12 +385,18 @@ export function SocialProfiles() {
 
           {/* Info section for connected accounts */}
           {connections.length > 0 && (
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <div className={`mt-6 p-4 rounded-lg ${
+              theme === 'dark' ? 'bg-blue-900/20 border border-blue-600' : 'bg-blue-50'
+            }`}>
               <div className="flex items-start space-x-3">
                 <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-blue-900">Connected Accounts</h4>
-                  <p className="text-sm text-blue-800 mt-1">
+                  <h4 className={`font-medium ${
+                    theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
+                  }`}>Connected Accounts</h4>
+                  <p className={`text-sm mt-1 ${
+                    theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
+                  }`}>
                     You can now upload your generated content directly to your connected social media accounts. 
                     Go to your settings for more detailed management options.
                   </p>
@@ -378,12 +406,18 @@ export function SocialProfiles() {
           )}
 
           {/* Info section for available integrations */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <div className={`mt-6 p-4 rounded-lg ${
+            theme === 'dark' ? 'bg-gray-800 border border-gray-600' : 'bg-gray-50'
+          }`}>
             <div className="flex items-start space-x-3">
               <AlertCircle className="h-5 w-5 text-gray-600 mt-0.5" />
               <div>
-                <h4 className="font-medium text-gray-900">Available Integrations</h4>
-                <p className="text-sm text-gray-700 mt-1">
+                <h4 className={`font-medium ${
+                  theme === 'dark' ? 'text-gray-200' : 'text-gray-900'
+                }`}>Available Integrations</h4>
+                <p className={`text-sm mt-1 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                }`}>
                   YouTube integration is fully functional. Other platforms are coming soon. 
                   Connected accounts will automatically sync with your content generation workflow.
                 </p>

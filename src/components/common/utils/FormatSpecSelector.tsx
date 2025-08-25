@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/forms/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/forms/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms/select';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface FormatSpecSelectorProps {
   assetType: 'image' | 'video';
@@ -102,6 +103,7 @@ const VIDEO_DURATIONS = [
 ];
 
 export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, channel, format }: FormatSpecSelectorProps) {
+  const { theme } = useTheme();
   const [selectedAspectRatio, setSelectedAspectRatio] = useState(
     initialSpecs?.aspectRatio || (assetType === 'image' ? '2:3' : '2:3')
   );
@@ -271,16 +273,26 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
   const hasMultipleOptions = isInstagramFeedPost || isTwitterMultipleImages || isTikTokAdCreative;
 
   return (
-    <div className="space-y-6 p-4 border rounded-lg bg-gray-50">
+    <div className={`space-y-6 p-4 border rounded-lg ${
+      theme === 'dark' ? 'bg-gray-800 border-gray-600' : 'bg-gray-50 border-gray-200'
+    }`}>
       {isChannelSpecific ? (
         // Channel-specific format display
         <div className="space-y-3">
-          <Label className="text-sm font-medium text-gray-700">{channelName} Format</Label>
+          <Label className={`text-sm font-medium ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>{channelName} Format</Label>
           {hasMultipleOptions ? (
             // For formats with multiple ratio options
             <div className="space-y-2">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-2">
-                <p className="text-xs text-blue-600">
+              <div className={`border rounded-lg p-3 mb-2 ${
+                theme === 'dark' 
+                  ? 'bg-blue-900/20 border-blue-600' 
+                  : 'bg-blue-50 border-blue-200'
+              }`}>
+                <p className={`text-xs ${
+                  theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                }`}>
                   {channelName} {format} supports multiple aspect ratios:
                 </p>
               </div>
@@ -292,26 +304,36 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
                 {aspectRatios.map((ratio) => (
                   <div key={ratio.value} className="flex items-center space-x-2">
                     <RadioGroupItem value={ratio.value} id={`ratio-${ratio.value}`} />
-                    <Label 
-                      htmlFor={`ratio-${ratio.value}`} 
-                      className="text-sm cursor-pointer flex-1"
-                    >
-                      {ratio.label} - {ratio.width}x{ratio.height}px
-                    </Label>
+                                    <Label 
+                  htmlFor={`ratio-${ratio.value}`} 
+                  className={`text-sm cursor-pointer flex-1 ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}
+                >
+                  {ratio.label} - {ratio.width}x{ratio.height}px
+                </Label>
                   </div>
                 ))}
               </RadioGroup>
             </div>
           ) : (
             // For formats with fixed ratios
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className={`border rounded-lg p-3 ${
+              theme === 'dark' 
+                ? 'bg-blue-900/20 border-blue-600' 
+                : 'bg-blue-50 border-blue-200'
+            }`}>
               <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <Label className="text-sm font-medium text-blue-800">
+                <Label className={`text-sm font-medium ${
+                  theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
+                }`}>
                   {selectedRatio.label} - {selectedRatio.width}x{selectedRatio.height}px
                 </Label>
               </div>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className={`text-xs mt-1 ${
+                theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+              }`}>
                 Optimized for {channelName} {format}
               </p>
             </div>
@@ -320,7 +342,9 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
       ) : (
         // Standard aspect ratio selector for other channels
         <div className="space-y-3">
-          <Label className="text-sm font-medium text-gray-700">Aspect ratio</Label>
+          <Label className={`text-sm font-medium ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>Aspect ratio</Label>
           <RadioGroup 
             value={selectedAspectRatio} 
             onValueChange={handleAspectRatioChange}
@@ -331,7 +355,9 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
                 <RadioGroupItem value={ratio.value} id={`ratio-${ratio.value}`} />
                 <Label 
                   htmlFor={`ratio-${ratio.value}`} 
-                  className="text-sm cursor-pointer flex-1"
+                  className={`text-sm cursor-pointer flex-1 ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}
                 >
                   {ratio.label}
                 </Label>
@@ -343,14 +369,22 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
 
       {assetType === 'video' && (
         <div className="space-y-3">
-          <Label className="text-sm font-medium text-gray-700">Duration</Label>
+          <Label className={`text-sm font-medium ${
+            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+          }`}>Duration</Label>
           <Select value={selectedDuration} onValueChange={handleDurationChange}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className={`w-full ${
+              theme === 'dark' ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'
+            }`}>
               <SelectValue placeholder="Select duration" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={`${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
               {VIDEO_DURATIONS.map((duration) => (
-                <SelectItem key={duration.value} value={duration.value}>
+                <SelectItem key={duration.value} value={duration.value} className={`${
+                  theme === 'dark' ? 'text-white hover:bg-gray-700' : 'text-gray-900 hover:bg-gray-100'
+                }`}>
                   {duration.label}
                 </SelectItem>
               ))}
@@ -359,11 +393,17 @@ export function FormatSpecSelector({ assetType, onSpecChange, initialSpecs, chan
         </div>
       )}
 
-      <div className="text-xs text-gray-500 bg-white p-2 rounded border">
+      <div className={`text-xs p-2 rounded border ${
+        theme === 'dark' 
+          ? 'text-gray-400 bg-gray-800 border-gray-600' 
+          : 'text-gray-500 bg-white border-gray-200'
+      }`}>
         <strong>Selected:</strong> {selectedRatio.width}x{selectedRatio.height}
         {assetType === 'video' && `, ${selectedDuration} seconds`}
         {isChannelSpecific && (
-          <div className="text-blue-600 font-medium mt-1">
+          <div className={`font-medium mt-1 ${
+            theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
+          }`}>
             ✅ {channelName} {format} optimized
           </div>
         )}

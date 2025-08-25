@@ -4,27 +4,42 @@ import { Button } from "@/components/ui/forms/button";
 import { Badge } from "@/components/ui/data_display/badge";
 import { Progress } from "@/components/ui/data_display/progress";
 import { CreditCard, Download, Eye } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export function BillingSection() {
+  const { theme } = useTheme();
+  
   return (
     <div className="space-y-6">
       {/* Current Plan */}
-      <Card>
+      <Card className={`${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <CardHeader>
-          <CardTitle>Current Plan</CardTitle>
-          <CardDescription>Your subscription and usage details</CardDescription>
+          <CardTitle className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Current Plan</CardTitle>
+          <CardDescription className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>Your subscription and usage details</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Professional Plan</h3>
-              <p className="text-sm text-gray-600">$49/month • Billed monthly</p>
+              <h3 className={`text-lg font-semibold ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>Professional Plan</h3>
+              <p className={`text-sm ${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+              }`}>$49/month • Billed monthly</p>
             </div>
             <Badge variant="default">Active</Badge>
           </div>
 
           <div className="space-y-3">
-            <div className="flex justify-between text-sm">
+            <div className={`flex justify-between text-sm ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               <span>Video generations used</span>
               <span>45 / 100</span>
             </div>
@@ -44,17 +59,29 @@ export function BillingSection() {
       </Card>
 
       {/* Payment Method */}
-      <Card>
+      <Card className={`${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <CardHeader>
-          <CardTitle>Payment Method</CardTitle>
-          <CardDescription>Manage your payment information</CardDescription>
+          <CardTitle className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Payment Method</CardTitle>
+          <CardDescription className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>Manage your payment information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center space-x-4 p-4 border rounded-lg">
+          <div className={`flex items-center space-x-4 p-4 border rounded-lg ${
+            theme === 'dark' ? 'border-gray-600' : 'border-gray-200'
+          }`}>
             <CreditCard className="h-8 w-8 text-gray-400" />
             <div className="flex-1">
-              <p className="font-medium">•••• •••• •••• 4242</p>
-              <p className="text-sm text-gray-600">Expires 12/25</p>
+              <p className={`font-medium ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>•••• •••• •••• 4242</p>
+              <p className={`text-sm ${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+              }`}>Expires 12/25</p>
             </div>
             <Button variant="outline" size="sm">Update</Button>
           </div>

@@ -5,7 +5,8 @@ import { Download, Copy, Check, AlertCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/feedback/alert";
-import { SaveAssetDialog } from "./dialogs/SaveAssetDialog";
+import { SaveAssetDialog } from "@/components/inventory/dialogs/SaveAssetDialog";
+import { useTheme } from "@/contexts/ThemeContext";
 
 type GeneratorType = 'image' | 'video' | 'content' | 'combo';
 
@@ -30,6 +31,7 @@ interface AssetDisplayProps {
 export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
   const { toast } = useToast();
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const { theme } = useTheme();
 
   const handleDownload = (asset: GeneratedAsset) => {
     if (asset.url && asset.type !== 'content') {
@@ -76,10 +78,10 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
 
   const getAssetTypeColor = (type: GeneratorType) => {
     const colors = {
-      image: "bg-blue-100 text-blue-800",
-      video: "bg-purple-100 text-purple-800", 
-      content: "bg-green-100 text-green-800",
-      combo: "bg-orange-100 text-orange-800"
+      image: theme === 'dark' ? "bg-blue-900/50 text-blue-300" : "bg-blue-100 text-blue-800",
+      video: theme === 'dark' ? "bg-purple-900/50 text-purple-300" : "bg-purple-100 text-purple-800", 
+      content: theme === 'dark' ? "bg-green-900/50 text-green-300" : "bg-green-100 text-green-800",
+      combo: theme === 'dark' ? "bg-orange-900/50 text-orange-300" : "bg-orange-100 text-orange-800"
     };
     return colors[type];
   };
@@ -88,13 +90,13 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
     if (!sourceSystem) return null;
     
     const providerColors = {
-      runway: "bg-red-100 text-red-800",
-      heygen: "bg-blue-100 text-blue-800",
-      openai: "bg-green-100 text-green-800"
+      runway: theme === 'dark' ? "bg-red-900/50 text-red-300" : "bg-red-100 text-red-800",
+      heygen: theme === 'dark' ? "bg-blue-900/50 text-blue-300" : "bg-blue-100 text-blue-800",
+      openai: theme === 'dark' ? "bg-green-900/50 text-green-300" : "bg-green-100 text-green-800"
     };
     
     return (
-      <Badge className={providerColors[sourceSystem as keyof typeof providerColors] || "bg-gray-100 text-gray-800"}>
+      <Badge className={providerColors[sourceSystem as keyof typeof providerColors] || (theme === 'dark' ? "bg-gray-800 text-gray-300" : "bg-gray-100 text-gray-800")}>
         {sourceSystem.toUpperCase()}
       </Badge>
     );
@@ -105,14 +107,14 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
     if (asset.source_system === 'heygen' || asset.source_system === 'heygen_zapier') {
       if (asset.url === 'processing' || asset.url === 'pending') {
         return (
-          <Badge className="bg-yellow-100 text-yellow-800">
+          <Badge className={theme === 'dark' ? "bg-yellow-900/50 text-yellow-300" : "bg-yellow-100 text-yellow-800"}>
             PROCESSING
           </Badge>
         );
       }
       if (asset.url === 'failed' || asset.url?.includes('heygen.com') || asset.url?.includes('heygen-assets')) {
         return (
-          <Badge className="bg-red-100 text-red-800">
+          <Badge className={theme === 'dark' ? "bg-red-900/50 text-red-300" : "bg-red-100 text-red-800"}>
             UNAVAILABLE
           </Badge>
         );
@@ -121,13 +123,13 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
     
     if (asset.status === 'processing' || asset.runway_task_id) {
       return (
-        <Badge className="bg-yellow-100 text-yellow-800">
+        <Badge className={theme === 'dark' ? "bg-yellow-900/50 text-yellow-300" : "bg-yellow-100 text-yellow-800"}>
           PROCESSING
         </Badge>
       );
     }
     return (
-      <Badge className="bg-green-100 text-green-800">
+      <Badge className={theme === 'dark' ? "bg-green-900/50 text-green-300" : "bg-green-100 text-green-800"}>
         COMPLETED
       </Badge>
     );
@@ -195,7 +197,9 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
 
         <div className="space-y-4">
           {assets.map((asset) => (
-            <div key={asset.id} className="border rounded-lg p-4 space-y-3 bg-white shadow-sm">
+            <div key={asset.id} className={`border rounded-lg p-4 space-y-3 shadow-sm transition-colors duration-200 ${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
               <div className="flex justify-between items-start">
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center space-x-2 flex-wrap">
@@ -211,7 +215,9 @@ export function AssetDisplay({ assets, isGenerating }: AssetDisplayProps) {
                   
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Instruction:</p>
-                    <p className="text-sm text-gray-700 bg-gray-50 p-2 rounded">{asset.instruction}</p>
+                    <p className={`text-sm p-2 rounded ${
+                      theme === 'dark' ? 'text-gray-300 bg-gray-700' : 'text-gray-700 bg-gray-50'
+                    }`}>{asset.instruction}</p>
                   </div>
 
                   {asset.message && (

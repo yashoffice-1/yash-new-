@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/layout/card';
 import { Progress } from '@/components/ui/data_display/progress';
 import { BarChart3, Users, Video, Image, TrendingUp } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface SystemStatsData {
   totalUsers: number;
@@ -17,11 +18,17 @@ interface SystemStatsProps {
 }
 
 export function SystemStats({ stats }: SystemStatsProps) {
+  const { theme } = useTheme();
+  
   if (!stats) {
     return (
       <div className="text-center py-8">
-        <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-500">No system statistics available</p>
+        <BarChart3 className={`h-12 w-12 mx-auto mb-4 ${
+          theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+        }`} />
+        <p className={`${
+          theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+        }`}>No system statistics available</p>
       </div>
     );
   }
@@ -33,13 +40,19 @@ export function SystemStats({ stats }: SystemStatsProps) {
   return (
     <div className="space-y-6">
       {/* User Analytics */}
-      <Card>
+      <Card className={`${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle className={`flex items-center space-x-2 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>
             <Users className="h-5 w-5" />
             <span>User Analytics</span>
           </CardTitle>
-          <CardDescription>
+          <CardDescription className={`${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Overview of user registration and verification status
           </CardDescription>
         </CardHeader>
@@ -47,20 +60,28 @@ export function SystemStats({ stats }: SystemStatsProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.totalUsers}</div>
-              <div className="text-sm text-gray-500">Total Users</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Total Users</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{stats.verifiedUsers}</div>
-              <div className="text-sm text-gray-500">Verified Users</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Verified Users</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600">{stats.pendingUsers}</div>
-              <div className="text-sm text-gray-500">Pending Users</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Pending Users</div>
             </div>
           </div>
           
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
+            <div className={`flex justify-between text-sm ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+            }`}>
               <span>Email Verification Rate</span>
               <span>{verificationRate.toFixed(1)}%</span>
             </div>
@@ -70,13 +91,19 @@ export function SystemStats({ stats }: SystemStatsProps) {
       </Card>
 
       {/* Content Analytics */}
-      <Card>
+      <Card className={`${
+        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
+          <CardTitle className={`flex items-center space-x-2 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>
             <BarChart3 className="h-5 w-5" />
             <span>Content Analytics</span>
           </CardTitle>
-          <CardDescription>
+          <CardDescription className={`${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Overview of generated content and media types
           </CardDescription>
         </CardHeader>
@@ -84,15 +111,21 @@ export function SystemStats({ stats }: SystemStatsProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">{stats.totalAssets}</div>
-              <div className="text-sm text-gray-500">Total Assets</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Total Assets</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">{stats.totalVideos}</div>
-              <div className="text-sm text-gray-500">Videos</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Videos</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{stats.totalImages}</div>
-              <div className="text-sm text-gray-500">Images</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Images</div>
             </div>
           </div>
 

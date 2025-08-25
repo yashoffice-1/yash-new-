@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/forms/label';
 import { Textarea } from '@/components/ui/forms/textarea';
 import { Loader2, Play, Eye, Calendar, Clock, Users } from 'lucide-react';
 import { useToast } from '@/hooks/ui/use-toast';
+import { useTheme } from '@/contexts/ThemeContext';
 import { templatesAPI } from '@/api/clients/backend-client';
 import { RealtimeVideoProgress } from '@/components/video-template/RealtimeVideoProgress';
 
@@ -42,6 +43,7 @@ interface TemplateGenerationForm {
 
 export function UserTemplateLibrary() {
   const { toast } = useToast();
+  const { theme } = useTheme();
   const [templates, setTemplates] = useState<UserTemplateAccess[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<UserTemplateAccess | null>(null);
@@ -241,8 +243,12 @@ export function UserTemplateLibrary() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">My Templates</h2>
-          <p className="text-gray-600">
+          <h2 className={`text-3xl font-bold mb-2 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>My Templates</h2>
+          <p className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+          }`}>
             Generate custom videos using your assigned templates
           </p>
         </div>
@@ -252,23 +258,33 @@ export function UserTemplateLibrary() {
               <div className="text-2xl font-bold text-green-600">
                 {templates.filter(t => canUseTemplate(t)).length}
               </div>
-              <div className="text-sm text-gray-500">Available</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Available</div>
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-orange-600">
                 {templates.filter(t => !canUseTemplate(t)).length}
               </div>
-              <div className="text-sm text-gray-500">Unavailable</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Unavailable</div>
             </div>
             <div className="text-right">
               <div className="text-2xl font-bold text-blue-600">
                 {templates.length}
               </div>
-              <div className="text-sm text-gray-500">Total</div>
+              <div className={`text-sm ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>Total</div>
             </div>
           </div>
-          <div className="h-8 w-px bg-gray-300"></div>
-          <div className="text-xs text-gray-500">
+          <div className={`h-8 w-px ${
+            theme === 'dark' ? 'bg-gray-600' : 'bg-gray-300'
+          }`}></div>
+          <div className={`text-xs ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+          }`}>
             {templates.filter(t => t.variables && t.variables.length > 0).length} with variables
           </div>
         </div>
@@ -276,24 +292,40 @@ export function UserTemplateLibrary() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Loading your templates...</h3>
-            <p className="text-gray-500">Please wait while we fetch your assigned templates</p>
-          </div>
+                  <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <h3 className={`text-lg font-medium mb-2 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Loading your templates...</h3>
+          <p className={`${
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
+          }`}>Please wait while we fetch your assigned templates</p>
+        </div>
         </div>
       ) : templates.length === 0 ? (
-        <Card className="border-dashed border-2 border-gray-200 bg-gray-50">
+        <Card className={`border-dashed border-2 ${
+          theme === 'dark' ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'
+        }`}>
           <CardContent className="text-center py-16">
-            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+            }`}>
               <Users className="h-8 w-8 text-gray-400" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Templates Assigned</h3>
-            <p className="text-gray-600 max-w-md mx-auto mb-6">
+            <h3 className={`text-xl font-semibold mb-2 ${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>No Templates Assigned</h3>
+            <p className={`max-w-md mx-auto mb-6 ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               You don't have any templates assigned yet. Contact your admin to get access to video templates.
             </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-              <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+            <div className={`flex items-center justify-center gap-2 text-sm ${
+              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${
+                theme === 'dark' ? 'bg-gray-500' : 'bg-gray-300'
+              }`}></div>
               <span>Admin will assign templates here</span>
             </div>
           </CardContent>
@@ -301,8 +333,12 @@ export function UserTemplateLibrary() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {templates.map((template) => (
-            <Card key={template.id} className="overflow-hidden hover:shadow-lg transition-all duration-200 border-0 shadow-md">
-              <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative group">
+            <Card key={template.id} className={`overflow-hidden hover:shadow-lg transition-all duration-200 border-0 shadow-md ${
+              theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            }`}>
+              <div className={`aspect-video relative group ${
+                theme === 'dark' ? 'bg-gradient-to-br from-gray-700 to-gray-800' : 'bg-gradient-to-br from-gray-100 to-gray-200'
+              }`}>
                 {template.thumbnailUrl ? (
                   <img
                     src={template.thumbnailUrl}
@@ -313,7 +349,9 @@ export function UserTemplateLibrary() {
                   <div className="w-full h-full flex items-center justify-center">
                     <div className="text-center">
                       <Play className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                      <span className="text-gray-500 text-sm">No Preview</span>
+                      <span className={`text-sm ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                      }`}>No Preview</span>
                     </div>
                   </div>
                 )}
@@ -334,7 +372,9 @@ export function UserTemplateLibrary() {
               </div>
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900 line-clamp-2 leading-tight">
+                  <h3 className={`font-semibold line-clamp-2 leading-tight ${
+                    theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}>
                     {template.templateName}
                   </h3>
                   <div className="flex gap-1 flex-shrink-0 ml-2">
@@ -352,12 +392,16 @@ export function UserTemplateLibrary() {
                 </div>
                 
                 {template.templateDescription && (
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2 leading-relaxed">
+                  <p className={`text-sm mb-4 line-clamp-2 leading-relaxed ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
                     {template.templateDescription}
                   </p>
                 )}
 
-                <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                <div className={`flex items-center justify-between text-xs mb-4 ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                }`}>
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     <span>Used {template.usageCount} times</span>
@@ -370,9 +414,15 @@ export function UserTemplateLibrary() {
                 </div>
 
                 {template.expiresAt && (
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-4 p-2 bg-orange-50 rounded-md">
+                  <div className={`flex items-center gap-2 text-xs mb-4 p-2 rounded-md ${
+                    theme === 'dark' 
+                      ? 'text-gray-400 bg-orange-900/20' 
+                      : 'text-gray-500 bg-orange-50'
+                  }`}>
                     <Calendar className="h-3 w-3 text-orange-500" />
-                    <span className="text-orange-700">
+                    <span className={`${
+                      theme === 'dark' ? 'text-orange-300' : 'text-orange-700'
+                    }`}>
                       Expires: {new Date(template.expiresAt).toLocaleDateString()}
                     </span>
                   </div>
@@ -380,7 +430,9 @@ export function UserTemplateLibrary() {
 
                 {template.variables && template.variables.length > 0 && (
                   <div className="mb-4">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Variables:</p>
+                    <p className={`text-xs font-medium mb-2 ${
+                      theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+                    }`}>Variables:</p>
                     <div className="flex flex-wrap gap-1">
                       {template.variables.slice(0, 3).map((variable) => (
                         <Badge key={variable.id} variant="outline" className="text-xs">
@@ -403,7 +455,9 @@ export function UserTemplateLibrary() {
                   className={`w-full transition-all duration-200 ${
                     canUseTemplate(template)
                       ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : theme === 'dark'
+                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
                 >
                   <Play className="h-4 w-4 mr-2" />
@@ -423,7 +477,9 @@ export function UserTemplateLibrary() {
               <Play className="h-5 w-5 text-blue-600" />
               Generate Video with Template
             </DialogTitle>
-            <p className="text-sm text-gray-600">
+            <p className={`text-sm ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               Fill in the template variables to generate your custom video
             </p>
           </DialogHeader>
@@ -431,10 +487,16 @@ export function UserTemplateLibrary() {
           {selectedTemplate && (
             <div className="space-y-6">
               {/* Template Info Section */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+              <div className={`rounded-lg p-4 border ${
+                theme === 'dark'
+                  ? 'bg-gradient-to-r from-blue-900/20 to-indigo-900/20 border-blue-600'
+                  : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+              }`}>
                 <div className="flex items-start gap-4">
                   {selectedTemplate.thumbnailUrl && (
-                    <div className="w-16 h-12 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                    <div className={`w-16 h-12 rounded-md overflow-hidden flex-shrink-0 ${
+                      theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                    }`}>
                       <img
                         src={selectedTemplate.thumbnailUrl}
                         alt={selectedTemplate.templateName}
@@ -443,11 +505,15 @@ export function UserTemplateLibrary() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 mb-1">
+                    <h3 className={`font-semibold mb-1 ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>
                       {selectedTemplate.templateName}
                     </h3>
                     {selectedTemplate.templateDescription && (
-                      <p className="text-sm text-gray-600 line-clamp-2">
+                      <p className={`text-sm line-clamp-2 ${
+                        theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                      }`}>
                         {selectedTemplate.templateDescription}
                       </p>
                     )}
@@ -586,18 +652,24 @@ export function UserTemplateLibrary() {
 
               {/* No Variables Message */}
               {(!selectedTemplate.variables || selectedTemplate.variables.length === 0) && (
-                <div className="text-center py-8">
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Play className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500 text-sm">
-                    This template doesn't require any variables. Click generate to create your video.
-                  </p>
+                              <div className="text-center py-8">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                }`}>
+                  <Play className="h-6 w-6 text-gray-400" />
                 </div>
+                <p className={`text-sm ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
+                }`}>
+                  This template doesn't require any variables. Click generate to create your video.
+                </p>
+              </div>
               )}
 
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <div className={`flex gap-3 pt-4 border-t ${
+                theme === 'dark' ? 'border-gray-600' : 'border-gray-200'
+              }`}>
                 <Button
                   onClick={handleGenerateTemplate}
                   disabled={loading || isGenerating || generationStatus === 'processing'}
@@ -628,13 +700,19 @@ export function UserTemplateLibrary() {
 
               {/* Generation Status */}
               {generationStatus === 'processing' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className={`border rounded-lg p-4 ${
+                theme === 'dark' ? 'bg-blue-900/20 border-blue-600' : 'bg-blue-50 border-blue-200'
+              }`}>
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                       <div>
-                        <p className="font-medium text-blue-900">Generating your video...</p>
-                        <p className="text-sm text-blue-700">
+                        <p className={`font-medium ${
+                          theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
+                        }`}>Generating your video...</p>
+                        <p className={`text-sm ${
+                          theme === 'dark' ? 'text-blue-300' : 'text-blue-700'
+                        }`}>
                           {generationProgress >= 92 
                             ? "Almost complete - finalizing video..."
                             : `Estimated time remaining: ${Math.max(1, Math.round((300 - (generationProgress / 92 * 300)) / 60))} minutes`
@@ -646,7 +724,9 @@ export function UserTemplateLibrary() {
                     {/* Progress Bar */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-blue-900">Progress</span>
+                        <span className={`text-sm font-medium ${
+                          theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
+                        }`}>Progress</span>
                         <span className="text-sm font-bold text-blue-600">{Math.round(generationProgress)}%</span>
                       </div>
                       <div className="w-full bg-blue-200 rounded-full h-3">
@@ -661,7 +741,9 @@ export function UserTemplateLibrary() {
               )}
 
               {generationStatus === 'completed' && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className={`border rounded-lg p-4 ${
+                theme === 'dark' ? 'bg-green-900/20 border-green-600' : 'bg-green-50 border-green-200'
+              }`}>
                   <div className="flex items-center gap-3">
                     <div className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center">
                       <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -669,8 +751,12 @@ export function UserTemplateLibrary() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-medium text-green-900">Video generation complete!</p>
-                      <p className="text-sm text-green-700">
+                      <p className={`font-medium ${
+                        theme === 'dark' ? 'text-green-300' : 'text-green-900'
+                      }`}>Video generation complete!</p>
+                      <p className={`text-sm ${
+                        theme === 'dark' ? 'text-green-300' : 'text-green-700'
+                      }`}>
                         Your video has been generated successfully. Check the Asset Library to view it.
                       </p>
                     </div>
@@ -679,7 +765,9 @@ export function UserTemplateLibrary() {
               )}
 
               {generationStatus === 'failed' && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className={`border rounded-lg p-4 ${
+                theme === 'dark' ? 'bg-red-900/20 border-red-600' : 'bg-red-50 border-red-200'
+              }`}>
                   <div className="flex items-center gap-3">
                     <div className="w-5 h-5 bg-red-600 rounded-full flex items-center justify-center">
                       <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -687,8 +775,12 @@ export function UserTemplateLibrary() {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-medium text-red-900">Video generation failed</p>
-                      <p className="text-sm text-red-700">
+                      <p className={`font-medium ${
+                        theme === 'dark' ? 'text-red-300' : 'text-red-900'
+                      }`}>Video generation failed</p>
+                      <p className={`text-sm ${
+                        theme === 'dark' ? 'text-red-300' : 'text-red-700'
+                      }`}>
                         There was an error generating your video. Please try again.
                       </p>
                     </div>

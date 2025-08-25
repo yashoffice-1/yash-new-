@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/data_display/badge";
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Search, Plus, Upload, Package, Edit, Trash2, Image, Video, FileText, Wand2, RefreshCw, CheckCircle, Save, ExternalLink, Loader2, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/ui/use-toast";
+import { useTheme } from "@/contexts/ThemeContext";
 import { AddProductDialog } from "../dialogs/AddProductDialog";
 import { ImportProductsDialog } from "../dialogs/ImportProductsDialog";
 import { ProductCard } from "../display/ProductCard";
@@ -42,6 +43,7 @@ export function InventoryManager({ onProductSelect }: InventoryManagerProps) {
   const { user } = useAuth();
   const { addGenerationResult } = useGeneration();
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -1053,7 +1055,13 @@ Your output should be:
     onSelect: (id: string, checked: boolean) => void;
   }) => (
     <div className={`border rounded-xl p-4 transition-all duration-200 hover:shadow-lg ${
-      isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+      isSelected 
+        ? theme === 'dark'
+          ? 'border-blue-400 bg-blue-900/20'
+          : 'border-blue-500 bg-blue-50'
+        : theme === 'dark'
+          ? 'border-gray-600 hover:border-gray-500 bg-gray-800'
+          : 'border-gray-200 hover:border-gray-300'
     }`}>
       <div className="flex items-start space-x-3">
         <Checkbox
@@ -1067,27 +1075,45 @@ Your output should be:
               <img
                 src={product.images[0].url}
                 alt={product.images[0].altText || product.title}
-                className="w-16 h-16 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                className={`w-16 h-16 object-cover rounded-lg border flex-shrink-0 ${
+                  theme === 'dark' ? 'border-gray-600' : 'border-gray-200'
+                }`}
               />
             )}
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 truncate mb-1">{product.title}</h3>
+              <h3 className={`font-semibold truncate mb-1 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>{product.title}</h3>
               {product.description && (
-                <p className="text-sm text-gray-600 line-clamp-2 mb-2">{product.description}</p>
+                <p className={`text-sm line-clamp-2 mb-2 ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                }`}>{product.description}</p>
               )}
               <div className="flex flex-wrap gap-2 text-xs">
                 {product.vendor && (
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  <Badge variant="outline" className={
+                    theme === 'dark' 
+                      ? 'bg-purple-900/50 text-purple-300 border-purple-600' 
+                      : 'bg-purple-50 text-purple-700 border-purple-200'
+                  }>
                     {product.vendor}
                   </Badge>
                 )}
                 {product.productType && (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <Badge variant="outline" className={
+                    theme === 'dark' 
+                      ? 'bg-blue-900/50 text-blue-300 border-blue-600' 
+                      : 'bg-blue-50 text-blue-700 border-blue-200'
+                  }>
                     {product.productType}
                   </Badge>
                 )}
                 {product.variants[0]?.price && (
-                  <Badge variant="secondary" className="bg-green-50 text-green-800 border-green-200">
+                  <Badge variant="secondary" className={
+                    theme === 'dark' 
+                      ? 'bg-green-900/50 text-green-300 border-green-600' 
+                      : 'bg-green-50 text-green-800 border-green-200'
+                  }>
                     ${product.variants[0].price}
                   </Badge>
                 )}
@@ -1166,7 +1192,11 @@ Your output should be:
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className={`px-3 py-2 border rounded-md text-sm ${
+                theme === 'dark' 
+                  ? 'border-gray-600 bg-gray-800 text-white' 
+                  : 'border-gray-300 bg-white text-gray-900'
+              }`}
             >
                           <option value="">All Categories</option>
               {categories?.map((category) => (
@@ -1216,7 +1246,11 @@ Your output should be:
                   onClick={() => handleSelectAll(!(selectedProducts.length === inventory.length))}
                   className={`flex items-center space-x-2 p-2 border rounded-md cursor-pointer transition-all duration-200 ${
                     selectedProducts.length === inventory.length && inventory.length > 0
-                      ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                      ? theme === 'dark'
+                        ? 'bg-blue-900/20 border-blue-400 text-blue-300 hover:bg-blue-900/30'
+                        : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                      : theme === 'dark'
+                        ? 'hover:bg-gray-700 border-gray-600'
                       : 'hover:bg-gray-100 border-gray-200'
                   }`}
                 >
@@ -1232,11 +1266,15 @@ Your output should be:
 
           {/* Multi-Select Controls */}
           {inventory && inventory.length > 0 && (
-            <div className={`transition-all duration-300 ease-in-out ${
+            <div className={`transition-all duration-300 ease-in-out border-2 rounded-xl p-4 mb-6 ${
               selectedProducts.length > 0 
-                ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-200 shadow-lg' 
+                ? theme === 'dark'
+                  ? 'bg-gradient-to-r from-blue-900/20 via-indigo-900/20 to-purple-900/20 border-blue-400 shadow-lg'
+                  : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-200 shadow-lg'
+                : theme === 'dark'
+                  ? 'bg-gray-800 border-gray-600'
                 : 'bg-gray-50 border-gray-200'
-            } border-2 rounded-xl p-4 mb-6`}>
+            }`}>
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center space-x-4">
                   {selectedProducts.length > 0 && (
@@ -1248,7 +1286,11 @@ Your output should be:
                         variant="ghost"
                         size="sm"
                         onClick={() => setSelectedProducts([])}
-                        className="text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                        className={`transition-all duration-200 ${
+                          theme === 'dark'
+                            ? 'text-gray-400 hover:text-red-400 hover:bg-red-900/20'
+                            : 'text-gray-500 hover:text-red-600 hover:bg-red-50'
+                        }`}
                       >
                         Clear Selection
                       </Button>
@@ -1344,11 +1386,19 @@ Your output should be:
             </div>
           ) : (
             <div className="text-center py-16">
-              <div className="w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className={`w-24 h-24 bg-gradient-to-br rounded-full flex items-center justify-center mx-auto mb-6 ${
+                theme === 'dark' 
+                  ? 'from-gray-700 to-gray-800' 
+                  : 'from-gray-100 to-gray-200'
+              }`}>
                 <Package className="h-12 w-12 text-gray-400" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">No products found</h3>
-              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+              <h3 className={`text-xl font-semibold mb-3 ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}>No products found</h3>
+              <p className={`mb-6 max-w-md mx-auto ${
+                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 {searchTerm || categoryFilter 
                   ? "No products match your current filters. Try adjusting your search criteria." 
                   : "Get started by adding your first product to the inventory. You'll be able to select multiple products for content generation."
@@ -1374,7 +1424,7 @@ Your output should be:
               <div className="flex items-center space-x-2">
                 <ShoppingBag className="h-5 w-5 text-green-600" />
                 <div>
-                  <CardTitle className="text-green-800">Shopify Products</CardTitle>
+                      <CardTitle className={theme === 'dark' ? 'text-green-400' : 'text-green-800'}>Shopify Products</CardTitle>
                   <CardDescription>
                     Products from your connected Shopify store{shopifyConnections.length > 1 ? 's' : ''}
                   </CardDescription>
@@ -1392,7 +1442,11 @@ Your output should be:
                   </Button>
                 )}
                 <select
-                  className="px-3 py-2 border border-gray-300 rounded-md text-sm"
+                  className={`px-3 py-2 border rounded-md text-sm ${
+                    theme === 'dark' 
+                      ? 'border-gray-600 bg-gray-800 text-white' 
+                      : 'border-gray-300 bg-white text-gray-900'
+                  }`}
                   onChange={(e) => {
                     if (e.target.value) {
                       fetchShopifyProducts(e.target.value);
@@ -1416,7 +1470,7 @@ Your output should be:
             {isLoadingShopifyProducts && (
               <div className="text-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600" />
-                <p className="text-gray-600">Loading products from Shopify...</p>
+                <p className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Loading products from Shopify...</p>
               </div>
             )}
 
@@ -1426,7 +1480,9 @@ Your output should be:
                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <ExternalLink className="h-8 w-8 text-red-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Products</h3>
+                <h3 className={`text-lg font-semibold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>Failed to Load Products</h3>
                 <p className="text-red-600 mb-4">{shopifyError}</p>
                 <Button
                   onClick={() => {
@@ -1449,7 +1505,11 @@ Your output should be:
               <>
                 {/* Selection Controls */}
                 {shopifyProducts.length > 0 && (
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4 mb-6">
+                  <div className={`border-2 rounded-xl p-4 mb-6 ${
+                    theme === 'dark'
+                      ? 'bg-gradient-to-r from-green-900/20 to-emerald-900/20 border-green-600'
+                      : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                  }`}>
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div className="flex items-center space-x-4">
                         <Button
@@ -1458,8 +1518,12 @@ Your output should be:
                           onClick={() => handleSelectAllShopify(!(selectedShopifyProducts.length === shopifyProducts.length))}
                           className={`flex items-center space-x-2 transition-all duration-200 ${
                             selectedShopifyProducts.length === shopifyProducts.length && shopifyProducts.length > 0
-                              ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200'
-                              : 'hover:bg-green-100'
+                              ? theme === 'dark'
+                                ? 'bg-green-900/30 border-green-500 text-green-300 hover:bg-green-900/50'
+                                : 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200'
+                              : theme === 'dark'
+                                ? 'hover:bg-green-900/20'
+                                : 'hover:bg-green-100'
                           }`}
                         >
                           <Checkbox
@@ -1471,7 +1535,11 @@ Your output should be:
                         
                         {selectedShopifyProducts.length > 0 && (
                           <div className="flex items-center space-x-2">
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200 transition-colors">
+                            <Badge variant="secondary" className={`transition-colors ${
+                              theme === 'dark'
+                                ? 'bg-green-900/50 text-green-300 hover:bg-green-900/70'
+                                : 'bg-green-100 text-green-800 hover:bg-green-200'
+                            }`}>
                               {selectedShopifyProducts.length} selected
                             </Badge>
                             <Button
@@ -1518,11 +1586,17 @@ Your output should be:
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                  theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                }`}>
                       <ShoppingBag className="h-8 w-8 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No Products Found</h3>
-                    <p className="text-gray-500 mb-4">
+                <h3 className={`text-lg font-semibold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>No Products Found</h3>
+                <p className={`mb-4 ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                }`}>
                       No products were found in the selected Shopify store.
                     </p>
                   </div>
@@ -1536,8 +1610,12 @@ Your output should be:
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <ShoppingBag className="h-8 w-8 text-green-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Connected to Shopify!</h3>
-                <p className="text-gray-500 mb-4">
+                <h3 className={`text-lg font-semibold mb-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>Connected to Shopify!</h3>
+                <p className={`mb-4 ${
+                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                }`}>
                   Your Shopify store is connected. Select a store above to view and import products.
                 </p>
                 <Button
@@ -1604,7 +1682,9 @@ Your output should be:
       {/* Generation Modal */}
       {showGenerator && generationType && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] sm:h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300">
+          <div className={`rounded-xl shadow-2xl w-full max-w-6xl h-[95vh] sm:h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-300 ${
+            theme === 'dark' ? 'bg-gray-900' : 'bg-white'
+          }`}>
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 text-white p-4 sm:p-6 flex-shrink-0 relative overflow-hidden">
               {/* Background Pattern */}
@@ -1644,25 +1724,41 @@ Your output should be:
             {/* Content */}
             <div className="flex flex-col lg:flex-row flex-1 min-h-0">
               {/* Left Panel - Configuration */}
-              <div className="w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r border-gray-200 overflow-y-auto">
+              <div className={`w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r overflow-y-auto scrollbar-thin ${
+                theme === 'dark' 
+                  ? 'border-gray-700 scrollbar-thumb-gray-600 scrollbar-track-gray-800' 
+                  : 'border-gray-200 scrollbar-thumb-gray-300 scrollbar-track-gray-100'
+              }`}>
                 <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
                   {/* Product Configuration */}
                   <div className="space-y-4">
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 animate-pulse"></div>
-                      <h4 className="font-semibold text-base sm:text-lg">Selected Products</h4>
-                      <Badge variant="secondary" className="ml-auto flex-shrink-0 bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors">
+                      <h4 className={`font-semibold text-base sm:text-lg ${
+                        theme === 'dark' ? 'text-white' : 'text-gray-900'
+                      }`}>Selected Products</h4>
+                      <Badge variant="secondary" className={`ml-auto flex-shrink-0 transition-colors ${
+                        theme === 'dark' 
+                          ? 'bg-blue-900/50 text-blue-300 hover:bg-blue-800/50' 
+                          : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                      }`}>
                         {selectedProductsData.length} products
                       </Badge>
                     </div>
 
                     {selectedProductsData.length === 0 ? (
                       <div className="text-center py-8 px-4">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                          theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                        }`}>
                           <Package className="h-8 w-8 text-gray-400" />
                         </div>
-                        <h5 className="text-lg font-medium text-gray-900 mb-2">No Products Selected</h5>
-                                            <p className="text-gray-500 mb-4 max-w-sm mx-auto">
+                        <h5 className={`text-lg font-medium mb-2 ${
+                          theme === 'dark' ? 'text-white' : 'text-gray-900'
+                        }`}>No Products Selected</h5>
+                        <p className={`mb-4 max-w-sm mx-auto ${
+                          theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
                           Please select one or more products from the inventory to generate content.
                         </p>
                         <div className="space-y-2">
@@ -1673,22 +1769,44 @@ Your output should be:
                           >
                             Close Generator
                           </Button>
-                          <p className="text-xs text-gray-400">
+                          <p className={`text-xs ${
+                            theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+                          }`}>
                             Tip: Use the checkboxes in the inventory to select products
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-3 max-h-32 sm:max-h-48 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      <div className={`space-y-3 max-h-32 sm:max-h-48 overflow-y-auto scrollbar-thin ${
+                        theme === 'dark'
+                          ? 'scrollbar-thumb-gray-600 scrollbar-track-gray-800'
+                          : 'scrollbar-thumb-gray-300 scrollbar-track-gray-100'
+                      }`}>
                         {selectedProductsData.map((product, index) => (
-                          <div key={product.id} className="flex items-center space-x-3 p-3 bg-gradient-to-r from-gray-50 via-blue-50 to-indigo-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-md group">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-full flex items-center justify-center text-blue-600 font-semibold text-xs sm:text-sm flex-shrink-0 shadow-sm">
+                          <div key={product.id} className={`flex items-center space-x-3 p-3 rounded-lg border transition-all duration-200 hover:shadow-md group ${
+                            theme === 'dark'
+                              ? 'bg-gradient-to-r from-gray-800 via-blue-900/20 to-indigo-900/20 border-gray-600 hover:border-blue-400'
+                              : 'bg-gradient-to-r from-gray-50 via-blue-50 to-indigo-50 border-gray-200 hover:border-blue-300'
+                          }`}>
+                            <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm flex-shrink-0 shadow-sm ${
+                              theme === 'dark'
+                                ? 'bg-gradient-to-br from-blue-900 to-indigo-900 text-blue-300'
+                                : 'bg-gradient-to-br from-blue-100 to-indigo-200 text-blue-600'
+                            }`}>
                               {index + 1}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate group-hover:text-blue-600 transition-colors">{product.name}</p>
+                              <p className={`font-medium text-sm truncate transition-colors ${
+                                theme === 'dark'
+                                  ? 'text-white group-hover:text-blue-300'
+                                  : 'text-gray-900 group-hover:text-blue-600'
+                              }`}>{product.name}</p>
                               {product.category && (
-                                <Badge variant="outline" className="text-xs mt-1 bg-white/80 backdrop-blur-sm">
+                                <Badge variant="outline" className={`text-xs mt-1 backdrop-blur-sm ${
+                                  theme === 'dark'
+                                    ? 'bg-gray-800/80 border-gray-600 text-gray-300'
+                                    : 'bg-white/80 border-gray-300 text-gray-700'
+                                }`}>
                                   {product.category}
                                 </Badge>
                               )}
@@ -1699,7 +1817,11 @@ Your output should be:
                               onClick={() => {
                                 setSelectedProducts(prev => prev.filter(id => id !== product.id));
                               }}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 flex-shrink-0 transition-all duration-200 hover:scale-110 opacity-0 group-hover:opacity-100"
+                              className={`flex-shrink-0 transition-all duration-200 hover:scale-110 opacity-0 group-hover:opacity-100 ${
+                                theme === 'dark'
+                                  ? 'text-red-400 hover:text-red-300 hover:bg-red-900/20'
+                                  : 'text-red-500 hover:text-red-700 hover:bg-red-50'
+                              }`}
                             >
                               <span className="hidden sm:inline">Remove</span>
                               <span className="sm:hidden">×</span>
@@ -1715,15 +1837,23 @@ Your output should be:
                     <div className="space-y-4">
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0 animate-pulse"></div>
-                        <h4 className="font-semibold text-base sm:text-lg">Platform Settings</h4>
+                        <h4 className={`font-semibold text-base sm:text-lg ${
+                          theme === 'dark' ? 'text-white' : 'text-gray-900'
+                        }`}>Platform Settings</h4>
                       </div>
                     
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {/* Channel Selection */}
                         <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">Channel</label>
+                          <label className={`block text-sm font-medium ${
+                            theme === 'dark' ? 'text-white' : 'text-gray-700'
+                          }`}>Channel</label>
                           <select 
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 ${
+                              theme === 'dark' 
+                                ? 'bg-gray-700 border-gray-600 text-white hover:border-blue-400' 
+                                : 'bg-white border-gray-300 text-gray-900 hover:border-blue-400'
+                            }`}
                             value={generationConfig.channel}
                             onChange={(e) => setGenerationConfig(prev => ({ ...prev, channel: e.target.value }))}
                           >
@@ -1738,9 +1868,15 @@ Your output should be:
 
                         {/* Type Selection */}
                         <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">Content Type</label>
+                          <label className={`block text-sm font-medium ${
+                            theme === 'dark' ? 'text-white' : 'text-gray-700'
+                          }`}>Content Type</label>
                           <select 
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 ${
+                              theme === 'dark' 
+                                ? 'bg-gray-700 border-gray-600 text-white hover:border-blue-400' 
+                                : 'bg-white border-gray-300 text-gray-900 hover:border-blue-400'
+                            }`}
                             value={generationConfig.type}
                             onChange={(e) => setGenerationConfig(prev => ({ ...prev, type: e.target.value }))}
                           >
@@ -1753,9 +1889,15 @@ Your output should be:
 
                       {/* Format Selection */}
                       <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">Format</label>
+                        <label className={`block text-sm font-medium ${
+                          theme === 'dark' ? 'text-white' : 'text-gray-700'
+                        }`}>Format</label>
                         <select 
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                          className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 ${
+                            theme === 'dark' 
+                              ? 'bg-gray-700 border-gray-600 text-white hover:border-blue-400' 
+                              : 'bg-white border-gray-300 text-gray-900 hover:border-blue-400'
+                          }`}
                           value={generationConfig.format}
                           onChange={(e) => setGenerationConfig(prev => ({ ...prev, format: e.target.value }))}
                         >
@@ -1768,12 +1910,20 @@ Your output should be:
 
                       {/* Format Specifications */}
                       <div className="space-y-3">
-                        <label className="block text-sm font-medium text-gray-700">Dimensions</label>
+                        <label className={`block text-sm font-medium ${
+                          theme === 'dark' ? 'text-white' : 'text-gray-700'
+                        }`}>Dimensions</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
                           <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
                             generationConfig.formatSpec === 'square' 
-                              ? 'border-blue-500 bg-blue-50 shadow-md scale-105' 
-                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                              ? `border-blue-500 shadow-md scale-105 ${
+                                  theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
+                                }` 
+                              : `${
+                                  theme === 'dark' 
+                                    ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
+                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                }`
                           }`}>
                             <input 
                               type="radio" 
@@ -1787,16 +1937,26 @@ Your output should be:
                             <label htmlFor="square" className="cursor-pointer">
                               <div className="text-center">
                                 <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
-                                <p className="text-xs sm:text-sm font-medium">Square</p>
-                                <p className="text-xs text-gray-500 hidden sm:block">1080×1080px</p>
+                                <p className={`text-xs sm:text-sm font-medium ${
+                                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                }`}>Square</p>
+                                <p className={`text-xs hidden sm:block ${
+                                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                                }`}>1080×1080px</p>
                               </div>
                             </label>
                           </div>
                           
                           <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
                             generationConfig.formatSpec === 'landscape' 
-                              ? 'border-blue-500 bg-blue-50 shadow-md scale-105' 
-                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                              ? `border-blue-500 shadow-md scale-105 ${
+                                  theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
+                                }` 
+                              : `${
+                                  theme === 'dark' 
+                                    ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
+                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                }`
                           }`}>
                             <input 
                               type="radio" 
@@ -1810,16 +1970,26 @@ Your output should be:
                             <label htmlFor="landscape" className="cursor-pointer">
                               <div className="text-center">
                                 <div className="w-6 h-4 sm:w-8 sm:h-4 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
-                                <p className="text-xs sm:text-sm font-medium">Landscape</p>
-                                <p className="text-xs text-gray-500 hidden sm:block">1920×1080px</p>
+                                <p className={`text-xs sm:text-sm font-medium ${
+                                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                }`}>Landscape</p>
+                                <p className={`text-xs hidden sm:block ${
+                                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                                }`}>1920×1080px</p>
                               </div>
                             </label>
                           </div>
                           
                           <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
                             generationConfig.formatSpec === 'portrait' 
-                              ? 'border-blue-500 bg-blue-50 shadow-md scale-105' 
-                              : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                              ? `border-blue-500 shadow-md scale-105 ${
+                                  theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
+                                }` 
+                              : `${
+                                  theme === 'dark' 
+                                    ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
+                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                }`
                           }`}>
                             <input 
                               type="radio" 
@@ -1833,8 +2003,12 @@ Your output should be:
                             <label htmlFor="portrait" className="cursor-pointer">
                               <div className="text-center">
                                 <div className="w-4 h-6 sm:w-4 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
-                                <p className="text-xs sm:text-sm font-medium">Portrait</p>
-                                <p className="text-xs text-gray-500 hidden sm:block">1080×1920px</p>
+                                <p className={`text-xs sm:text-sm font-medium ${
+                                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                                }`}>Portrait</p>
+                                <p className={`text-xs hidden sm:block ${
+                                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                                }`}>1080×1920px</p>
                               </div>
                             </label>
                           </div>
@@ -1853,31 +2027,51 @@ Your output should be:
 
               {/* Right Panel - Instructions and Actions */}
               <div className="w-full lg:w-1/2 flex flex-col min-h-0">
-                <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+                <div className={`p-4 sm:p-6 flex-1 overflow-y-auto scrollbar-thin ${
+                  theme === 'dark'
+                    ? 'scrollbar-thumb-gray-600 scrollbar-track-gray-800'
+                    : 'scrollbar-thumb-gray-300 scrollbar-track-gray-100'
+                }`}>
                   {selectedProductsData.length === 0 ? (
                     <div className="h-full flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Wand2 className="h-8 w-8 text-gray-400" />
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                          theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'
+                        }`}>
+                          <Wand2 className={`h-8 w-8 ${
+                            theme === 'dark' ? 'text-gray-400' : 'text-gray-400'
+                          }`} />
                         </div>
-                        <h5 className="text-lg font-medium text-gray-900 mb-2">Ready to Generate</h5>
-                        <p className="text-gray-500 mb-4 max-w-sm">
+                        <h5 className={`text-lg font-medium mb-2 ${
+                          theme === 'dark' ? 'text-white' : 'text-gray-900'
+                        }`}>Ready to Generate</h5>
+                        <p className={`mb-4 max-w-sm ${
+                          theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
                           Select products from the left panel to configure your content generation settings.
                         </p>
                         <div className="space-y-3">
-                          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                          <div className={`flex items-center justify-center space-x-2 text-sm ${
+                            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
                             <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                             <span>Choose products from inventory</span>
                           </div>
-                          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                          <div className={`flex items-center justify-center space-x-2 text-sm ${
+                            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                             <span>Configure platform settings</span>
                           </div>
-                          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                          <div className={`flex items-center justify-center space-x-2 text-sm ${
+                            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
                             <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                             <span>Add generation instructions</span>
                           </div>
-                          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                          <div className={`flex items-center justify-center space-x-2 text-sm ${
+                            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
                             <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                             <span>Generate your content</span>
                           </div>
@@ -1890,25 +2084,39 @@ Your output should be:
                       <div className="space-y-4 mb-6 sm:mb-8">
                         <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0 animate-pulse"></div>
-                          <h4 className="font-semibold text-base sm:text-lg">Content Instructions</h4>
+                          <h4 className={`font-semibold text-base sm:text-lg ${
+                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                          }`}>Content Instructions</h4>
                         </div>
                         
                         <div className="space-y-3">
                                                       <div className="relative">
                               <textarea
-                                className="w-full h-24 sm:h-32 px-4 py-3 pr-12 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 bg-white"
+                                className={`w-full h-24 sm:h-32 px-4 py-3 pr-12 border rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400 ${
+                                  theme === 'dark' 
+                                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                                }`}
                                 placeholder="Enter detailed instructions for content generation..."
                                 value={generationConfig.instructions || getPlatformSpecificInstruction()}
                                 onChange={(e) => setGenerationConfig(prev => ({ ...prev, instructions: e.target.value }))}
                               />
-                              <div className="absolute top-3 right-3 text-xs text-gray-500 bg-white/80 px-2 py-1 rounded">
+                              <div className={`absolute top-3 right-3 text-xs px-2 py-1 rounded ${
+                                theme === 'dark' 
+                                  ? 'text-gray-400 bg-gray-800/80' 
+                                  : 'text-gray-500 bg-white/80'
+                              }`}>
                                 {(generationConfig.instructions || getPlatformSpecificInstruction()).length}/500
                               </div>
                             </div>
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            className="w-full border-dashed hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 group"
+                            className={`w-full border-dashed transition-all duration-200 group ${
+                              theme === 'dark' 
+                                ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20 text-white' 
+                                : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 text-gray-900'
+                            }`}
                             onClick={handleEnhanceInstruction}
                             disabled={isEnhancing || !(generationConfig.instructions || getPlatformSpecificInstruction()).trim()}
                           >
@@ -1933,11 +2141,17 @@ Your output should be:
                       <div className="space-y-4 mb-6 sm:mb-8">
                         <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 animate-pulse"></div>
-                          <h4 className="font-semibold text-base sm:text-lg">Generation Options</h4>
+                          <h4 className={`font-semibold text-base sm:text-lg ${
+                            theme === 'dark' ? 'text-white' : 'text-gray-900'
+                          }`}>Generation Options</h4>
                         </div>
                         
                         <div className="space-y-3">
-                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-sm">
+                          <div className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 hover:shadow-sm ${
+                            theme === 'dark'
+                              ? 'bg-gradient-to-r from-gray-800 to-blue-900/20 border-gray-600 hover:border-blue-400'
+                              : 'bg-gradient-to-r from-gray-50 to-blue-50 border-gray-200 hover:border-blue-300'
+                          }`}>
                             <div className="flex items-center space-x-3 min-w-0 flex-1">
                               <input 
                                 type="checkbox" 
@@ -1946,12 +2160,22 @@ Your output should be:
                                 onChange={(e) => setGenerationConfig(prev => ({ ...prev, batchGenerate: e.target.checked }))}
                                 className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 flex-shrink-0 transition-all duration-200"
                               />
-                              <label htmlFor="batch_generate" className="text-sm font-medium truncate cursor-pointer">Generate for all selected products</label>
+                              <label htmlFor="batch_generate" className={`text-sm font-medium truncate cursor-pointer ${
+                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                              }`}>Generate for all selected products</label>
                             </div>
-                            <Badge variant="secondary" className="flex-shrink-0 bg-green-100 text-green-800 hover:bg-green-200 transition-colors">Recommended</Badge>
+                            <Badge variant="secondary" className={`flex-shrink-0 transition-colors ${
+                              theme === 'dark'
+                                ? 'bg-green-900/50 text-green-300 hover:bg-green-800/50'
+                                : 'bg-green-100 text-green-800 hover:bg-green-200'
+                            }`}>Recommended</Badge>
                           </div>
                           
-                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg border border-gray-200 hover:border-purple-300 transition-all duration-200 hover:shadow-sm">
+                          <div className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 hover:shadow-sm ${
+                            theme === 'dark'
+                              ? 'bg-gradient-to-r from-gray-800 to-purple-900/20 border-gray-600 hover:border-purple-400'
+                              : 'bg-gradient-to-r from-gray-50 to-purple-50 border-gray-200 hover:border-purple-300'
+                          }`}>
                             <div className="flex items-center space-x-3 min-w-0 flex-1">
                               <input 
                                 type="checkbox" 
@@ -1960,12 +2184,22 @@ Your output should be:
                                 onChange={(e) => setGenerationConfig(prev => ({ ...prev, variations: e.target.checked }))}
                                 className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500 flex-shrink-0 transition-all duration-200"
                               />
-                              <label htmlFor="variations" className="text-sm font-medium truncate cursor-pointer">Create multiple variations</label>
+                              <label htmlFor="variations" className={`text-sm font-medium truncate cursor-pointer ${
+                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                              }`}>Create multiple variations</label>
                             </div>
-                            <Badge variant="outline" className="flex-shrink-0">Optional</Badge>
+                            <Badge variant="outline" className={`flex-shrink-0 ${
+                              theme === 'dark'
+                                ? 'border-gray-600 text-gray-300'
+                                : 'border-gray-300 text-gray-700'
+                            }`}>Optional</Badge>
                           </div>
                           
-                          <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-orange-50 rounded-lg border border-gray-200 hover:border-orange-300 transition-all duration-200 hover:shadow-sm">
+                          <div className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 hover:shadow-sm ${
+                            theme === 'dark'
+                              ? 'bg-gradient-to-r from-gray-800 to-orange-900/20 border-gray-600 hover:border-orange-400'
+                              : 'bg-gradient-to-r from-gray-50 to-orange-50 border-gray-200 hover:border-orange-300'
+                          }`}>
                             <div className="flex items-center space-x-3 min-w-0 flex-1">
                               <input 
                                 type="checkbox" 
@@ -1974,9 +2208,15 @@ Your output should be:
                                 onChange={(e) => setGenerationConfig(prev => ({ ...prev, autoOptimize: e.target.checked }))}
                                 className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 flex-shrink-0 transition-all duration-200"
                               />
-                              <label htmlFor="auto_optimize" className="text-sm font-medium truncate cursor-pointer">Auto-optimize for platform</label>
+                              <label htmlFor="auto_optimize" className={`text-sm font-medium truncate cursor-pointer ${
+                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                              }`}>Auto-optimize for platform</label>
                             </div>
-                            <Badge variant="secondary" className="flex-shrink-0 bg-orange-100 text-orange-800 hover:bg-orange-200 transition-colors">Recommended</Badge>
+                            <Badge variant="secondary" className={`flex-shrink-0 transition-colors ${
+                              theme === 'dark'
+                                ? 'bg-orange-900/50 text-orange-300 hover:bg-orange-800/50'
+                                : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+                            }`}>Recommended</Badge>
                           </div>
                         </div>
                       </div>
@@ -1985,12 +2225,20 @@ Your output should be:
                 </div>
 
                 {/* Action Buttons */}
-                <div className="p-4 sm:p-6 border-t border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50 flex-shrink-0">
+                <div className={`p-4 sm:p-6 border-t flex-shrink-0 ${
+                  theme === 'dark'
+                    ? 'border-gray-700 bg-gradient-to-r from-gray-800 to-blue-900/20'
+                    : 'border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50'
+                }`}>
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                     <Button
                       variant="outline"
                       onClick={handleGenerationComplete}
-                      className="flex-1 hover:bg-gray-100 transition-all duration-200"
+                      className={`flex-1 transition-all duration-200 ${
+                        theme === 'dark'
+                          ? 'border-gray-600 text-white hover:bg-gray-700'
+                          : 'border-gray-300 text-gray-900 hover:bg-gray-100'
+                      }`}
                     >
                       Cancel
                     </Button>

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/data_display/badge";
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import { Dialog, DialogContent } from "@/components/ui/overlays/dialog";
 import { Edit, Trash2, CheckCircle, Sparkles, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface ProductCardProps {
   product: {
@@ -43,6 +44,7 @@ export function ProductCard({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
+  const { theme } = useTheme();
 
   const hasMultipleImages = product.images && product.images.length > 1;
 
@@ -117,8 +119,12 @@ export function ProductCard({
       <Card 
         className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg group ${
           isSelected 
-            ? 'ring-2 ring-blue-500 ring-offset-2 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-300' 
-            : 'hover:border-blue-300 hover:bg-gradient-to-br from-gray-50 to-blue-50/30'
+            ? theme === 'dark'
+              ? 'ring-2 ring-blue-400 ring-offset-2 ring-offset-gray-900 bg-gradient-to-br from-blue-900/20 to-indigo-900/20 border-blue-400'
+              : 'ring-2 ring-blue-500 ring-offset-2 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-300'
+            : theme === 'dark'
+              ? 'hover:border-blue-400 hover:bg-gradient-to-br from-gray-800 to-blue-900/10'
+              : 'hover:border-blue-300 hover:bg-gradient-to-br from-gray-50 to-blue-50/30'
         }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -238,13 +244,17 @@ export function ProductCard({
           <div className="space-y-3">
             <div className="space-y-2">
               <h3 className={`font-semibold text-lg truncate transition-colors duration-200 ${
-                isSelected ? 'text-blue-700' : 'text-gray-900'
+                isSelected 
+                  ? theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
+                  : theme === 'dark' ? 'text-white' : 'text-gray-900'
               }`}>
                 {product.name}
               </h3>
               
               {product.description && (
-                <p className="text-sm text-gray-600 line-clamp-2 leading-relaxed">
+                <p className={`text-sm line-clamp-2 leading-relaxed ${
+                  theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                }`}>
                   {product.description}
                 </p>
               )}
@@ -257,8 +267,12 @@ export function ProductCard({
                   variant="outline" 
                   className={`text-xs transition-colors duration-200 ${
                     isSelected 
-                      ? 'border-blue-300 text-blue-700 bg-blue-50' 
-                      : 'border-gray-200 bg-gray-50'
+                      ? theme === 'dark'
+                        ? 'border-blue-400 text-blue-300 bg-blue-900/30'
+                        : 'border-blue-300 text-blue-700 bg-blue-50'
+                      : theme === 'dark'
+                        ? 'border-gray-600 bg-gray-800'
+                        : 'border-gray-200 bg-gray-50'
                   }`}
                 >
                   {product.category}
@@ -271,7 +285,9 @@ export function ProductCard({
                     ${typeof product.price === 'number' ? product.price.toFixed(2) : product.price}
                   </span>
                   {product.sku && (
-                    <span className="text-xs text-gray-500 font-mono">SKU: {product.sku}</span>
+                    <span className={`text-xs font-mono ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>SKU: {product.sku}</span>
                   )}
                 </div>
               )}

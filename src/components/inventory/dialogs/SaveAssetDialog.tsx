@@ -10,6 +10,7 @@ import { Save, X } from 'lucide-react';
 import { useAssetLibrary } from '@/hooks/data/useAssetLibrary';
 import { useToast } from '@/hooks/ui/use-toast';
 import { validateAssetForSaving, prepareAssetData, handleSaveError } from '@/utils/assetSaving';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface SaveAssetDialogProps {
   asset: {
@@ -31,6 +32,7 @@ interface SaveAssetDialogProps {
 }
 
 export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialogProps) {
+  const { theme } = useTheme();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(prefillData?.title || '');
   const [description, setDescription] = useState(prefillData?.description || '');
@@ -118,38 +120,56 @@ export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialog
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className={`sm:max-w-[425px] ${
+        theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
         <DialogHeader>
-          <DialogTitle>Save to Asset Library</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className={`${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>Save to Asset Library</DialogTitle>
+          <DialogDescription className={`${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Add this {asset.type} to your library with additional metadata for easy discovery.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor="title" className={`${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Title *</Label>
             <Input
               id="title"
               placeholder="Enter a descriptive title..."
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              className={`${
+                theme === 'dark' ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'
+              }`}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description" className={`${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Description</Label>
             <Textarea
               id="description"
               placeholder="Optional description..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
+              className={`${
+                theme === 'dark' ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'
+              }`}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tags">Tags</Label>
+            <Label htmlFor="tags" className={`${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Tags</Label>
             <div className="space-y-2">
               <Input
                 id="tags"
@@ -157,16 +177,23 @@ export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialog
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleKeyPress}
+                className={`${
+                  theme === 'dark' ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'
+                }`}
               />
               {tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
+                    <Badge key={index} variant="secondary" className={`text-xs ${
+                      theme === 'dark' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-900'
+                    }`}>
                       {tag}
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="ml-1 text-gray-500 hover:text-gray-700"
+                        className={`ml-1 ${
+                          theme === 'dark' ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'
+                        }`}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -178,8 +205,12 @@ export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialog
           </div>
 
           <div className="space-y-2">
-            <Label>Asset Details</Label>
-            <div className="text-sm text-muted-foreground space-y-1">
+            <Label className={`${
+              theme === 'dark' ? 'text-white' : 'text-gray-900'
+            }`}>Asset Details</Label>
+            <div className={`text-sm space-y-1 ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
               <p><strong>Type:</strong> {asset.type}</p>
               <p><strong>Source:</strong> {asset.source_system || 'runway'}</p>
               {asset.channel && <p><strong>Platform:</strong> {asset.channel}</p>}
@@ -190,12 +221,21 @@ export function SaveAssetDialog({ asset, trigger, prefillData }: SaveAssetDialog
         </div>
 
         <div className="flex justify-end space-x-2 pt-4">
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button 
+            variant="outline" 
+            onClick={() => setOpen(false)}
+            className={`${
+              theme === 'dark' ? 'border-gray-600 text-white hover:bg-gray-700' : 'border-gray-300 text-gray-900 hover:bg-gray-100'
+            }`}
+          >
             Cancel
           </Button>
           <Button 
             onClick={handleSave} 
             disabled={!title.trim() || isLoading}
+            className={`${
+              theme === 'dark' ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             {isLoading ? 'Saving...' : 'Save to Library'}
           </Button>

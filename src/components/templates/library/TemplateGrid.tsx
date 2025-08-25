@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/forms/button";
 import { Badge } from "@/components/ui/data_display/badge";
 import { Play, Clock, Tag, Image, Smartphone, Eye } from "lucide-react";
 import { TemplatePreviewModal } from "./TemplatePreviewModal";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface VideoTemplate {
   id: string;
@@ -27,6 +28,7 @@ interface TemplateGridProps {
 export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps) {
   const [selectedTemplateForPreview, setSelectedTemplateForPreview] = useState<VideoTemplate | null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const { theme } = useTheme();
 
   const handleUseTemplate = (template: VideoTemplate) => {
     console.log('Using template:', template);
@@ -66,7 +68,9 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
       {/* Portrait templates in a row */}
       {templates.filter(t => t.aspectRatio === 'portrait').length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold flex items-center space-x-2">
+          <h3 className={`text-lg font-semibold flex items-center space-x-2 ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>
             <Smartphone className="h-5 w-5" />
             <span>Mobile Templates (Portrait)</span>
           </h3>
@@ -228,7 +232,9 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
                     </CardTitle>
                     <CardDescription className="text-sm space-y-1">
                       <div>{template.description}</div>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
+                      <div className={`flex items-center justify-between text-xs ${
+                        theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
                         <span>Variables: {template.variables?.length || 0}</span>
                         <span>Duration: {template.duration}</span>
                       </div>
@@ -236,7 +242,9 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
                   </CardHeader>
                   
                   <CardContent className="pt-0 space-y-3">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className={`flex items-center justify-between text-xs ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
                       <div className="flex items-center space-x-2">
                         <Tag className="h-3 w-3" />
                         <span>ID: {template.heygenTemplateId?.slice(-8) || template.id.slice(-8)}</span>
@@ -248,12 +256,16 @@ export function TemplateGrid({ templates, onTemplateSelect }: TemplateGridProps)
 
                     {template.variables && template.variables.length > 0 && (
                       <div className="text-xs">
-                        <div className="font-medium text-gray-700 mb-1">Required Variables:</div>
+                        <div className={`font-medium mb-1 ${
+                          theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                        }`}>Required Variables:</div>
                         <div className="flex flex-wrap gap-1">
                           {template.variables.map((variable) => (
                             <span 
                               key={variable}
-                              className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs"
+                              className={`px-2 py-1 rounded text-xs ${
+                                theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800'
+                              }`}
                             >
                               {variable.replace(/_/g, ' ')}
                             </span>
