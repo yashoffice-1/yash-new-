@@ -31,13 +31,20 @@ export const createApiClient = (baseURL?: string, timeout?: number) => {
   client.interceptors.response.use(
     (response) => response,
     (error) => {
-      if (error.response?.status === 401) {
-        // Handle unauthorized access
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
-        // Check if we're not already on a login page to avoid infinite redirects
-        if (!window.location.pathname.includes('/auth/')) {
-          window.location.href = '/auth/signin';
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        // Handle unauthorized access or forbidden (expired/invalid tokens)
+        const errorMessage = error.response?.data?.error;
+        
+        // Only auto-logout for token-related errors, not other 401/403 errors
+        if (errorMessage?.includes('token') || errorMessage?.includes('Token') || 
+            errorMessage?.includes('expired') || errorMessage?.includes('Invalid') ||
+            errorMessage?.includes('Access token required')) {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          // Check if we're not already on a login page to avoid infinite redirects
+          if (!window.location.pathname.includes('/auth/')) {
+            window.location.href = '/auth/signin';
+          }
         }
       }
       return Promise.reject(error);

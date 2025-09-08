@@ -1238,22 +1238,27 @@ Your output should be:
 
               {inventory && inventory.length > 0 && (
                 <div 
-                  onClick={() => handleSelectAll(!(selectedProducts.length === inventory.length))}
-                  className={`flex items-center space-x-2 p-2 border rounded-md cursor-pointer transition-all duration-200 ${
+                  className={`flex items-center space-x-2 p-2 border rounded-md transition-all duration-200 ${
                     selectedProducts.length === inventory.length && inventory.length > 0
                       ? theme === 'dark'
-                        ? 'bg-blue-900/20 border-blue-400 text-blue-300 hover:bg-blue-900/30'
-                        : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                        ? 'bg-blue-900/20 border-blue-400 text-blue-300'
+                        : 'bg-blue-50 border-blue-300 text-blue-700'
                       : theme === 'dark'
-                        ? 'hover:bg-gray-700 border-gray-600'
-                      : 'hover:bg-gray-100 border-gray-200'
+                        ? 'border-gray-600'
+                      : 'border-gray-200'
                   }`}
                 >
                   <Checkbox
                     checked={selectedProducts.length === inventory.length && inventory.length > 0}
+                    onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
                     className="w-4 h-4"
                   />
-                  <span>Select All</span>
+                  <span 
+                    className="cursor-pointer"
+                    onClick={() => handleSelectAll(!(selectedProducts.length === inventory.length))}
+                  >
+                    Select All
+                  </span>
                 </div>
               )}
             </div>
@@ -1539,26 +1544,29 @@ Your output should be:
                   }`}>
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div className="flex items-center space-x-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSelectAllShopify(!(selectedShopifyProducts.length === shopifyProducts.length))}
-                          className={`flex items-center space-x-2 transition-all duration-200 ${
+                        <div
+                          className={`flex items-center space-x-2 p-2 border rounded-md transition-all duration-200 ${
                             selectedShopifyProducts.length === shopifyProducts.length && shopifyProducts.length > 0
                               ? theme === 'dark'
-                                ? 'bg-green-900/30 border-green-500 text-green-300 hover:bg-green-900/50'
-                                : 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200'
+                                ? 'bg-green-900/30 border-green-500 text-green-300'
+                                : 'bg-green-100 border-green-300 text-green-700'
                               : theme === 'dark'
-                                ? 'hover:bg-green-900/20'
-                                : 'hover:bg-green-100'
+                                ? 'border-gray-600'
+                                : 'border-gray-200'
                           }`}
                         >
                           <Checkbox
                             checked={selectedShopifyProducts.length === shopifyProducts.length && shopifyProducts.length > 0}
+                            onCheckedChange={(checked) => handleSelectAllShopify(checked as boolean)}
                             className="w-4 h-4"
                           />
-                          <span>Select All</span>
-                        </Button>
+                          <span 
+                            className="cursor-pointer"
+                            onClick={() => handleSelectAllShopify(!(selectedShopifyProducts.length === shopifyProducts.length))}
+                          >
+                            Select All
+                          </span>
+                        </div>
                         
                         {selectedShopifyProducts.length > 0 && (
                           <div className="flex items-center space-x-2">
@@ -2057,103 +2065,103 @@ Your output should be:
                           theme === 'dark' ? 'text-white' : 'text-gray-700'
                         }`}>Dimensions</label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                          <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
-                            generationConfig.formatSpec === 'square' 
-                              ? `border-blue-500 shadow-md scale-105 ${
-                                  theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
-                                }` 
-                              : `${
-                                  theme === 'dark' 
-                                    ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
-                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
-                                }`
-                          }`}>
-                            <input 
-                              type="radio" 
-                              name="format" 
-                              id="square" 
-                              value="square"
-                              checked={generationConfig.formatSpec === 'square'}
-                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, formatSpec: e.target.value }))}
-                              className="sr-only"
-                            />
-                            <label htmlFor="square" className="cursor-pointer">
-                              <div className="text-center">
-                                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
-                                <p className={`text-xs sm:text-sm font-medium ${
-                                  theme === 'dark' ? 'text-white' : 'text-gray-900'
-                                }`}>Square</p>
-                                <p className={`text-xs hidden sm:block ${
-                                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                                }`}>1080×1080px</p>
-                              </div>
-                            </label>
+                          <div 
+                            className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                              generationConfig.formatSpec === 'square' 
+                                ? `border-blue-500 shadow-md scale-105 ${
+                                    theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
+                                  }` 
+                                : `${
+                                    theme === 'dark' 
+                                      ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
+                                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                  }`
+                            }`}
+                            onClick={() => setGenerationConfig(prev => ({ ...prev, formatSpec: 'square' }))}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setGenerationConfig(prev => ({ ...prev, formatSpec: 'square' }));
+                              }
+                            }}
+                          >
+                            <div className="text-center">
+                              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
+                              <p className={`text-xs sm:text-sm font-medium ${
+                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                              }`}>Square</p>
+                              <p className={`text-xs hidden sm:block ${
+                                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                              }`}>1080×1080px</p>
+                            </div>
                           </div>
                           
-                          <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
-                            generationConfig.formatSpec === 'landscape' 
-                              ? `border-blue-500 shadow-md scale-105 ${
-                                  theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
-                                }` 
-                              : `${
-                                  theme === 'dark' 
-                                    ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
-                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
-                                }`
-                          }`}>
-                            <input 
-                              type="radio" 
-                              name="format" 
-                              id="landscape" 
-                              value="landscape"
-                              checked={generationConfig.formatSpec === 'landscape'}
-                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, formatSpec: e.target.value }))}
-                              className="sr-only"
-                            />
-                            <label htmlFor="landscape" className="cursor-pointer">
-                              <div className="text-center">
-                                <div className="w-6 h-4 sm:w-8 sm:h-4 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
-                                <p className={`text-xs sm:text-sm font-medium ${
-                                  theme === 'dark' ? 'text-white' : 'text-gray-900'
-                                }`}>Landscape</p>
-                                <p className={`text-xs hidden sm:block ${
-                                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                                }`}>1920×1080px</p>
-                              </div>
-                            </label>
+                          <div 
+                            className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                              generationConfig.formatSpec === 'landscape' 
+                                ? `border-blue-500 shadow-md scale-105 ${
+                                    theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
+                                  }` 
+                                : `${
+                                    theme === 'dark' 
+                                      ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
+                                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                  }`
+                            }`}
+                            onClick={() => setGenerationConfig(prev => ({ ...prev, formatSpec: 'landscape' }))}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setGenerationConfig(prev => ({ ...prev, formatSpec: 'landscape' }));
+                              }
+                            }}
+                          >
+                            <div className="text-center">
+                              <div className="w-6 h-4 sm:w-8 sm:h-4 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
+                              <p className={`text-xs sm:text-sm font-medium ${
+                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                              }`}>Landscape</p>
+                              <p className={`text-xs hidden sm:block ${
+                                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                              }`}>1920×1080px</p>
+                            </div>
                           </div>
                           
-                          <div className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
-                            generationConfig.formatSpec === 'portrait' 
-                              ? `border-blue-500 shadow-md scale-105 ${
-                                  theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
-                                }` 
-                              : `${
-                                  theme === 'dark' 
-                                    ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
-                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
-                                }`
-                          }`}>
-                            <input 
-                              type="radio" 
-                              name="format" 
-                              id="portrait" 
-                              value="portrait"
-                              checked={generationConfig.formatSpec === 'portrait'}
-                              onChange={(e) => setGenerationConfig(prev => ({ ...prev, formatSpec: e.target.value }))}
-                              className="sr-only"
-                            />
-                            <label htmlFor="portrait" className="cursor-pointer">
-                              <div className="text-center">
-                                <div className="w-4 h-6 sm:w-4 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
-                                <p className={`text-xs sm:text-sm font-medium ${
-                                  theme === 'dark' ? 'text-white' : 'text-gray-900'
-                                }`}>Portrait</p>
-                                <p className={`text-xs hidden sm:block ${
-                                  theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                                }`}>1080×1920px</p>
-                              </div>
-                            </label>
+                          <div 
+                            className={`p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                              generationConfig.formatSpec === 'portrait' 
+                                ? `border-blue-500 shadow-md scale-105 ${
+                                    theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-50'
+                                  }` 
+                                : `${
+                                    theme === 'dark' 
+                                      ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-900/20' 
+                                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                  }`
+                            }`}
+                            onClick={() => setGenerationConfig(prev => ({ ...prev, formatSpec: 'portrait' }))}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setGenerationConfig(prev => ({ ...prev, formatSpec: 'portrait' }));
+                              }
+                            }}
+                          >
+                            <div className="text-center">
+                              <div className="w-4 h-6 sm:w-4 sm:h-8 bg-gradient-to-br from-gray-200 to-gray-300 mx-auto mb-1 sm:mb-2 rounded shadow-sm"></div>
+                              <p className={`text-xs sm:text-sm font-medium ${
+                                theme === 'dark' ? 'text-white' : 'text-gray-900'
+                              }`}>Portrait</p>
+                              <p className={`text-xs hidden sm:block ${
+                                theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                              }`}>1080×1920px</p>
+                            </div>
                           </div>
                           
 
@@ -2281,7 +2289,7 @@ Your output should be:
                       </div>
 
                       {/* Generation Options */}
-                      <div className="space-y-4 mb-6 sm:mb-8">
+                      {/* <div className="space-y-4 mb-6 sm:mb-8">
                         <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 animate-pulse"></div>
                           <h4 className={`font-semibold text-base sm:text-lg ${
@@ -2338,7 +2346,7 @@ Your output should be:
                             }`}>Optional</Badge>
                           </div>
                           
-                          {/* <div className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 hover:shadow-sm ${
+                          <div className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 hover:shadow-sm ${
                             theme === 'dark'
                               ? 'bg-gradient-to-r from-gray-800 to-orange-900/20 border-gray-600 hover:border-orange-400'
                               : 'bg-gradient-to-r from-gray-50 to-orange-50 border-gray-200 hover:border-orange-300'
@@ -2360,9 +2368,9 @@ Your output should be:
                                 ? 'bg-orange-900/50 text-orange-300 hover:bg-orange-800/50'
                                 : 'bg-orange-100 text-orange-800 hover:bg-orange-200'
                             }`}>Recommended</Badge>
-                          </div> */}
+                          </div>
                         </div>
-                      </div>
+                      </div> */}
                     </>
                   )}
                 </div>
