@@ -857,7 +857,8 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
       snippet: {
         title: title.substring(0, 100), // Limit title to 100 characters
         description: (description || '').substring(0, 500), // Limit description to 500 characters
-        categoryId: '22' // People & Blogs category
+        categoryId: '22', // People & Blogs category
+        tags: (tags || []).slice(0, 10) // YouTube allows up to 10 tags, limit to prevent size issues
       },
       status: {
         privacyStatus: privacy || 'private'
@@ -883,10 +884,24 @@ router.post('/youtube/upload', authenticateToken, async (req, res) => {
       metadataString = JSON.stringify(videoMetadata);
     }
 
+    // If still too large, reduce tags
+    if (metadataString.length > 500) {
+      console.warn('Metadata size still too large, reducing tags');
+      videoMetadata.snippet.tags = videoMetadata.snippet.tags.slice(0, 5);
+      metadataString = JSON.stringify(videoMetadata);
+    }
+
     // If still too large, reduce title
     if (metadataString.length > 500) {
       console.warn('Metadata size still too large, reducing title');
       videoMetadata.snippet.title = videoMetadata.snippet.title.substring(0, 50);
+      metadataString = JSON.stringify(videoMetadata);
+    }
+
+    // If still too large, remove tags entirely
+    if (metadataString.length > 500) {
+      console.warn('Metadata size still too large, removing tags');
+      delete videoMetadata.snippet.tags;
       metadataString = JSON.stringify(videoMetadata);
     }
 

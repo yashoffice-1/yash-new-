@@ -219,6 +219,7 @@ export function SocialMediaUpload({ asset, onClose, onUploadComplete }: SocialMe
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          videoUrl: asset.asset_url, // Add the missing videoUrl parameter
           title: youtubeFormData.title,
           description: youtubeFormData.description,
           tags: youtubeFormData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
